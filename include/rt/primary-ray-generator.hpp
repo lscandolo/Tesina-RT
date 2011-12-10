@@ -7,7 +7,7 @@
 class PrimaryRayGenerator{
 
 public:
-	static bool set_rays(Camera& cam, RayBundle& bundle, int32_t size[2]);
+	static bool set_rays(Camera& cam, RayBundle& bundle, uint32_t size[2]);
 
 };
 

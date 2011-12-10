@@ -23,7 +23,7 @@
 // The methods normalize() and scale() are based on source code from
 // http://www.mvps.org/directx/articles/scalemesh9.htm.
 //
-// The addVertex() method is based on source code from the Direct3D MeshFromOBJ
+// The addVertex() method is based on source code from the Direct3D ModelMeshFromOBJ
 // sample found in the DirectX SDK.
 //
 // The generateTangents() method is based on public source code from
@@ -44,7 +44,7 @@
 
 namespace
 {
-    bool MeshCompFunc(const ModelOBJ::Mesh &lhs, const ModelOBJ::Mesh &rhs)
+    bool ModelMeshCompFunc(const ModelOBJ::ModelMesh &lhs, const ModelOBJ::ModelMesh &rhs)
     {
         return lhs.pMaterial->alpha > rhs.pMaterial->alpha;
     }
@@ -62,7 +62,7 @@ ModelOBJ::ModelOBJ()
     m_numberOfNormals = 0;
     m_numberOfTriangles = 0;
     m_numberOfMaterials = 0;
-    m_numberOfMeshes = 0;
+    m_numberOfModelMeshes = 0;
 
     m_center[0] = m_center[1] = m_center[2] = 0.0f;
     m_width = m_height = m_length = m_radius = 0.0f;
@@ -138,7 +138,7 @@ void ModelOBJ::destroy()
     m_numberOfNormals = 0;
     m_numberOfTriangles = 0;
     m_numberOfMaterials = 0;
-    m_numberOfMeshes = 0;
+    m_numberOfModelMeshes = 0;
 
     m_center[0] = m_center[1] = m_center[2] = 0.0f;
     m_width = m_height = m_length = m_radius = 0.0f;
@@ -195,7 +195,7 @@ bool ModelOBJ::import(const char *pszFilename, bool rebuildNormals)
 
     // Perform post import tasks.
 
-    buildMeshes();
+    buildModelMeshes();
     bounds(m_center, m_width, m_height, m_length, m_radius);
 
     // Build vertex normals if required.
@@ -306,9 +306,9 @@ void ModelOBJ::addTrianglePos(int index, int material, int v0, int v1, int v2)
 {
     Vertex vertex =
     {
-        0.0f, 0.0f, 0.0f,
-        0.0f, 0.0f,
-        0.0f, 0.0f, 0.0f
+	    {0.0f, 0.0f, 0.0f},
+	    {0.0f, 0.0f},
+	    {0.0f, 0.0f, 0.0f}
     };
 
     m_attributeBuffer[index] = material;
@@ -334,10 +334,10 @@ void ModelOBJ::addTrianglePosNormal(int index, int material, int v0, int v1,
 {
     Vertex vertex =
     {
-        0.0f, 0.0f, 0.0f,
-        0.0f, 0.0f,
-        0.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.0f
+	    {0.0f, 0.0f, 0.0f},
+	    {0.0f, 0.0f},
+	    {0.0f, 0.0f, 0.0f},
+	    {0.0f, 0.0f, 0.0f}
     };
 
     m_attributeBuffer[index] = material;
@@ -372,10 +372,10 @@ void ModelOBJ::addTrianglePosTexCoord(int index, int material, int v0, int v1,
 {
     Vertex vertex =
     {
-        0.0f, 0.0f, 0.0f,
-        0.0f, 0.0f,
-        0.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.0f
+	    {0.0f, 0.0f, 0.0f},
+	    {0.0f, 0.0f},
+	    {0.0f, 0.0f, 0.0f},
+	    {0.0f, 0.0f, 0.0f}
     };
 
     m_attributeBuffer[index] = material;
@@ -408,10 +408,10 @@ void ModelOBJ::addTrianglePosTexCoordNormal(int index, int material, int v0,
 {
     Vertex vertex =
     {
-        0.0f, 0.0f, 0.0f,
-        0.0f, 0.0f,
-        0.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.0f
+	    {0.0f, 0.0f, 0.0f},
+	    {0.0f, 0.0f},
+	    {0.0f, 0.0f, 0.0f},
+	    {0.0f, 0.0f, 0.0f}
     };
 
     m_attributeBuffer[index] = material;
@@ -491,13 +491,13 @@ int ModelOBJ::addVertex(int hash, const Vertex *pVertex)
     return index;
 }
 
-void ModelOBJ::buildMeshes()
+void ModelOBJ::buildModelMeshes()
 {
     // Group the model's triangles based on material type.
 
-    Mesh *pMesh = 0;
+    ModelMesh *pModelMesh = 0;
     int materialId = -1;
-    int numMeshes = 0;
+    int numModelMeshes = 0;
 
     // Count the number of meshes.
     for (int i = 0; i < static_cast<int>(m_attributeBuffer.size()); ++i)
@@ -505,14 +505,14 @@ void ModelOBJ::buildMeshes()
         if (m_attributeBuffer[i] != materialId)
         {
             materialId = m_attributeBuffer[i];
-            ++numMeshes;
+            ++numModelMeshes;
         }
     }
 
     // Allocate memory for the meshes and reset counters.
-    m_numberOfMeshes = numMeshes;
-    m_meshes.resize(m_numberOfMeshes);
-    numMeshes = 0;
+    m_numberOfModelMeshes = numModelMeshes;
+    m_meshes.resize(m_numberOfModelMeshes);
+    numModelMeshes = 0;
     materialId = -1;
 
     // Build the meshes. One mesh for each unique material.
@@ -521,20 +521,20 @@ void ModelOBJ::buildMeshes()
         if (m_attributeBuffer[i] != materialId)
         {
             materialId = m_attributeBuffer[i];
-            pMesh = &m_meshes[numMeshes++];            
-            pMesh->pMaterial = &m_materials[materialId];
-            pMesh->startIndex = i * 3;
-            ++pMesh->triangleCount;
+            pModelMesh = &m_meshes[numModelMeshes++];            
+            pModelMesh->pMaterial = &m_materials[materialId];
+            pModelMesh->startIndex = i * 3;
+            ++pModelMesh->triangleCount;
         }
         else
         {
-            ++pMesh->triangleCount;
+            ++pModelMesh->triangleCount;
         }
     }
 
     // Sort the meshes based on its material alpha. Fully opaque meshes
     // towards the front and fully transparent towards the back.
-    std::sort(m_meshes.begin(), m_meshes.end(), MeshCompFunc);
+    std::sort(m_meshes.begin(), m_meshes.end(), ModelMeshCompFunc);
 }
 
 void ModelOBJ::generateNormals()
@@ -903,14 +903,14 @@ void ModelOBJ::importGeometryFirstPass(FILE *pFile)
     {
         Material defaultMaterial =
         {
-            0.2f, 0.2f, 0.2f, 1.0f,
-            0.8f, 0.8f, 0.8f, 1.0f,
-            0.0f, 0.0f, 0.0f, 1.0f,
-            0.0f,
-            1.0f,
-            std::string("default"),
-            std::string(),
-            std::string()
+		{0.2f, 0.2f, 0.2f, 1.0f},
+		{0.8f, 0.8f, 0.8f, 1.0f},
+		{0.0f, 0.0f, 0.0f, 1.0f},
+		0.0f,
+		1.0f,
+		std::string("default"),
+		std::string(),
+		std::string()
         };
 
         m_materials.push_back(defaultMaterial);
@@ -1280,4 +1280,19 @@ bool ModelOBJ::importMaterials(const char *pszFilename)
 
     fclose(pFile);
     return true;
+}
+
+
+void ModelOBJ::toMesh(Mesh* mesh) const
+{
+	mesh->vertices = m_vertexBuffer;
+	mesh->triangles.resize(m_numberOfTriangles);
+	for (int32_t i = 0; i < m_numberOfTriangles; ++i) {
+		Triangle t;
+		t.v[0] = m_indexBuffer[i*3];
+		t.v[1] = m_indexBuffer[i*3+1];
+		t.v[2] = m_indexBuffer[i*3+2];
+		mesh->triangles[i] = t;
+	}
+
 }

@@ -2,14 +2,14 @@
 
 #include <rt/primary-ray-generator.hpp>
 
-// static
+/* static */
 bool 
-PrimaryRayGenerator::set_rays(Camera& cam, RayBundle& bundle, int32_t size[2])
+PrimaryRayGenerator::set_rays(Camera& cam, RayBundle& bundle, uint32_t size[2])
 {
 	/*!! Assert raybundle size is correct*/
 
-	int32_t width = size[0];
-	int32_t height = size[1];
+	uint32_t width = size[0];
+	uint32_t height = size[1];
 
 	float x_start = (0.5f / width);
 	float y_start = (0.5f / height);
@@ -29,4 +29,5 @@ PrimaryRayGenerator::set_rays(Camera& cam, RayBundle& bundle, int32_t size[2])
 	}
 	return true;
 }
+
 

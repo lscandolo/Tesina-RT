@@ -5,6 +5,8 @@ extra_path = []
 env = Environment(ENV = os.environ)
 env.AppendENVPath('PATH', extra_path)
 
+env.Append(CCFLAGS = '-g -Wall')
+
 cl_root = env['ENV']['CL_ROOT']
 
 base_libs = ['GL' , 'glut' , 'GLEW' , 'OpenCL', 'rt', 'm']
@@ -15,14 +17,18 @@ env['LIBS'] = base_libs
 env['CPPPATH'] = cpppath
 env['LIBPATH'] = libpath
 
+
 rt_primitives_lib = env.StaticLibrary('lib/rt-primitives' ,
                                       ['src/rt/vector.cpp',
                                        'src/rt/math.cpp',
+                                       'src/rt/timing.cpp',
                                        'src/rt/ray.cpp',
                                        'src/rt/mesh.cpp',
                                        'src/rt/obj-loader.cpp',
                                        'src/rt/camera.cpp',
-                                       'src/rt/primary-ray-generator.cpp'
+                                       'src/rt/primary-ray-generator.cpp',
+                                       'src/rt/obj-loader.cpp',
+                                       'src/rt/bvh.cpp'
                                        ]
                                       )
 

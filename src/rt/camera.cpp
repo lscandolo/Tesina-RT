@@ -8,7 +8,7 @@ Camera::Camera(const vec3& Position, /*The position of the camera*/
 	       float Aspect, /*The aspect ratio of the image (width/height)*/
 	       bool RightHanded) /*Righthandedness of the 
 				   coordinate system of the camera*/
-	: pos(Position), dir(normalize(Direction))
+	: pos(Position), dir(Direction.normalized())
 {
 	right = RightHanded ? cross(dir,Up) : cross(Up,dir);
 	up =    RightHanded ? cross(right,dir) : cross(dir,right);
@@ -19,26 +19,25 @@ Camera::Camera(const vec3& Position, /*The position of the camera*/
             
 	/*Normalize basis vectors and rescale them 
 	  according to FOV and aspect ratio*/
-	right *= (PlaneHeight*Aspect) / norm(right);
-	up    *=  PlaneHeight / norm(up);
-
+	right *= (PlaneHeight*Aspect) / right.norm();
+	up    *=  PlaneHeight / up.norm();
 }
 
 /* Direction of a ray passing through a point on the image plane */
 /*Sample location in NDC space. NDC space ranges from 0-1 on 
-  each axis over the length of the screen with 0,0 at the top-left*/
+  each axis over the length of the screen with 0,0 at the bottom-left*/
 
 vec3 Camera::get_ray_direction(const float& xPosNDC, 
 			       const float& yPosNDC) const
 {
-	return dir + right * (xPosNDC * 2.0f - 1.0f) - 
+	return dir + right * (xPosNDC * 2.0f - 1.0f) + 
 	             up    * (yPosNDC * 2.0f - 1.0f);
 }
 
 Ray Camera::get_ray(const float& xPosNDC, 
 		    const float& yPosNDC) const
 {
-	vec3 offset = right * (xPosNDC * 2.0f - 1.0f) - 
+	vec3 offset = right * (xPosNDC * 2.0f - 1.0f) + 
 		      up    * (yPosNDC * 2.0f - 1.0f);
 	return Ray(pos,dir + offset);
 }

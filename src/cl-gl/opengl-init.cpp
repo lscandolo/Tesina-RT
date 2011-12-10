@@ -2,10 +2,9 @@
 #include "cl-gl/opencl-init.hpp"
 
 #include <string>
+#include <iostream>
 
-#include <iostream> //!!
-
-GLint init_gl(int argc, char** argv, GLInfo* glinfo, const int* window_size)
+GLint init_gl(int argc, char** argv, GLInfo* glinfo, const uint32_t* window_size)
 {
 	std::string window_title("OpenCL-OpenGL interop test");
 

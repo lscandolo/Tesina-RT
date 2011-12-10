@@ -2,38 +2,39 @@
 #define RT_SCENE_HPP
 
 #include <vector>
+#include <stdint.h>
+
+#include <rt/mesh.hpp>
+#include <rt/light.hpp>
+#include <rt/geom.hpp>
 
 class Scene {
 
-	std::vector<MeshInstance>;
-	std::vector<Light>;
+	std::vector<MeshInstance> mesh_atlas;
+	std::vector<Light> lights;
 };
 
-class GeometricProperties {
+class Object {
 
-	Vector Pos;
-	Vector Rot;
-	float  scale;
+private:
+	typedef int32_t MeshReference;
+public:
+
+	MeshReference model; /*Should reference a mesh in a model atlas*/
+	GeometricProperties geom;
+	Material& mat;
 };
 
 class ObjectInstance {
+
+	ObjectInstance(Object& instance) : reference(instance) {}
 
 	Object& reference;
 	GeometricProperties geom;
 };
 
-
-class Object {
-
-	ModelReference model; /*Should reference a model in a model atlas*/
-	GeometricProperties geom;
-	Material& mat;
-};
-
 class Model {
-
 	Mesh mesh;
-
 };
 
 

@@ -85,16 +85,23 @@ init_cl_kernel(CLInfo* clinfo, const char* kernel_file,
 	clkernelinfo->clinfo = clinfo;
 
 	//create a program from the kernel source code
-	char *kernel_source = new char[2048];
-	memset(kernel_source,0,2048);
-
 	std::ifstream kernel_source_file(kernel_file);
 	if (!kernel_source_file.good()){
 		std::cerr << "Error: could not read kernel file." << std::endl;
 		return 1;
 	}
 
-	kernel_source_file.read(kernel_source,2048);
+	std::streampos file_size;
+	kernel_source_file.seekg (0, std::ios::beg);
+	file_size = kernel_source_file.tellg();
+	kernel_source_file.seekg (0, std::ios::end);
+	file_size = kernel_source_file.tellg() - file_size;
+
+	char *kernel_source = new char[file_size];
+	memset(kernel_source,0,file_size);
+
+	kernel_source_file.seekg (0, std::ios::beg);
+	kernel_source_file.read(kernel_source,file_size);
 	kernel_source_file.close();
 	
 	std::cout << "Creating a program from the kernel source code" << std::endl;
@@ -102,6 +109,7 @@ init_cl_kernel(CLInfo* clinfo, const char* kernel_file,
 		clCreateProgramWithSource(clinfo->context,1,
 					  (const char**)&kernel_source,NULL,&err);
 
+	delete[] kernel_source;
 	if (error_cl(err, "clCreateProgramWithSource"))
 		return 1;
 
@@ -137,8 +145,6 @@ init_cl_kernel(CLInfo* clinfo, const char* kernel_file,
 int execute_cl(const CLKernelInfo& clkernelinfo){
 
 	cl_int err;
-	size_t img_width, img_height;
-	size_t bytes_written;
 	
 	CLInfo& clinfo = *(clkernelinfo.clinfo);
 
@@ -209,13 +215,14 @@ int create_empty_cl_mem(const CLInfo& clinfo, cl_mem_flags flags, int size, cl_m
 }
 
 int create_filled_cl_mem(const CLInfo& clinfo, cl_mem_flags flags, int size, 
-			 void* values, cl_mem* mem)
+			 const void* values, cl_mem* mem)
 {
 	cl_int err;
 	*mem = clCreateBuffer(clinfo.context,
 			     flags | CL_MEM_COPY_HOST_PTR,
 			     size,
-			     values,
+			     const_cast<void*>(values), //This is ugly but necessary
+			      // Kronos, why u not have a const variant ?!?!
 			     &err);
 	if (error_cl(err, "clCreateBuffer"))
 		return 1;

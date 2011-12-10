@@ -70,7 +70,7 @@ int init_cl_kernel(CLInfo* clinfo, const char* kernel_file,
 		   CLKernelInfo* clkernelinfo);
 int create_empty_cl_mem(const CLInfo& clinfo, cl_mem_flags flags, int size, cl_mem* mem);
 int create_filled_cl_mem(const CLInfo& clinfo, cl_mem_flags flags, 
-			 int size, void* values, cl_mem* mem);
+			 int size, const void* values, cl_mem* mem);
 int create_cl_mem_from_gl_tex(const CLInfo& clinfo, const GLuint gl_tex, cl_mem* mem);
 int execute_cl(const CLKernelInfo& clkernelinfo);
 int error_cl(cl_int err_num, std::string msg);

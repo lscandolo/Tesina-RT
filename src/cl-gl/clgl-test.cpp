@@ -101,7 +101,7 @@ int main(int argc, char** argv)
 {
 	CLInfo clinfo;
 	GLInfo glinfo;
-	int window_size[] = {TEX_WIDTH, TEX_HEIGHT};
+	uint32_t window_size[] = {TEX_WIDTH, TEX_HEIGHT};
 	cl_int err;
 
 	if (init_gl(argc,argv,&glinfo, window_size) != 0){

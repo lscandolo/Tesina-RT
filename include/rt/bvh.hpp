@@ -10,23 +10,75 @@
 
 typedef uint32_t index_t;
 
-class BBox {};
+struct BBox {
+
+	BBox();
+	BBox(const Vertex& a, const Vertex& b, const Vertex& c);
+	void set(const Vertex& a, const Vertex& b, const Vertex& c);
+	void merge(const BBox& b);
+	uint8_t largestAxis() const;
+	
+	vec3 hi,lo,centroid;
+};
 
 class BVHNode {
 
-	BBox bbox;
-	std::vector<tri_id> tris;
-	
+public:
+
+	void setBounds(uint32_t s, uint32_t e){
+		m_start_index = s;
+		m_end_index = e;
+		m_parent = 0;
+	}
+
+	void sort(const std::vector<BBox>& bboxes,
+		  std::vector<tri_id>& ordered_triangles,
+		  std::vector<BVHNode>& nodes,
+		  uint32_t node_index);
+
+private:
+
+	BBox m_bbox;
+	uint32_t m_l_child, m_r_child;
+	uint32_t m_parent;
+	uint32_t m_start_index, m_end_index;
+	uint8_t m_split_axis;
+	bool m_leaf;
+
+	BBox     computeBBox(const std::vector<BBox>& bboxes,
+			     const std::vector<tri_id>& ordered_triangles) const; 
+	void     reorderTriangles(const std::vector<BBox>& bboxes,
+				  std::vector<tri_id>& ordered_triangles) const;
+	uint32_t chooseSplitLocation(const std::vector<BBox>& bboxes, 
+				     const std::vector<tri_id>& ordered_triangles) const;
 };
 
 class BVH {
 
-	BVH(Mesh& m);
+public:
+	BVH(const Mesh& m);
 	bool construct();
 
-	Mesh& mesh;
-	std::vector<tri_id> ordered_triangles;
-	
+	const BVHNode* nodeArray()
+		{return &(m_nodes[0]);}
+
+	uint32_t nodeArraySize()
+		{return m_nodes.size();}
+
+	const tri_id* orderedTrianglesArray()
+		{return &(m_ordered_triangles[0]);}
+
+	uint32_t orderedTrianglesArraySize()
+		{return m_ordered_triangles.size();}
+
+	static const uint32_t MIN_PRIMS_PER_NODE = 4;
+
+private:
+
+	const Mesh& m_mesh;
+	std::vector<BVHNode> m_nodes;
+	std::vector<tri_id> m_ordered_triangles;
 };
+
 
 #endif /* RT_BVH_HPP */

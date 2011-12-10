@@ -16,7 +16,8 @@ public:
 	vec3 ori; /* Ray origin */
 	vec3 dir; /* Ray direction */
 	vec3 invDir; /* Ray inverse direction */
-	float tMax,tMin; /*Maximum and minimum valid ray intersection values*/
+	float tMin;
+	float tMax;  /*Maximum and minimum valid ray intersection values*/
 
 	/* Constructors */
         inline Ray(){}

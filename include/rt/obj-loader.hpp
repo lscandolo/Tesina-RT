@@ -28,6 +28,8 @@
 #include <string>
 #include <vector>
 
+#include <rt/mesh.hpp>
+
 //-----------------------------------------------------------------------------
 // Alias|Wavefront OBJ file loader.
 //
@@ -58,16 +60,16 @@ public:
         std::string bumpMapFilename;
     };
 
-    struct Vertex
-    {
-        float position[3];
-        float texCoord[2];
-        float normal[3];
-        float tangent[4];
-        float bitangent[3];
-    };
+    // struct Vertex
+    // {
+    //     float position[3];
+    //     float texCoord[2];
+    //     float normal[3];
+    //     float tangent[4];
+    //     float bitangent[3];
+    // };
 
-    struct Mesh
+    struct ModelMesh
     {
         int startIndex;
         int triangleCount;
@@ -91,14 +93,15 @@ public:
     float getRadius() const;
 
     const int *getIndexBuffer() const;
+    int *getIndexBuffer();
     int getIndexSize() const;
 
     const Material &getMaterial(int i) const;
-    const Mesh &getMesh(int i) const;
+    const ModelMesh &getModelMesh(int i) const;
 
     int getNumberOfIndices() const;
     int getNumberOfMaterials() const;
-    int getNumberOfMeshes() const;
+    int getNumberOfModelMeshes() const;
     int getNumberOfTriangles() const;
     int getNumberOfVertices() const;
 
@@ -106,6 +109,7 @@ public:
 
     const Vertex &getVertex(int i) const;
     const Vertex *getVertexBuffer() const;
+    Vertex *getVertexBuffer();
     int getVertexSize() const;
 
     bool hasNormals() const;
@@ -129,7 +133,7 @@ private:
     int addVertex(int hash, const Vertex *pVertex);
     void bounds(float center[3], float &width, float &height,
         float &length, float &radius) const;
-    void buildMeshes();
+    void buildModelMeshes();
     void generateNormals();
     void generateTangents();
     void importGeometryFirstPass(FILE *pFile);
@@ -147,7 +151,7 @@ private:
     int m_numberOfNormals;
     int m_numberOfTriangles;
     int m_numberOfMaterials;
-    int m_numberOfMeshes;
+    int m_numberOfModelMeshes;
 
     float m_center[3];
     float m_width;
@@ -157,7 +161,7 @@ private:
 
     std::string m_directoryPath;
 
-    std::vector<Mesh> m_meshes;
+    std::vector<ModelMesh> m_meshes;
     std::vector<Material> m_materials;
     std::vector<Vertex> m_vertexBuffer;
     std::vector<int> m_indexBuffer;
@@ -168,6 +172,9 @@ private:
 
     std::map<std::string, int> m_materialCache;
     std::map<int, std::vector<int> > m_vertexCache;
+
+public:
+    void toMesh(Mesh* mesh) const;
 };
 
 //-----------------------------------------------------------------------------
@@ -190,13 +197,16 @@ inline float ModelOBJ::getRadius() const
 inline const int *ModelOBJ::getIndexBuffer() const
 { return &m_indexBuffer[0]; }
 
+inline int *ModelOBJ::getIndexBuffer()
+{ return &m_indexBuffer[0]; }
+
 inline int ModelOBJ::getIndexSize() const
 { return static_cast<int>(sizeof(int)); }
 
 inline const ModelOBJ::Material &ModelOBJ::getMaterial(int i) const
 { return m_materials[i]; }
 
-inline const ModelOBJ::Mesh &ModelOBJ::getMesh(int i) const
+inline const ModelOBJ::ModelMesh &ModelOBJ::getModelMesh(int i) const
 { return m_meshes[i]; }
 
 inline int ModelOBJ::getNumberOfIndices() const
@@ -205,8 +215,8 @@ inline int ModelOBJ::getNumberOfIndices() const
 inline int ModelOBJ::getNumberOfMaterials() const
 { return m_numberOfMaterials; }
 
-inline int ModelOBJ::getNumberOfMeshes() const
-{ return m_numberOfMeshes; }
+inline int ModelOBJ::getNumberOfModelMeshes() const
+{ return m_numberOfModelMeshes; }
 
 inline int ModelOBJ::getNumberOfTriangles() const
 { return m_numberOfTriangles; }
@@ -217,10 +227,13 @@ inline int ModelOBJ::getNumberOfVertices() const
 inline const std::string &ModelOBJ::getPath() const
 { return m_directoryPath; }
 
-inline const ModelOBJ::Vertex &ModelOBJ::getVertex(int i) const
+inline const Vertex &ModelOBJ::getVertex(int i) const
 { return m_vertexBuffer[i]; }
 
-inline const ModelOBJ::Vertex *ModelOBJ::getVertexBuffer() const
+inline Vertex const *ModelOBJ::getVertexBuffer() const 
+{ return &m_vertexBuffer[0]; }
+
+inline Vertex *ModelOBJ::getVertexBuffer() 
 { return &m_vertexBuffer[0]; }
 
 inline int ModelOBJ::getVertexSize() const
