@@ -22,7 +22,8 @@ BBox::BBox(const Vertex& a, const Vertex& b, const Vertex& c)
 	centroid = (hi+lo) * 0.5f;
 }
 
-void BBox::set(const Vertex& a, const Vertex& b, const Vertex& c)
+void 
+BBox::set(const Vertex& a, const Vertex& b, const Vertex& c)
 {
 	hi = makeVector(std::max(std::max(a.position[0],b.position[0]),c.position[0]),
 			std::max(std::max(a.position[1],b.position[1]),c.position[1]),
@@ -35,14 +36,16 @@ void BBox::set(const Vertex& a, const Vertex& b, const Vertex& c)
 	centroid = (hi+lo) * 0.5f;
 }
 
-void BBox::merge(const BBox& b)
+void 
+BBox::merge(const BBox& b)
 {
 	hi = max(hi, b.hi);
 	lo = min(lo, b.lo);
 	centroid = (hi+lo) * 0.5f;
 }
 
-uint8_t BBox::largestAxis() const
+uint8_t 
+BBox::largestAxis() const
 {
 	float dx = hi[0] - lo[0];
 	float dy = hi[1] - lo[1];
@@ -55,10 +58,11 @@ uint8_t BBox::largestAxis() const
 		return 2;
 }
 
-void BVHNode::sort(const std::vector<BBox>& bboxes,
-		   std::vector<tri_id>& ordered_triangles,
-		   std::vector<BVHNode>& nodes,
-		   uint32_t node_index) 
+void 
+BVHNode::sort(const std::vector<BBox>& bboxes,
+	      std::vector<tri_id>& ordered_triangles,
+	      std::vector<BVHNode>& nodes,
+	      uint32_t node_index) 
 {
 
 	/*------------------------ Compute bbox ----------------------*/
@@ -119,7 +123,8 @@ BVH::BVH(const Mesh& m) : m_mesh(m)
 		m_ordered_triangles[i] = i;
 }
 
-bool BVH::construct() 
+bool 
+BVH::construct() 
 {
 	/*------------------------ Initialize bboxes ------------------------------*/
 	std::vector<BBox> bboxes;
@@ -143,8 +148,9 @@ bool BVH::construct()
 	return true;
 }
 
-BBox BVHNode::computeBBox(const std::vector<BBox>& bboxes, 
-			  const std::vector<tri_id>& ordered_triangles) const
+BBox 
+BVHNode::computeBBox(const std::vector<BBox>& bboxes, 
+		     const std::vector<tri_id>& ordered_triangles) const
 {
 	uint32_t bbox_id = ordered_triangles[m_start_index];
 	BBox b = bboxes[bbox_id];
@@ -168,8 +174,9 @@ struct triangleOrder{
 	const std::vector<BBox>& bboxes;
 };
 
-void BVHNode::reorderTriangles(const std::vector<BBox>& bboxes,
-			       std::vector<tri_id>& ordered_triangles) const
+void 
+BVHNode::reorderTriangles(const std::vector<BBox>& bboxes,
+			  std::vector<tri_id>& ordered_triangles) const
 {
 	triangleOrder tri_order(m_split_axis, bboxes);
 
@@ -179,8 +186,9 @@ void BVHNode::reorderTriangles(const std::vector<BBox>& bboxes,
 }
 
 // For now this is a simple choose the middle one!
-uint32_t BVHNode::chooseSplitLocation(const std::vector<BBox>& bboxes, 
-				      const std::vector<tri_id>& ordered_triangles) const
+uint32_t 
+BVHNode::chooseSplitLocation(const std::vector<BBox>& bboxes, 
+			     const std::vector<tri_id>& ordered_triangles) const
 {
 	float center_val = m_bbox.centroid[m_split_axis];
 	uint32_t i = m_start_index;

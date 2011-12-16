@@ -42,11 +42,11 @@ private:
 	uint32_t m_l_child, m_r_child;
 	uint32_t m_parent;
 	uint32_t m_start_index, m_end_index;
-	uint8_t m_split_axis;
-	int32_t m_leaf; /* Leaf is not bool because of the inability of OpenCL to 
+	int8_t m_split_axis;
+	int8_t m_leaf; /* Leaf is not bool because of the inability of OpenCL to 
 			   handle byte aligned structs (at least my work implementation)*/
 
-	BBox     computeBBox(const std::vector<BBox>& bboxes,
+	BBox     computeBBox(const std::vector<BBox>& bboxes, 
 			     const std::vector<tri_id>& ordered_triangles) const; 
 	void     reorderTriangles(const std::vector<BBox>& bboxes,
 				  std::vector<tri_id>& ordered_triangles) const;

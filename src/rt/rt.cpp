@@ -46,7 +46,7 @@ void gl_loop()
 
 	cl_time.snap_time();
 	execute_cl(clkernelinfo);
-	double cl_msec = cl_time.msec_since_snap();
+	// double cl_msec = cl_time.msec_since_snap();
 	// std::cout << "Time spent on opencl: " << cl_msec << " msec." << std::endl;
 	
 	////////////////// Immediate mode textured quad
