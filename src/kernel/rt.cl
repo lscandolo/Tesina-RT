@@ -36,18 +36,20 @@ typedef struct {
 	unsigned int l_child, r_child;
 	unsigned int parent;
 	unsigned int start_index, end_index;
-	unsigned char split_axis;
-	bool   leaf;
+	unsigned char split_axis; 
+	int   leaf;
 
 } BVHNode;
 
 typedef struct {
+
 	bool hit;
 	float t;
 } hit_info;
 
-hit_info bbox_hit(BBox bbox,
-		  Ray ray)
+hit_info __attribute__((always_inline))
+bbox_hit(BBox bbox,
+	 Ray ray)
 {
 	hit_info info;
 	info.hit = false;
@@ -58,7 +60,7 @@ hit_info bbox_hit(BBox bbox,
 	float axis_t_max;
 
 	for (int i = 0; i < 3; ++i) {
-		if (ray.dir[i] == 0.f)
+		if (ray.dir[i] > -0.00001f && ray.dir[i] < 0.00001f)
 			continue;
 		float inv_dir = ray.invDir[i];
 		if (ray.dir[i] > 0) {
@@ -82,12 +84,14 @@ hit_info bbox_hit(BBox bbox,
 	return info;
 }
 
-hit_info triangle_hit(global Vertex* vertex_buffer,
-		      global int* index_buffer,
-		      int triangle,
-		      Ray ray){
+hit_info 
+triangle_hit(global Vertex* vertex_buffer,
+	     global int* index_buffer,
+	     int triangle,
+	     Ray ray){
 
 	hit_info info;
+	info.hit = false;
 
 	float3 p = (float3)(ray.ori[0], ray.ori[1], ray.ori[2]);
 	float3 d = (float3)(ray.dir[0], ray.dir[1], ray.dir[2]);
@@ -99,7 +103,6 @@ hit_info triangle_hit(global Vertex* vertex_buffer,
 	float3 v0 = (float3)(vx0->position[0], vx0->position[1], vx0->position[2]);
 	float3 v1 = (float3)(vx1->position[0], vx1->position[1], vx1->position[2]);
 	float3 v2 = (float3)(vx2->position[0], vx2->position[1], vx2->position[2]);
-
 	
 	float3 e1 = v1 - v0;
 	float3 e2 = v2 - v0;
@@ -107,36 +110,41 @@ hit_info triangle_hit(global Vertex* vertex_buffer,
 	float3 h = cross(d, e2);
 	float a = dot(e1,h);
 	
+	if (a > -0.000001f && a < 0.00001f)
+		return info;
+
 	float f = 1.f/a;
 	float3 s = p - v0;
 	float u = f * dot(s,h);
+	if (u < 0.f || u > 1.f) 
+		return info;
+
 	float3 q = cross(s,e1);
 	float v = f * dot(d,q);
-	float w = 1.f-(u+v);
+	if (v < 0.f || u+v > 1.f)
+		return info;
 
+	float w = 1.f-(u+v);
 	info.t = f * dot(e2,q);
-	info.hit = false;
 	bool t_is_within_bounds = (info.t < ray.tMax && info.t > ray.tMin);
 
-	if (!(a > -0.000001f && a < 0.00001f) &&
-	    !(u < 0.f || u > 1.f) &&
-	    !(v < 0.f || u+v > 1.f) &&
-	    t_is_within_bounds){
+	if (t_is_within_bounds)
 		info.hit = true;
-	}
 
 	return info;
 }
 
-hit_info leaf_hit(BVHNode node,
-		  global Vertex* vertex_buffer,
-		  global int* index_buffer,
-		  global tri_id* ordered_triangles,
-		  Ray ray){
+hit_info 
+leaf_hit(BVHNode node,
+	 global Vertex* vertex_buffer,
+	 global int* index_buffer,
+	 global tri_id* ordered_triangles,
+	 Ray ray){
 
 	hit_info best_hit;
 	best_hit.hit = false;
 	best_hit.t = ray.tMax;
+
 	for (int i = node.start_index; i < node.end_index; ++i) {
 		int triangle = ordered_triangles[i];
 		hit_info tri_hit = triangle_hit(vertex_buffer,
@@ -146,6 +154,7 @@ hit_info leaf_hit(BVHNode node,
 		if (tri_hit.hit) {
 			best_hit.hit = true;
 			best_hit.t = min(best_hit.t, tri_hit.t);
+			ray.tMax = best_hit.t;
 		}
 	}
 	return best_hit;
@@ -153,13 +162,14 @@ hit_info leaf_hit(BVHNode node,
 }
 
 
-kernel void trace(write_only image2d_t img,
-		  global Ray* ray_buffer,
-		  global Vertex* vertex_buffer,
-		  global int* index_buffer,
-		  global BVHNode* bvh_nodes,
-		  global tri_id* ordered_triangles,
-		  read_only int div)
+kernel void 
+trace(write_only image2d_t img,
+      global Ray* ray_buffer,
+      global Vertex* vertex_buffer,
+      global int* index_buffer,
+      global BVHNode* bvh_nodes,
+      global tri_id* ordered_triangles,
+      read_only int div)
 
 {
 	int x = get_global_id(0);
@@ -167,10 +177,16 @@ kernel void trace(write_only image2d_t img,
 	int width = get_global_size(0)-1;
 	int height = get_global_size(1)-1;
 
+	int group_x = get_local_size(0);
+	int group_y = get_local_size(1);
+
+	bool i_am_first = group_x == 0 && group_y == 0;
+
 	int ray_index = x + y * (width+1);
-	Ray ray = ray_buffer[ray_index];
-	ray.ori[2] -= 10.f + div*10;
-	/* ray.ori[2] -= 5.f; */
+
+	private Ray ray = ray_buffer[ray_index];
+	ray.ori[2] -= 10.f + div*5;
+	/* ray.ori[2] -= 15.f; */
 
 	bool ray_hit = false;
 	float ray_t = ray.tMax;
@@ -182,90 +198,111 @@ kernel void trace(write_only image2d_t img,
 	hit_info best_hit_info;
 	best_hit_info.hit = false;
 	best_hit_info.t = ray.tMax;
-	int tries = 0;
+
+	private int tries = 0;
+
+	/* private int test_idx = 0; */
+	/* private int test_nodes[32]; */
+
+	private BVHNode current_node;
+	private BBox test_bbox;
+
+	bool red_flag = false;
+	
 	while (true) {
+		current_node = bvh_nodes[curr];
+
 		if (going_up) {
-			// I'm going up and reached the top, break
+			// I'm going up from the root, so break
 			if (last == 0) {
 				break;
 
-			// I'm going up from my left child, do the right one
-			}else if (last == bvh_nodes[curr].l_child) {
+				// I'm going up from my left child, do the right one
+			} else if (last == current_node.l_child) {
 				last = curr;
-				curr = bvh_nodes[curr].r_child;
+				curr = current_node.r_child;
 				going_up = false;
 				continue;
 
 			// I'm going up from my right child, go up one more level
-			} else {
+			/* } else { */
+			} else if (last == current_node.r_child) {
 				last = curr;
-				curr = bvh_nodes[curr].parent;
+				curr = current_node.parent;
 				going_up = true;
 				continue;
 			}
+
+			else {
+				red_flag = true;
+				break;
+			}
+				
 		}
 			
-		hit_info info = bbox_hit(bvh_nodes[curr].bbox, ray);
+		test_bbox = current_node.bbox;
+		hit_info info = bbox_hit(test_bbox, ray);
+
 		// If it hit, and closer to the closest hit up to now, check it
-		if (info.hit && 
-		    (ray.tMax > info.t)) {
+		if (info.hit && info.t < ray.tMax && info.t > ray.tMin) {
 			// If it's a leaf, check all primitives in the leaf, then go up
-			if (bvh_nodes[curr].leaf) {
-				// Check all primitives in leaf
-				tries++;
-				hit_info leaf_info = leaf_hit(bvh_nodes[curr],
+			if (current_node.leaf) {
+ 				// Check all primitives in leaf
+				/* test_nodes[test_idx++] = curr; */
+				hit_info leaf_info = leaf_hit(current_node,
 							      vertex_buffer,
 							      index_buffer,
 							      ordered_triangles,
 							      ray);
-				if (leaf_info.hit){
+				if (leaf_info.hit) {
 					best_hit_info.hit = true;
-					best_hit_info.t = 
+					best_hit_info.t =
 						min(best_hit_info.t, leaf_info.t);
 					ray.tMax = best_hit_info.t;
 				}
 				last = curr;
-				curr = bvh_nodes[curr].parent;
+				curr = current_node.parent;
 				going_up = true;
 				continue;
-			// If it hit and it isn't a leaf, go to the left node
+
+			// If it hit and it isn't a leaf, go to the left child
 			} else {
 				last = curr;
-				curr = bvh_nodes[curr].l_child;
+				curr = current_node.l_child;
 				going_up = false;
 				continue;
 			}
-			// If it didn't hit, go up
+		
+                // If it didn't hit, go up
 		} else {
-				last = curr;
-				curr = bvh_nodes[curr].parent;
-				going_up = true;
-				continue;
+			last = curr;
+			curr = current_node.parent;
+			going_up = true;
+			continue;
 		}
 	}
+
+	/* hit_info leaf_info; */
+	/* leaf_info.hit = false; */
+	/* for (int i = 0; i < test_idx; ++i){ */
+	/* 	leaf_info = leaf_hit(bvh_nodes[test_nodes[i]], */
+	/* 			     vertex_buffer, */
+	/* 			     index_buffer, */
+	/* 			     ordered_triangles, */
+	/* 			     ray); */
+		
+	/* 	if (leaf_info.hit) { */
+	/* 		best_hit_info.hit = true; */
+	/* 		best_hit_info.t = */
+	/* 			min(best_hit_info.t, leaf_info.t); */
+	/* 		ray.tMax = best_hit_info.t; */
+	/* 	} */
+	/* } */
+
 	ray_hit = best_hit_info.hit;
 	ray_t = best_hit_info.t;
 
-	/* for (int i = 0; i < 333; ++i){ */
-
-	/* 	hit_info info = bbox_hit(bvh_nodes[i].bbox, ray); */
-	/* 	if (info.hit){ */
-	/* 		ray_hit = true; */
-	/* 		ray_t = min(ray_t, info.t); */
-	/* 	} */
-
-	/* } */
-
-	/* for (int i = 0; i < 576; ++i){ */
-
-	/* 	hit_info info = triangle_hit(vertex_buffer, index_buffer, i, ray); */
-	/* 	if (info.hit){ */
-	/* 		ray_hit = true; */
-	/* 		ray_t = min(ray_t, info.t); */
-	/* 	} */
-
-	/* } */
-
+	/* Image writing computations */
 	int2 image_size = (int2)(get_image_width(img), get_image_height(img));
 
 	float x_part = (float)x/(float)width; 
@@ -274,12 +311,13 @@ kernel void trace(write_only image2d_t img,
 	int2 coords = (int2)( ( (image_size.x-1) * x ) / width,
 			      ( (image_size.y-1) * y ) / height);
 
-	float4 valf;
 
+	/* Value for the pixel corresponding to this ray */
+	float4 valf;
 	if (ray_hit) {
-		valf = (float4)(ray_t/1000.f,
-				ray_t/100.f,
-				ray_t/10.f,
+		valf = (float4)(ray_t * 0.01f,
+				ray_t * 0.1f,
+				ray_t * 1.f,
 				1.0f);
 	} else {
 		valf = (float4)(0.f,
@@ -288,6 +326,22 @@ kernel void trace(write_only image2d_t img,
 				1.0f);
 	}
 
+	/* if (test_idx > 1) */
+	if (tries > 31)
+		valf = (float4)(1.0,
+				0.f,
+				0.f,
+				1.0f);
+
+
+	if (red_flag)
+		valf = (float4)(1.f,
+				0.f,
+				0.f,
+				1.0f);
+
 	write_imagef(img, coords, valf);
 
 }
+
+

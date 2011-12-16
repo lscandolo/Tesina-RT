@@ -5,7 +5,7 @@ extra_path = []
 env = Environment(ENV = os.environ)
 env.AppendENVPath('PATH', extra_path)
 
-env.Append(CCFLAGS = '-g -Wall')
+env.Append(CCFLAGS = '-g -Wall -O3')
 
 cl_root = env['ENV']['CL_ROOT']
 

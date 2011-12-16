@@ -18,7 +18,7 @@ cl_mem cl_index_mem;
 GLuint gl_tex;
 rt_time_t rt_time;
 
-#define STEPS 8
+#define STEPS 16
 
 void gl_key(unsigned char key, int x, int y)
 {
@@ -47,7 +47,7 @@ void gl_loop()
 	cl_time.snap_time();
 	execute_cl(clkernelinfo);
 	double cl_msec = cl_time.msec_since_snap();
-	std::cout << "Time spent on opencl: " << cl_msec << " msec." << std::endl;
+	// std::cout << "Time spent on opencl: " << cl_msec << " msec." << std::endl;
 	
 	////////////////// Immediate mode textured quad
 	glBindTexture(GL_TEXTURE_2D, gl_tex);
@@ -135,9 +135,9 @@ int main (int argc, char** argv)
 	/*---------------------- Load model ---------------------------*/
 	ModelOBJ obj;
 	// if (!obj.import("models/obj/floor.obj")){
-	if (!obj.import("models/obj/teapot-low_res.obj")){
+	// if (!obj.import("models/obj/teapot-low_res.obj")){
 	// if (!obj.import("models/obj/teapot.obj")){
-	// if (!obj.import("models/obj/teapot2.obj")){
+	if (!obj.import("models/obj/teapot2.obj")){
 		std::cerr << "Error importing obj model." << std::endl;
 		exit(1);
 	}

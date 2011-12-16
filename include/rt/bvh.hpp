@@ -43,7 +43,8 @@ private:
 	uint32_t m_parent;
 	uint32_t m_start_index, m_end_index;
 	uint8_t m_split_axis;
-	bool m_leaf;
+	int32_t m_leaf; /* Leaf is not bool because of the inability of OpenCL to 
+			   handle byte aligned structs (at least my work implementation)*/
 
 	BBox     computeBBox(const std::vector<BBox>& bboxes,
 			     const std::vector<tri_id>& ordered_triangles) const; 
@@ -71,7 +72,7 @@ public:
 	uint32_t orderedTrianglesArraySize()
 		{return m_ordered_triangles.size();}
 
-	static const uint32_t MIN_PRIMS_PER_NODE = 4;
+	static const uint32_t MIN_PRIMS_PER_NODE = 8;
 
 private:
 

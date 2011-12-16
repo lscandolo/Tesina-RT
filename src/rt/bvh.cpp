@@ -60,13 +60,16 @@ void BVHNode::sort(const std::vector<BBox>& bboxes,
 		   std::vector<BVHNode>& nodes,
 		   uint32_t node_index) 
 {
-	if (m_end_index - m_start_index  < BVH::MIN_PRIMS_PER_NODE) {
+
+	/*------------------------ Compute bbox ----------------------*/
+	m_bbox = computeBBox(bboxes, ordered_triangles);
+
+	/* ----------------- Check if it's small enough ---------------*/
+	if (m_end_index - m_start_index  <= BVH::MIN_PRIMS_PER_NODE) {
 		m_leaf = true;
 		return;
 	}
 
-	/*------------------------ Compute bbox ----------------------*/
-	m_bbox = computeBBox(bboxes, ordered_triangles);
 
 	/*------------------------ Choose split location ----------------------*/
 	m_split_axis = m_bbox.largestAxis();
@@ -82,25 +85,28 @@ void BVHNode::sort(const std::vector<BBox>& bboxes,
 		return;
 	}
 
+	/*------------------ Add left and right node -------------------*/
 	m_leaf = false;
 
-	/*------------------ Add left and right node -------------------*/
 	BVHNode lnode,rnode;
 
-
+	nodes.resize(nodes.size()+2);
+	m_l_child = nodes.size()-2;
+	m_r_child = nodes.size()-1;
+	
 	/*---------------------- Left node creation -------------------*/
 	lnode.setBounds(m_start_index, split_location);
 	lnode.sort(bboxes, ordered_triangles, nodes, m_l_child);
 	lnode.m_parent = node_index;
-	m_l_child = nodes.size();
-	nodes.push_back(lnode);
 	
 	/*--------------------- Right node creation -------------------*/
 	rnode.setBounds(split_location, m_end_index);
 	rnode.sort(bboxes, ordered_triangles, nodes, m_r_child);
 	rnode.m_parent = node_index;
-	m_r_child = nodes.size();
-	nodes.push_back(rnode);
+
+
+	nodes[m_l_child] = lnode;
+	nodes[m_r_child] = rnode;
 	return;
 }
 
@@ -129,7 +135,7 @@ bool BVH::construct()
 	// m_nodes.reserve(2*m_mesh.triangleCount());
 	m_nodes.resize(1);
 	BVHNode root;
-	root.setBounds(0, m_mesh.triangleCount()-1);
+	root.setBounds(0, m_mesh.triangleCount());
 	root.sort(bboxes, m_ordered_triangles, m_nodes, 0);
 	m_nodes[0] = root;
 	/*------------------ Split method is simple half & half now ----------------*/
@@ -143,7 +149,7 @@ BBox BVHNode::computeBBox(const std::vector<BBox>& bboxes,
 	uint32_t bbox_id = ordered_triangles[m_start_index];
 	BBox b = bboxes[bbox_id];
 
-	for (uint32_t i = m_start_index+1; i < m_end_index; ++i) {
+	for (uint32_t i = m_start_index; i < m_end_index; ++i) {
 		bbox_id = ordered_triangles[i];
 		b.merge(bboxes[bbox_id]);
 	}
