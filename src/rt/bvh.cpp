@@ -1,13 +1,16 @@
 #include <algorithm>
+#include <limits>
 
 #include <rt/bvh.hpp>
 
-
-#include <iostream> //!!
-
-
 BBox::BBox()
-{}
+{
+	float M = std::numeric_limits<float>::max();
+	float m = std::numeric_limits<float>::min();
+	
+	hi = makeVector(m,m,m);
+	lo = makeVector(M,M,M);
+}
 
 BBox::BBox(const Vertex& a, const Vertex& b, const Vertex& c)
 {
@@ -18,8 +21,6 @@ BBox::BBox(const Vertex& a, const Vertex& b, const Vertex& c)
 	lo = makeVector(std::min(std::min(a.position[0],b.position[0]),c.position[0]),
 			std::min(std::min(a.position[1],b.position[1]),c.position[1]),
 			std::min(std::min(a.position[2],b.position[2]),c.position[2]));
-
-	centroid = (hi+lo) * 0.5f;
 }
 
 void 
@@ -33,7 +34,6 @@ BBox::set(const Vertex& a, const Vertex& b, const Vertex& c)
 			std::min(std::min(a.position[1],b.position[1]),c.position[1]),
 			std::min(std::min(a.position[2],b.position[2]),c.position[2]));
 
-	centroid = (hi+lo) * 0.5f;
 }
 
 void 
@@ -41,7 +41,6 @@ BBox::merge(const BBox& b)
 {
 	hi = max(hi, b.hi);
 	lo = min(lo, b.lo);
-	centroid = (hi+lo) * 0.5f;
 }
 
 uint8_t 
@@ -56,6 +55,20 @@ BBox::largestAxis() const
 		return 1;
 	else
 		return 2;
+}
+
+vec3 
+BBox::centroid() const
+{
+	return (hi+lo) * 0.5f;
+}
+
+float 
+BBox::surfaceArea() const
+{
+	vec3 diff = max(hi - lo, makeVector(0.f,0.f,0.f));
+	return (diff[0] * (diff[1] + diff[2]) + diff[1] * diff[2]) * 2.f;
+	
 }
 
 void 
@@ -82,7 +95,7 @@ BVHNode::sort(const std::vector<BBox>& bboxes,
 	reorderTriangles(bboxes, ordered_triangles);
 
 	/*----------------------- Choose split location -----------------------*/
-	uint32_t split_location = chooseSplitLocation(bboxes, ordered_triangles);
+	uint32_t split_location = chooseSplitLocationSAH(bboxes, ordered_triangles);
 
 	if (split_location == m_start_index || split_location == m_end_index) {
 		m_leaf = true;
@@ -166,8 +179,7 @@ struct triangleOrder{
 	triangleOrder(uint8_t order_axis, const std::vector<BBox>& _bboxes) : 
 		bboxes(_bboxes){ax = order_axis;};
 	bool operator()(tri_id id1, tri_id id2){
-		// std::cerr << "Comparing " << id1 << " & " << id2 << std::endl;
-		return (bboxes[id1].centroid)[ax] < (bboxes[id2].centroid)[ax];
+		return (bboxes[id1].centroid())[ax] < (bboxes[id2].centroid())[ax];
 	};
 
 	uint8_t ax;
@@ -185,19 +197,87 @@ BVHNode::reorderTriangles(const std::vector<BBox>& bboxes,
 		  tri_order);
 }
 
-// For now this is a simple choose the middle one!
 uint32_t 
 BVHNode::chooseSplitLocation(const std::vector<BBox>& bboxes, 
 			     const std::vector<tri_id>& ordered_triangles) const
 {
-	float center_val = m_bbox.centroid[m_split_axis];
+	float center_val = m_bbox.centroid()[m_split_axis];
 	uint32_t i = m_start_index;
-
 	for (; i < m_end_index; ++i){
 		tri_id t_id = ordered_triangles[i];
-		if (bboxes[t_id].centroid[m_split_axis] >= center_val)
+		if (bboxes[t_id].centroid()[m_split_axis] >= center_val)
 			break;
 	}
 	return i;
 }
 
+uint32_t 
+BVHNode::chooseSplitLocationSAH(const std::vector<BBox>& bboxes, 
+				const std::vector<tri_id>& ordered_triangles) const
+{
+	const uint8_t& axis = m_split_axis;
+	const uint32_t bucket_count = BVH::SAH_BUCKETS;
+
+	// Allocate buckets
+	SAHBucket buckets[bucket_count];
+	
+	float outer_bbox_length = m_bbox.hi[axis] - m_bbox.lo[axis];
+	float outer_bbox_min   = m_bbox.lo[axis]; 
+	float outer_bbox_surface_area = m_bbox.surfaceArea();
+
+	// Initialize buckets
+	for (uint32_t i = m_start_index ; i < m_end_index ; ++i) {
+		tri_id t = ordered_triangles[i];
+		float  c = bboxes[t].centroid()[axis];
+		uint32_t slot = bucket_count * ((c - outer_bbox_min) / outer_bbox_length);
+		slot = std::min(slot, bucket_count-1);
+		buckets[slot].prims++;
+		buckets[slot].bbox.merge(bboxes[t]);
+	}
+
+	// Compute costs for splitting at buckets
+	float cost[bucket_count-1];
+	for (uint32_t i = 0; i < bucket_count-1; ++i) {
+		BBox bl = buckets[0].bbox;
+		BBox br = buckets[bucket_count-1].bbox;
+		uint32_t countl = buckets[0].prims;
+		uint32_t countr = buckets[bucket_count-1].prims;
+
+		for (uint32_t j = 1; j <= i; ++j) {
+			bl.merge(buckets[j].bbox);
+			countl += buckets[j].prims;
+		}
+		for (uint32_t j = i+1; j < bucket_count; ++j) {
+			br.merge(buckets[j].bbox);
+			countr += buckets[j].prims;
+		}
+		cost[i] = .125f + 
+			(countl * bl.surfaceArea() + countr*br.surfaceArea()) / 
+			outer_bbox_surface_area;
+	}
+	
+	
+	// Find best bucket for split according to SAH
+	float best_cost = cost[0];
+	uint32_t best_split = 0;
+	for (uint32_t i = 1; i < bucket_count-1; ++i) { 
+
+		if (cost[i] < best_cost) {
+			best_cost = cost[i];
+			best_split = i;
+		}
+	}
+
+	// Find split location
+	float split_value = outer_bbox_min;
+	split_value += (best_split+1) * (outer_bbox_length / ((float)bucket_count));
+	uint32_t i = m_start_index;
+	for (; i < m_end_index; ++i){
+		tri_id t = ordered_triangles[i];
+		if (bboxes[t].centroid()[m_split_axis] >= split_value)
+			break;
+	}
+
+	return i;
+
+}

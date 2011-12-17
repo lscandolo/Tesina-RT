@@ -27,7 +27,6 @@ typedef unsigned int tri_id;
 typedef struct {
 	float hi[3];
 	float lo[3];
-	float centroid[3];
 } BBox;
 
 typedef struct {
@@ -49,6 +48,17 @@ typedef struct {
 
 } hit_info;
 
+void __attribute__((always_inline))
+merge_hit_info(hit_info* best_info, hit_info* new_info){
+	if ((*new_info).hit) {
+		(*best_info).hit = true;
+		if ((*new_info).t < (*best_info).t){
+			(*best_info).t = (*new_info).t;
+			(*best_info).id = (*new_info).id;
+		}
+	}
+}
+
 hit_info __attribute__((always_inline))
 bbox_hit(BBox bbox,
 	 Ray ray)
@@ -58,30 +68,25 @@ bbox_hit(BBox bbox,
 	float tMin = ray.tMin;
 	float tMax = ray.tMax;
 
-	float axis_t_min;
-	float axis_t_max;
+	float axis_t_lo, axis_t_hi;
 
 	for (int i = 0; i < 3; ++i) {
 		if (ray.dir[i] > -0.00001f && ray.dir[i] < 0.00001f)
 			continue;
 		float inv_dir = ray.invDir[i];
-		if (ray.dir[i] > 0) {
-			axis_t_min = (bbox.lo[i] - ray.ori[i]) * inv_dir;
-			axis_t_max = (bbox.hi[i] - ray.ori[i]) * inv_dir;
-		} else {
-			axis_t_max = (bbox.lo[i] - ray.ori[i]) * inv_dir;
-			axis_t_min = (bbox.hi[i] - ray.ori[i]) * inv_dir;
-		}
+
+		axis_t_lo = (bbox.lo[i] - ray.ori[i]) * inv_dir;
+		axis_t_hi = (bbox.hi[i] - ray.ori[i]) * inv_dir;
 		
-		tMin = max(tMin, axis_t_min);
-		tMax = min(tMax, axis_t_max);
+		tMin = max(tMin, min(axis_t_lo,axis_t_hi));
+		tMax = min(tMax, max(axis_t_lo,axis_t_hi));
 
 	}
+
 	if (tMin < tMax) {
 		info.hit = true;
 		info.t   = tMin;
 	}
-
 
 	return info;
 }
@@ -110,23 +115,22 @@ triangle_hit(global Vertex* vertex_buffer,
 	float3 e2 = v2 - v0;
 	
 	float3 h = cross(d, e2);
-	float a = dot(e1,h);
+	float  a = dot(e1,h);
 	
 	if (a > -0.000001f && a < 0.00001f)
 		return info;
 
-	float f = 1.f/a;
+	float  f = 1.f/a;
 	float3 s = p - v0;
-	float u = f * dot(s,h);
+	float  u = f * dot(s,h);
 	if (u < 0.f || u > 1.f) 
 		return info;
 
 	float3 q = cross(s,e1);
-	float v = f * dot(d,q);
+	float  v = f * dot(d,q);
 	if (v < 0.f || u+v > 1.f)
 		return info;
 
-	float w = 1.f-(u+v);
 	info.t = f * dot(e2,q);
 	bool t_is_within_bounds = (info.t < ray.tMax && info.t > ray.tMin);
 
@@ -134,7 +138,6 @@ triangle_hit(global Vertex* vertex_buffer,
 		info.hit = true;
 		info.id = triangle;
 	}
-
 	return info;
 }
 
@@ -155,14 +158,11 @@ leaf_hit(BVHNode node,
 						index_buffer,
 						triangle,
 						ray);
-		if (tri_hit.hit) {
-			best_hit.hit = true;
-			if (tri_hit.t < best_hit.t){
-				best_hit.t = tri_hit.t;
-				best_hit.id = triangle;
-			}
+
+		merge_hit_info(&best_hit, &tri_hit);
+
+		if (best_hit.hit)
 			ray.tMax = best_hit.t;
-		}
 	}
 	return best_hit;
 
@@ -180,12 +180,11 @@ typedef struct {
 hit_reflect_info 
 triangle_reflect(global Vertex* vertex_buffer,
 		 global int* index_buffer,
+		 float3 L,
 		 int triangle,
 		 Ray ray){
 
 	hit_reflect_info ref;
-
-	float3 L = normalize((float3)(0.577f,0.577f,0.577f));
 
 	float3 p = (float3)(ray.ori[0], ray.ori[1], ray.ori[2]);
 	float3 d = (float3)(ray.dir[0], ray.dir[1], ray.dir[2]);
@@ -261,7 +260,8 @@ trace(write_only image2d_t img,
 	int ray_index = x + y * (width+1);
 
 	private Ray ray = ray_buffer[ray_index];
-	ray.ori[2] -= 10.f + div*5;
+	ray.ori[2] -= 25.f;
+	/* ray.ori[2] -= 25.f + div*5; */
 	ray.ori[1] += 3.f;
 
 	/* ray.ori[2] -= 15.f; */
@@ -332,14 +332,9 @@ trace(write_only image2d_t img,
 							      index_buffer,
 							      ordered_triangles,
 							      ray);
-				if (leaf_info.hit) {
-					best_hit_info.hit = true;
-					if (leaf_info.t < best_hit_info.t) {
-						best_hit_info.t = leaf_info.t;
-						best_hit_info.id = leaf_info.id;
-					}
+				merge_hit_info(&best_hit_info, &leaf_info);
+				if (best_hit_info.hit)
 					ray.tMax = best_hit_info.t;
-				}
 				last = curr;
 				curr = current_node.parent;
 				going_up = true;
@@ -393,11 +388,15 @@ trace(write_only image2d_t img,
 
 
 	/* Value for the pixel corresponding to this ray */
+	float3 L = normalize((float3)(0.1f  * (div-8.f) + 0.1f,
+				      0.1f  * (div-8.f),
+				      0.2f));
 	float4 valf;
 	if (ray_hit) {
 		hit_reflect_info ref;
 		ref = triangle_reflect(vertex_buffer,
 				       index_buffer,
+				       L,
 				       best_hit_info.id,
 				       ray);
 		valf = (float4)(ray_t * 0.001f * ref.cosL,
@@ -431,3 +430,5 @@ trace(write_only image2d_t img,
 	write_imagef(img, coords, valf);
 
 }
+
+

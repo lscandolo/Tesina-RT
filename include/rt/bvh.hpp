@@ -17,8 +17,10 @@ struct BBox {
 	void set(const Vertex& a, const Vertex& b, const Vertex& c);
 	void merge(const BBox& b);
 	uint8_t largestAxis() const;
-	
-	vec3 hi,lo,centroid;
+	vec3 centroid() const;
+	float surfaceArea() const;
+
+	vec3 hi,lo;
 };
 
 class BVHNode {
@@ -51,7 +53,9 @@ private:
 	void     reorderTriangles(const std::vector<BBox>& bboxes,
 				  std::vector<tri_id>& ordered_triangles) const;
 	uint32_t chooseSplitLocation(const std::vector<BBox>& bboxes, 
-				     const std::vector<tri_id>& ordered_triangles) const;
+				     const std::vector<tri_id>& ordered_triangles)const;
+	uint32_t chooseSplitLocationSAH(const std::vector<BBox>& bboxes, 
+					const std::vector<tri_id>& ordered_triangles) const;
 };
 
 class BVH {
@@ -72,7 +76,8 @@ public:
 	uint32_t orderedTrianglesArraySize()
 		{return m_ordered_triangles.size();}
 
-	static const uint32_t MIN_PRIMS_PER_NODE = 8;
+	static const uint32_t MIN_PRIMS_PER_NODE = 4;
+	static const uint32_t SAH_BUCKETS = 32;
 
 private:
 
@@ -81,5 +86,12 @@ private:
 	std::vector<tri_id> m_ordered_triangles;
 };
 
+
+struct SAHBucket {
+
+	SAHBucket() {prims = 0;} 
+	uint32_t prims;
+	BBox bbox;
+};
 
 #endif /* RT_BVH_HPP */
