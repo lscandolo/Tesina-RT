@@ -50,13 +50,15 @@ vec<N> inv(const vec<N>& v)
 	return in;
 }
 
-/* Reflection and refraction */
+/* Auxiliary functions */
 
+/* Take angle (in radians) to [-Pi,Pi]*/
+float normalize_angle(float a);
 float clamp(float& x, float& xMin, float& xMax );
-
 float lerp( const float& a, const float& b, const float& t );
-
 vec3 cross(const vec3& v1, const vec3& v2 );
+
+/* Reflection and refraction */
 
 vec3 reflect(const vec3& n,  /* Surface normal */
 	       const vec3& i); /* Incident vector */

@@ -3,7 +3,7 @@
 #include <fstream>
 #include <iostream>
 
-int 
+int32_t
 init_cl(const GLInfo& glinfo, CLInfo* clinfo)
 {
 	cl_int err;
@@ -75,7 +75,7 @@ init_cl(const GLInfo& glinfo, CLInfo* clinfo)
 }
 
 
-int 
+int32_t
 init_cl_kernel(CLInfo* clinfo, const char* kernel_file, 
 	       std::string kernel_name,
 	       CLKernelInfo* clkernelinfo)
@@ -142,7 +142,7 @@ init_cl_kernel(CLInfo* clinfo, const char* kernel_file,
 
 }
 
-int execute_cl(const CLKernelInfo& clkernelinfo){
+int32_t execute_cl(const CLKernelInfo& clkernelinfo){
 
 	cl_int err;
 	
@@ -160,7 +160,7 @@ int execute_cl(const CLKernelInfo& clkernelinfo){
 		return 1;
 	}
 
-	for (int i = 0; i < clkernelinfo.work_dim; ++i) {
+	for (int8_t i = 0; i < clkernelinfo.work_dim; ++i) {
 		if (clkernelinfo.global_work_size[i] <= 0) {
 			std::cerr << "Kernel global work size not set" << std::endl;
 			return 1;
@@ -168,7 +168,7 @@ int execute_cl(const CLKernelInfo& clkernelinfo){
 	}
 
 	bool local_size_set = True;
-	for (int i = 0; i < clkernelinfo.work_dim; ++i)
+	for (int8_t i = 0; i < clkernelinfo.work_dim; ++i)
 		local_size_set = local_size_set && (clkernelinfo.local_work_size[i] > 0);
 
 	// std::cerr << "Enqueueing the kernel command for execution" << std::endl;
@@ -201,7 +201,8 @@ int execute_cl(const CLKernelInfo& clkernelinfo){
 }
 
 
-int create_empty_cl_mem(const CLInfo& clinfo, cl_mem_flags flags, int size, cl_mem* mem)
+int32_t create_empty_cl_mem(const CLInfo& clinfo, cl_mem_flags flags, 
+			uint32_t size, cl_mem* mem)
 {
 	cl_int err;
 	*mem = clCreateBuffer(clinfo.context,
@@ -214,7 +215,7 @@ int create_empty_cl_mem(const CLInfo& clinfo, cl_mem_flags flags, int size, cl_m
 	return 0;
 }
 
-int create_filled_cl_mem(const CLInfo& clinfo, cl_mem_flags flags, int size, 
+int32_t create_filled_cl_mem(const CLInfo& clinfo, cl_mem_flags flags, uint32_t size, 
 			 const void* values, cl_mem* mem)
 {
 	cl_int err;
@@ -228,6 +229,24 @@ int create_filled_cl_mem(const CLInfo& clinfo, cl_mem_flags flags, int size,
 		return 1;
 	return 0;
 
+}
+
+int32_t copy_to_cl_mem(const CLInfo& clinfo, uint32_t size,
+		       const void* values, cl_mem& mem, uint32_t offset){
+	cl_int err;
+	err = clEnqueueWriteBuffer(clinfo.command_queue,
+				   mem,
+				   true,  /* Blocking write */
+				   offset,
+				   size,
+				   values,
+				   0,        /*Not using event lists for now*/
+				   NULL,
+				   NULL);
+	if (error_cl(err, "clEnqueueWriteBuffer"))
+	    return 1;
+
+	return 0;
 }
 
 void print_cl_info(const CLInfo& clinfo)

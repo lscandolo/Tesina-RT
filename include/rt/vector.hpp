@@ -127,7 +127,7 @@ public:
 			ASSERT(rhs != 0.f);
 			float rhs_inv = 1.f / rhs;
 			for (uint32_t i = 0; i < N; ++i)
-				this->v[i] /= rhs_inv;
+				this->v[i] *= rhs_inv;
 			return *this;
 		}
 

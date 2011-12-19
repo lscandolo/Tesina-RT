@@ -304,7 +304,7 @@ void ModelOBJ::scale(float scaleFactor, float offset[3])
 
 void ModelOBJ::addTrianglePos(int index, int material, int v0, int v1, int v2)
 {
-    Vertex vertex =
+    ObjLoaderVertex vertex =
     {
 	    {0.0f, 0.0f, 0.0f},
 	    {0.0f, 0.0f},
@@ -332,7 +332,7 @@ void ModelOBJ::addTrianglePos(int index, int material, int v0, int v1, int v2)
 void ModelOBJ::addTrianglePosNormal(int index, int material, int v0, int v1,
                                     int v2, int vn0, int vn1, int vn2)
 {
-    Vertex vertex =
+    ObjLoaderVertex vertex =
     {
 	    {0.0f, 0.0f, 0.0f},
 	    {0.0f, 0.0f},
@@ -370,7 +370,7 @@ void ModelOBJ::addTrianglePosNormal(int index, int material, int v0, int v1,
 void ModelOBJ::addTrianglePosTexCoord(int index, int material, int v0, int v1,
                                       int v2, int vt0, int vt1, int vt2)
 {
-    Vertex vertex =
+    ObjLoaderVertex vertex =
     {
 	    {0.0f, 0.0f, 0.0f},
 	    {0.0f, 0.0f},
@@ -406,7 +406,7 @@ void ModelOBJ::addTrianglePosTexCoordNormal(int index, int material, int v0,
                                             int v1, int v2, int vt0, int vt1,
                                             int vt2, int vn0, int vn1, int vn2)
 {
-    Vertex vertex =
+    ObjLoaderVertex vertex =
     {
 	    {0.0f, 0.0f, 0.0f},
 	    {0.0f, 0.0f},
@@ -447,7 +447,7 @@ void ModelOBJ::addTrianglePosTexCoordNormal(int index, int material, int v0,
     m_indexBuffer[index * 3 + 2] = addVertex(v2, &vertex);
 }
 
-int ModelOBJ::addVertex(int hash, const Vertex *pVertex)
+int ModelOBJ::addVertex(int hash, const ObjLoaderVertex *pVertex)
 {
     int index = -1;
     std::map<int, std::vector<int> >::const_iterator iter = m_vertexCache.find(hash);
@@ -465,7 +465,7 @@ int ModelOBJ::addVertex(int hash, const Vertex *pVertex)
         // One or more vertices have been hashed to this entry in the cache.
 
         const std::vector<int> &vertices = iter->second;
-        const Vertex *pCachedVertex = 0;
+        const ObjLoaderVertex *pCachedVertex = 0;
         bool found = false;
 
         for (std::vector<int>::const_iterator i = vertices.begin(); i != vertices.end(); ++i)
@@ -473,7 +473,7 @@ int ModelOBJ::addVertex(int hash, const Vertex *pVertex)
             index = *i;
             pCachedVertex = &m_vertexBuffer[index];
 
-            if (memcmp(pCachedVertex, pVertex, sizeof(Vertex)) == 0)
+            if (memcmp(pCachedVertex, pVertex, sizeof(ObjLoaderVertex)) == 0)
             {
                 found = true;
                 break;
@@ -540,9 +540,9 @@ void ModelOBJ::buildModelMeshes()
 void ModelOBJ::generateNormals()
 {
     const int *pTriangle = 0;
-    Vertex *pVertex0 = 0;
-    Vertex *pVertex1 = 0;
-    Vertex *pVertex2 = 0;
+    ObjLoaderVertex *pVertex0 = 0;
+    ObjLoaderVertex *pVertex1 = 0;
+    ObjLoaderVertex *pVertex2 = 0;
     float edge1[3] = {0.0f, 0.0f, 0.0f};
     float edge2[3] = {0.0f, 0.0f, 0.0f};
     float normal[3] = {0.0f, 0.0f, 0.0f};
@@ -617,9 +617,9 @@ void ModelOBJ::generateNormals()
 void ModelOBJ::generateTangents()
 {
     const int *pTriangle = 0;
-    Vertex *pVertex0 = 0;
-    Vertex *pVertex1 = 0;
-    Vertex *pVertex2 = 0;
+    ObjLoaderVertex *pVertex0 = 0;
+    ObjLoaderVertex *pVertex1 = 0;
+    ObjLoaderVertex *pVertex2 = 0;
     float edge1[3] = {0.0f, 0.0f, 0.0f};
     float edge2[3] = {0.0f, 0.0f, 0.0f};
     float texEdge1[2] = {0.0f, 0.0f};
@@ -1285,7 +1285,24 @@ bool ModelOBJ::importMaterials(const char *pszFilename)
 
 void ModelOBJ::toMesh(Mesh* mesh) const
 {
-	mesh->vertices = m_vertexBuffer;
+	/* Copy vertex data */
+	mesh->vertices.resize(getNumberOfVertices());
+	for (int32_t i = 0; i < getNumberOfVertices(); ++i) {
+		for (int32_t j = 0; j < 3; ++j) {
+			mesh->vertices[i].position[j] = m_vertexBuffer[i].position[j];
+			mesh->vertices[i].normal[j] = m_vertexBuffer[i].normal[j];
+			mesh->vertices[i].bitangent[j] = m_vertexBuffer[i].bitangent[j];
+		}
+
+		for (int32_t j = 0; j < 2; ++j) {
+			mesh->vertices[i].texCoord[j] = m_vertexBuffer[i].texCoord[j];
+			mesh->vertices[i].tangent[j] = m_vertexBuffer[i].tangent[j];
+			mesh->vertices[i].tangent[2*j] = m_vertexBuffer[i].tangent[2*j];
+		}
+	}
+	// mesh->vertices = m_vertexBuffer;
+
+	/* Copy triangle data */
 	mesh->triangles.resize(m_numberOfTriangles);
 	for (int32_t i = 0; i < m_numberOfTriangles; ++i) {
 		Triangle t;

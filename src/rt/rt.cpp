@@ -17,14 +17,56 @@ cl_mem cl_vert_mem;
 cl_mem cl_index_mem;
 GLuint gl_tex;
 rt_time_t rt_time;
+uint32_t window_size[] = {800, 600};
+RayBundle primary_ray_bundle(window_size[0]*window_size[1]);
+
+bool camera_change = true;
+
+Camera rt_cam;
 
 #define STEPS 16
 
+int32_t setRays(const CLKernelInfo& clkernelinfo);
+
+
+void gl_mouse(int x, int y)
+{
+	float delta = 0.001f;
+	float d_inc = delta * (window_size[1]*0.5f - y);//In opengl y points downwards
+	float d_yaw = delta * (x - window_size[0]*0.5f);
+
+	if (d_inc == 0.f && d_yaw == 0.f)
+		return;
+
+	rt_cam.modifyAbsYaw(d_yaw);
+	rt_cam.modifyPitch(d_inc);
+	glutWarpPointer(window_size[0] * 0.5f, window_size[1] * 0.5f);
+	camera_change = true;
+}
+
 void gl_key(unsigned char key, int x, int y)
 {
-	if (key == 'q')
+	float delta = 2.f;
+
+	switch (key){
+	case 'a':
+		rt_cam.panRight(-delta);
+		break;
+	case 's':
+		rt_cam.panForward(-delta);
+		break;
+	case 'w':
+		rt_cam.panForward(delta);
+		break;
+	case 'd':
+		rt_cam.panRight(delta);
+		break;
+	case 'q':
 		std::cout << std::endl << "Exiting..." << std::endl;
 		exit(1);
+		break;
+	}
+	camera_change = true;
 }
 
 
@@ -43,6 +85,20 @@ void gl_loop()
 			     sizeof(cl_int),&arg);
 	if (error_cl(err, "clSetKernelArg 6"))
 		exit(1);
+
+	// Set rays
+	// rt_cam.pos[2] = -30-arg;
+	// rt_cam.pos[1] = 3;
+	// rt_cam.modifyPitch(0.01f);
+	// rt_cam.panForward((8.f-arg)/16.f);
+
+	if (camera_change) {
+		if (setRays(clkernelinfo)){
+			std::cerr << "Error seting ray cl_mem object" << std::endl;
+			exit(1);
+		}
+		camera_change = false;
+	}
 
 	cl_time.snap_time();
 	execute_cl(clkernelinfo);
@@ -84,12 +140,15 @@ void gl_loop()
 	glutSwapBuffers();
 }
 
+void gl_keyboard(unsigned char key, int x, int y)
+{
+}
+
 int main (int argc, char** argv)
 {
 
 	CLInfo clinfo;
 	GLInfo glinfo;
-	uint32_t window_size[] = {800, 600};
 	cl_int err;
 	
 	/*---------------------- Initialize OpenGL and OpenCL ----------------------*/
@@ -222,41 +281,32 @@ int main (int argc, char** argv)
 		exit(1);
 
 
-	/*---------------------- Create and set Camera ---------------------------*/
-	Camera cam(makeVector(0,0,0), makeVector(0,0,1), makeVector(0,1,0), M_PI/4., 1.f);
+	/*---------------------- Set initial Camera paramaters -----------------------*/
+	rt_cam.set(makeVector(0,3,-30), makeVector(0,0,1), makeVector(0,1,0), M_PI/4.,
+		   window_size[0] / (float)window_size[1]);
 
-	/*---------------------- Create primary ray bundle -----------------------*/
-	RayBundle bundle(window_size[0]*window_size[1]);
-	if (!bundle.initialize()){
+	/*---------------------- Initialize primary ray bundle -----------------------*/
+	if (!primary_ray_bundle.initialize()){
 		std::cout << "Failed to initialize bundle";
 		return 1;
 	}
 
-	/*------------------ Set values for the primary ray bundle-----------------*/
-	PrimaryRayGenerator::set_rays(cam,bundle,window_size);
-
-	if (create_filled_cl_mem(clinfo,CL_MEM_READ_ONLY,
-				 bundle.size_in_bytes(),
-				 (void*)bundle.ray_array(),
-				 &cl_ray_mem))
+	/*---------------------- Initialize cl_mem for rays -------------------------*/
+	uint32_t ray_mem_size = 
+		RayBundle::expected_size_in_bytes(window_size[0]*window_size[1]);
+	if (create_empty_cl_mem(clinfo, 
+				CL_MEM_READ_ONLY,
+				ray_mem_size,
+				&cl_ray_mem))
 		exit(1);
-
 	std::cerr << "Ray buffer info:" << std::endl;
 	print_cl_mem_info(cl_ray_mem);
 
-	/* Set ray buffer argument */
-	std::cout << "Setting ray mem object argument for kernel" << std::endl;
-	err = clSetKernelArg(clkernelinfo.kernel,1,
-			     sizeof(cl_ray_mem),&cl_ray_mem);
-	if (error_cl(err, "clSetKernelArg 1"))
-		exit(1);
-
-
 	/*------------------------ GLUT and misc functions --------------------*/
-
 	rt_time.snap_time();
 
 	glutKeyboardFunc(gl_key);
+	glutMotionFunc(gl_mouse);
 	glutDisplayFunc(gl_loop);
 	glutIdleFunc(gl_loop);
 	glutMainLoop();	
@@ -265,64 +315,30 @@ int main (int argc, char** argv)
 }
 
 
+int32_t setRays(const CLKernelInfo& clkernelinfo)
+{
 
+	cl_int err;
 
-	// Ray* ray_mem = new Ray[bundle.size()];
+	/*------------------ Set values for the primary ray bundle-----------------*/
+	PrimaryRayGenerator::set_rays(rt_cam,primary_ray_bundle,window_size);
+	if (copy_to_cl_mem(*clkernelinfo.clinfo,
+			   primary_ray_bundle.size_in_bytes(),
+			   (void*)primary_ray_bundle.ray_array(),
+			   cl_ray_mem))
+		return 1;
 
-	// err = clEnqueueReadBuffer(clinfo.command_queue, //command_queue
-	// 			  cl_ray_mem, // cl_mem buffer,
-	// 			  true, // cl_bool blocking_read,
-	// 			  0, // size_t offset,
-	// 			  bundle.size_in_bytes(), // size_t cb,
-	// 			  (void*) ray_mem, // void * ptr,
-	// 			  0, // cl_uint num_events_in_wait_list,
-	// 			  NULL, // const cl_event * event_wait_list,
-	// 			  NULL //cl_event *event
-	// 	);
+	/* Set ray buffer argument */
+	// std::cout << "Setting ray mem object argument for kernel" << std::endl;
+	err = clSetKernelArg(clkernelinfo.kernel,1,
+			     sizeof(cl_ray_mem),&cl_ray_mem);
+	if (error_cl(err, "clSetKernelArg 1"))
+		return 1;
 
-	// for (uint32_t i = 0; i < window_size[0]*window_size[1]; ++i){
-	// 	// Ray& ray = bundle[i];
-	// 	Ray& orig_ray = bundle[i];
-	// 	Ray& cl_ray = ray_mem[i];
-	// 	// ray.dir.normalize();
-	// 	if (orig_ray.dir.z != cl_ray.dir.z) {
-	// 	std::cout << orig_ray.ori.x << " " 
-	// 		  << orig_ray.ori.y << " " 
-	// 		  << orig_ray.ori.z
-	// 		  << "   ->   "
-	// 		  << orig_ray.dir.x 
-	// 		  << " " << orig_ray.dir.y 
-	// 		  << " " << orig_ray.dir.z
-	// 		  << "    \t (" << i%window_size[0] 
-	// 		  << " , " << i /window_size[1] << ")" 
-	// 		  << std::endl;
-	// 	}
-	// 	// else
-	// 	// 	std::cout << "Ray " << i << " -> " 
-	// 	// 		  << cl_ray.dir.z << std::endl;
-	// }
+	return 0;
+}
 
-	// delete[] ray_mem;
-
-
-	// std::cerr << "Vertex info:" << std::endl;
-
-	// for (int i = 0 ; i < 6; i+= 3) {
-	
-	// 	float* v0 = obj.getVertexBuffer()[obj.getIndexBuffer()[i]].position;
-	// 	float* v1 = obj.getVertexBuffer()[obj.getIndexBuffer()[i+1]].position;
-	// 	float* v2 = obj.getVertexBuffer()[obj.getIndexBuffer()[i+2]].position;
-
-	// 	float* n0 = obj.getVertexBuffer()[obj.getIndexBuffer()[i]].normal;
-	// 	float* n1 = obj.getVertexBuffer()[obj.getIndexBuffer()[i+1]].normal;
-	// 	float* n2 = obj.getVertexBuffer()[obj.getIndexBuffer()[i+2]].normal;
-
-	// 	std::cerr << "v0: " << v0[0] << " " << v0[1] << " " << v0[2] << std::endl;
-	// 	std::cerr << "v1: " << v1[0] << " " << v1[1] << " " << v1[2] << std::endl;
-	// 	std::cerr << "v2: " << v2[0] << " " << v2[1] << " " << v2[2] << std::endl;
-
-	// 	std::cerr << "n0: " << n0[0] << " " << n0[1] << " " << n0[2] << std::endl;
-	// 	std::cerr << "n1: " << n1[0] << " " << n1[1] << " " << n1[2] << std::endl;
-	// 	std::cerr << "n2: " << n2[0] << " " << n2[1] << " " << n2[2] << std::endl;
-
-	// }
+// create_filled_cl_mem(*clkernelinfo.clinfo,CL_MEM_READ_ONLY,
+// 				 bundle.size_in_bytes(),
+// 				 (void*)bundle.ray_array(),
+// 				 &cl_ray_mem))

@@ -69,15 +69,21 @@ public:
 			return rays[i];
 		};
 
-	int size()
+	int32_t size()
 		{
 			return ray_count;
 		};
 
-	int size_in_bytes()
+	int32_t size_in_bytes()
 		{
 			return ray_count * sizeof(Ray);
 		};
+
+
+	static int32_t expected_size_in_bytes(int32_t expected_ray_count)
+		{
+			return expected_ray_count * sizeof(Ray);
+		}
 
 	Ray* ray_array()
 		{

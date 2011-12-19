@@ -50,12 +50,12 @@ struct CLKernelInfo
 	cl_kernel kernel;
 	size_t global_work_size[3];
 	size_t local_work_size[3];
-	int work_dim;
-	int arg_count;
+	int8_t work_dim;
+	int8_t arg_count; // If you're using more than 127 args you're doing sth wrong...
 
 	CLKernelInfo() 
 		{
-			for (int i = 0; i < 3; ++i) {
+			for (int8_t i = 0; i < 3; ++i) {
 				local_work_size[i] = 0;
 				global_work_size[i] = 0;
 			}
@@ -65,15 +65,18 @@ struct CLKernelInfo
 };
 
 cl_int init_cl(const GLInfo& glinfo, CLInfo* clinfo);
-int init_cl_kernel(CLInfo* clinfo, const char* kernel_file, 
+int32_t init_cl_kernel(CLInfo* clinfo, const char* kernel_file, 
 		   std::string kernel_name,
 		   CLKernelInfo* clkernelinfo);
-int create_empty_cl_mem(const CLInfo& clinfo, cl_mem_flags flags, int size, cl_mem* mem);
-int create_filled_cl_mem(const CLInfo& clinfo, cl_mem_flags flags, 
-			 int size, const void* values, cl_mem* mem);
-int create_cl_mem_from_gl_tex(const CLInfo& clinfo, const GLuint gl_tex, cl_mem* mem);
-int execute_cl(const CLKernelInfo& clkernelinfo);
-int error_cl(cl_int err_num, std::string msg);
+int32_t create_empty_cl_mem(const CLInfo& clinfo, cl_mem_flags flags,
+			uint32_t size, cl_mem* mem);
+int32_t create_filled_cl_mem(const CLInfo& clinfo, cl_mem_flags flags, 
+			 uint32_t size, const void* values, cl_mem* mem);
+int32_t copy_to_cl_mem(const CLInfo& clinfo, uint32_t size,
+		       const void* values, cl_mem& mem, uint32_t offset = 0);
+int32_t create_cl_mem_from_gl_tex(const CLInfo& clinfo, const GLuint gl_tex, cl_mem* mem);
+int32_t execute_cl(const CLKernelInfo& clkernelinfo);
+int32_t error_cl(cl_int err_num, std::string msg);
 void print_cl_info(const CLInfo& clinfo);
 void print_cl_image_2d_info(const cl_mem& mem);
 void print_cl_mem_info(const cl_mem& mem);

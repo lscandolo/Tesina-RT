@@ -60,14 +60,14 @@ public:
         std::string bumpMapFilename;
     };
 
-    // struct Vertex
-    // {
-    //     float position[3];
-    //     float texCoord[2];
-    //     float normal[3];
-    //     float tangent[4];
-    //     float bitangent[3];
-    // };
+    struct ObjLoaderVertex
+    {
+        float position[3];
+        float texCoord[2];
+        float normal[3];
+        float tangent[4];
+        float bitangent[3];
+    };
 
     struct ModelMesh
     {
@@ -107,9 +107,9 @@ public:
 
     const std::string &getPath() const;
 
-    const Vertex &getVertex(int i) const;
-    const Vertex *getVertexBuffer() const;
-    Vertex *getVertexBuffer();
+    const ObjLoaderVertex &getVertex(int i) const;
+    const ObjLoaderVertex *getVertexBuffer() const;
+    ObjLoaderVertex *getVertexBuffer();
     int getVertexSize() const;
 
     bool hasNormals() const;
@@ -130,7 +130,7 @@ private:
         int v0, int v1, int v2,
         int vt0, int vt1, int vt2,
         int vn0, int vn1, int vn2);
-    int addVertex(int hash, const Vertex *pVertex);
+    int addVertex(int hash, const ObjLoaderVertex *pVertex);
     void bounds(float center[3], float &width, float &height,
         float &length, float &radius) const;
     void buildModelMeshes();
@@ -163,7 +163,7 @@ private:
 
     std::vector<ModelMesh> m_meshes;
     std::vector<Material> m_materials;
-    std::vector<Vertex> m_vertexBuffer;
+    std::vector<ObjLoaderVertex> m_vertexBuffer;
     std::vector<int> m_indexBuffer;
     std::vector<int> m_attributeBuffer;
     std::vector<float> m_vertexCoords;
@@ -227,17 +227,17 @@ inline int ModelOBJ::getNumberOfVertices() const
 inline const std::string &ModelOBJ::getPath() const
 { return m_directoryPath; }
 
-inline const Vertex &ModelOBJ::getVertex(int i) const
+inline const ModelOBJ::ObjLoaderVertex &ModelOBJ::getVertex(int i) const
 { return m_vertexBuffer[i]; }
 
-inline Vertex const *ModelOBJ::getVertexBuffer() const 
+inline ModelOBJ::ObjLoaderVertex const *ModelOBJ::getVertexBuffer() const 
 { return &m_vertexBuffer[0]; }
 
-inline Vertex *ModelOBJ::getVertexBuffer() 
+inline ModelOBJ::ObjLoaderVertex *ModelOBJ::getVertexBuffer() 
 { return &m_vertexBuffer[0]; }
 
 inline int ModelOBJ::getVertexSize() const
-{ return static_cast<int>(sizeof(Vertex)); }
+{ return static_cast<int>(sizeof(ObjLoaderVertex)); }
 
 inline bool ModelOBJ::hasNormals() const
 { return m_hasNormals; }

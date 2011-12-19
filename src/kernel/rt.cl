@@ -236,7 +236,6 @@ triangle_reflect(global Vertex* vertex_buffer,
 	ref.spec = pow(ref.spec,8);
 		
 	return ref;
-
 }
 
 kernel void 
@@ -260,11 +259,6 @@ trace(write_only image2d_t img,
 	int ray_index = x + y * (width+1);
 
 	private Ray ray = ray_buffer[ray_index];
-	ray.ori[2] -= 25.f;
-	/* ray.ori[2] -= 25.f + div*5; */
-	ray.ori[1] += 3.f;
-
-	/* ray.ori[2] -= 15.f; */
 
 	bool ray_hit = false;
 	float ray_t = ray.tMax;
@@ -430,5 +424,3 @@ trace(write_only image2d_t img,
 	write_imagef(img, coords, valf);
 
 }
-
-
