@@ -77,7 +77,7 @@ void Camera::modifyYaw(float dy)
 void Camera::modifyRoll(float dr)
 {
 
-	up = up * cos(dr) + right.normalized() * sin(dr);
+	up = up.normalized() * cos(dr) + right.normalized() * sin(dr);
 	
 	right = right_handed ? cross(dir,up) : cross(up,dir);
 
@@ -91,11 +91,14 @@ void Camera::modifyRoll(float dr)
 	up    *=  PlaneHeight / up.norm();
 }
 
+//!!
 void Camera::modifyPitch(float dp)
 {
 	dir = dir * cos(dp) + up.normalized() * sin(dp);
+	dir.normalize();
 	
 	up =    right_handed ? cross(right,dir) : cross(dir,right);
+	right = right_handed ? cross(dir,up) : cross(up,dir);
 
 	/*Distance from center of viewing plane to top*/
 	/*Assuming a hither distance of 1, it is: tan(fov/2)*/
@@ -103,6 +106,7 @@ void Camera::modifyPitch(float dp)
             
 	/*Normalize basis vectors and rescale them 
 	  according to FOV and aspect ratio*/
+	right *= (PlaneHeight*aspect) / right.norm();
 	up    *=  PlaneHeight / up.norm();
 }
 

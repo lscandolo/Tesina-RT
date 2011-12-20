@@ -246,6 +246,33 @@ int32_t copy_to_cl_mem(const CLInfo& clinfo, uint32_t size,
 	if (error_cl(err, "clEnqueueWriteBuffer"))
 	    return 1;
 
+
+	err = clFinish(clinfo.command_queue);
+	if (error_cl(err, "clFinsish"))
+		return 1;
+
+	return 0;
+}
+
+int32_t copy_from_cl_mem(const CLInfo& clinfo, uint32_t size,
+			 void* values, cl_mem& mem, uint32_t offset){
+	cl_int err;
+	err = clEnqueueReadBuffer(clinfo.command_queue,
+				  mem,
+				  true,  /* Blocking write */
+				  offset, /* Offset */
+				  size,  /* Bytes to read */
+				  values, /* Pointer to write to */
+				  0,        /*Not using event lists for now*/
+				  NULL,
+				  NULL);
+	if (error_cl(err, "clEnqueueReadBuffer"))
+	    return 1;
+
+	err = clFinish(clinfo.command_queue);
+	if (error_cl(err, "clFinsish"))
+		return 1;
+
 	return 0;
 }
 
@@ -287,7 +314,7 @@ void print_cl_info(const CLInfo& clinfo)
 	std::cerr << "\tOpenCL device vendor: " << device_vendor << std::endl;
 	std::cerr << "\tOpenCL device name: " << device_name << std::endl;
 	std::cerr << "\tOpenCL device OpenCL version: " << device_cl_version << std::endl;
-	std::cerr << "\tOpenCL device OpenCl C version: " << c_version << std::endl;
+	std::cerr << "\tOpenCL device OpenCL C version: " << c_version << std::endl;
 
 	std::cerr << std::endl;
 }
@@ -295,6 +322,7 @@ void print_cl_info(const CLInfo& clinfo)
 void print_cl_mem_info(const cl_mem& mem){
 
 	size_t mem_size, bytes_written;
+	cl_mem_object_type mem_type;
 	cl_int err;
 
 	err = clGetMemObjectInfo(mem,
@@ -307,6 +335,33 @@ void print_cl_mem_info(const cl_mem& mem){
 		return;
 
 	std::cerr << "CL mem object size: " << mem_size << std::endl;
+
+	err = clGetMemObjectInfo(mem,
+				 CL_MEM_TYPE,
+				 sizeof(cl_mem_object_type),
+				 &mem_type,
+				 &bytes_written);
+
+	if (error_cl(err, "clGetMemObjectInfo CL_MEM_TYPE"))
+		return;
+
+	std::cerr << "CL mem type: ";
+	switch (mem_type) {
+	case CL_MEM_OBJECT_BUFFER:
+		std::cerr << "CL_MEM_OBJECT_BUFFER" << std::endl;
+		break;
+	case CL_MEM_OBJECT_IMAGE2D:
+		std::cerr << "CL_MEM_OBJECT_IMAGE2D" << std::endl;
+		break;
+	case CL_MEM_OBJECT_IMAGE3D:
+		std::cerr << "CL_MEM_OBJECT_IMAGE3D" << std::endl;
+		break;
+	default:
+		std::cerr << "UNKNOWN" << std::endl;
+		break;
+	}
+
+
 }
 
 void print_cl_image_2d_info(const cl_mem& mem)

@@ -92,8 +92,8 @@ public:
 
 private:
 
-	int32_t ray_count;
 	Ray* rays;
+	int32_t ray_count;
 
 };
 

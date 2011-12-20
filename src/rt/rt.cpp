@@ -9,8 +9,10 @@
 #include <rt/scene.hpp>
 #include <rt/obj-loader.hpp>
 #include <rt/bvh.hpp>
+#include <rt/cl_aux.hpp>
 
-CLKernelInfo clkernelinfo;
+CLKernelInfo rt_clkernelinfo;
+CLKernelInfo ray_clkernelinfo;
 cl_mem cl_ray_mem;
 cl_mem cl_tex_mem;
 cl_mem cl_vert_mem;
@@ -81,7 +83,7 @@ void gl_loop()
 
 	cl_int arg = i%STEPS;
 	// Set div argument
-	err = clSetKernelArg(clkernelinfo.kernel,6,
+	err = clSetKernelArg(rt_clkernelinfo.kernel,6,
 			     sizeof(cl_int),&arg);
 	if (error_cl(err, "clSetKernelArg 6"))
 		exit(1);
@@ -93,7 +95,7 @@ void gl_loop()
 	// rt_cam.panForward((8.f-arg)/16.f);
 
 	if (camera_change) {
-		if (setRays(clkernelinfo)){
+		if (setRays(ray_clkernelinfo)){
 			std::cerr << "Error seting ray cl_mem object" << std::endl;
 			exit(1);
 		}
@@ -101,7 +103,7 @@ void gl_loop()
 	}
 
 	cl_time.snap_time();
-	execute_cl(clkernelinfo);
+	execute_cl(rt_clkernelinfo);
 	// double cl_msec = cl_time.msec_since_snap();
 	// std::cout << "Time spent on opencl: " << cl_msec << " msec." << std::endl;
 	
@@ -140,10 +142,6 @@ void gl_loop()
 	glutSwapBuffers();
 }
 
-void gl_keyboard(unsigned char key, int x, int y)
-{
-}
-
 int main (int argc, char** argv)
 {
 
@@ -174,22 +172,36 @@ int main (int argc, char** argv)
 		exit(1);
 	print_cl_image_2d_info(cl_tex_mem);
 
-	if (init_cl_kernel(&clinfo,"src/kernel/rt.cl", "trace", &clkernelinfo)){
+	/* ------------------ Initialize main opencl kernel ----------------------*/
+
+	if (init_cl_kernel(&clinfo,"src/kernel/rt.cl", "trace", &rt_clkernelinfo)){
 		std::cerr << "Failed to initialize CL kernel" << std::endl;
 		exit(1);
 	} else {
-		std::cerr << "Initialized CL kernel succesfully" << std::endl;
+		std::cerr << "Initialized main CL kernel succesfully" << std::endl;
 	}
-	clkernelinfo.work_dim = 2;
-	clkernelinfo.arg_count = 2;
-	clkernelinfo.global_work_size[0] = window_size[0];
-	clkernelinfo.global_work_size[1] = window_size[1];
+	rt_clkernelinfo.work_dim = 2;
+	rt_clkernelinfo.arg_count = 7;
+	rt_clkernelinfo.global_work_size[0] = window_size[0];
+	rt_clkernelinfo.global_work_size[1] = window_size[1];
 
 	std::cout << "Setting texture mem object argument for kernel" << std::endl;
-	err = clSetKernelArg(clkernelinfo.kernel,0,sizeof(cl_mem),&cl_tex_mem);
+	err = clSetKernelArg(rt_clkernelinfo.kernel,0,sizeof(cl_mem),&cl_tex_mem);
 	if (error_cl(err, "clSetKernelArg 0"))
 		exit(1);
-	
+
+	/* ------------------ Initialize ray opencl kernel ----------------------*/
+
+	if (init_cl_kernel(&clinfo,"src/kernel/ray.cl", "create_ray", &ray_clkernelinfo)){
+		std::cerr << "Failed to initialize CL kernel" << std::endl;
+		exit(1);
+	} else {
+		std::cerr << "Initialized ray CL kernel succesfully" << std::endl;
+	}
+	ray_clkernelinfo.work_dim = 2;
+	ray_clkernelinfo.arg_count = 5;
+	ray_clkernelinfo.global_work_size[0] = window_size[0];
+	ray_clkernelinfo.global_work_size[1] = window_size[1];
 
 	/*---------------------- Load model ---------------------------*/
 	ModelOBJ obj;
@@ -205,14 +217,9 @@ int main (int argc, char** argv)
 
 	/*---------------------- Print model data ----------------------*/
 	
-	// int triangles = obj.getNumberOfTriangles();
 	int triangles = mesh.triangleCount();
 	std::cerr << "Triangle count: " << triangles << std::endl;
 	
-	// int meshes = obj.getNumberOfModelMeshes();
-	// std::cerr << "Mesh count: " << meshes << std::endl;
-	
-	// int vertices = obj.getNumberOfVertices();
 	int vertices = mesh.vertexCount();
 	std::cerr << "Vertex count: " << vertices << std::endl;
 
@@ -228,7 +235,7 @@ int main (int argc, char** argv)
 
 
 	std::cout << "Setting vertex mem object argument for kernel" << std::endl;
-	err = clSetKernelArg(clkernelinfo.kernel,2,sizeof(cl_mem),&cl_vert_mem);
+	err = clSetKernelArg(rt_clkernelinfo.kernel,2,sizeof(cl_mem),&cl_vert_mem);
 	if (error_cl(err, "clSetKernelArg 2"))
 		exit(1);
 
@@ -240,7 +247,7 @@ int main (int argc, char** argv)
 	std::cout << "Index buffer info:" << std::endl;
 	print_cl_mem_info(cl_index_mem);
 	std::cout << "Setting index mem object argument for kernel" << std::endl;
-	err = clSetKernelArg(clkernelinfo.kernel,3,sizeof(cl_mem),&cl_index_mem);
+	err = clSetKernelArg(rt_clkernelinfo.kernel,3,sizeof(cl_mem),&cl_index_mem);
 	if (error_cl(err, "clSetKernelArg 3"))
 		exit(1);
 
@@ -264,7 +271,7 @@ int main (int argc, char** argv)
 				 &cl_bvh_nodes))
 		exit(1);
 	std::cout << "Setting bvh node array  argument for kernel" << std::endl;
-	err = clSetKernelArg(clkernelinfo.kernel,4,sizeof(cl_mem),&cl_bvh_nodes);
+	err = clSetKernelArg(rt_clkernelinfo.kernel,4,sizeof(cl_mem),&cl_bvh_nodes);
 	if (error_cl(err, "clSetKernelArg 4"))
 		exit(1);
 
@@ -276,7 +283,7 @@ int main (int argc, char** argv)
 				 &cl_bvh_ordered_tri))
 		exit(1);
 	std::cout << "Setting bvh ordered triangles argument for kernel" << std::endl;
-	err = clSetKernelArg(clkernelinfo.kernel,5,sizeof(cl_mem),&cl_bvh_ordered_tri);
+	err = clSetKernelArg(rt_clkernelinfo.kernel,5,sizeof(cl_mem),&cl_bvh_ordered_tri);
 	if (error_cl(err, "clSetKernelArg 5"))
 		exit(1);
 
@@ -295,12 +302,18 @@ int main (int argc, char** argv)
 	uint32_t ray_mem_size = 
 		RayBundle::expected_size_in_bytes(window_size[0]*window_size[1]);
 	if (create_empty_cl_mem(clinfo, 
-				CL_MEM_READ_ONLY,
+				CL_MEM_READ_WRITE,
 				ray_mem_size,
 				&cl_ray_mem))
 		exit(1);
 	std::cerr << "Ray buffer info:" << std::endl;
 	print_cl_mem_info(cl_ray_mem);
+
+	/* Set ray buffer argument */
+	std::cout << "Setting ray mem object argument for kernel" << std::endl;
+	err = clSetKernelArg(rt_clkernelinfo.kernel,1,
+			     sizeof(cl_ray_mem),&cl_ray_mem);
+	if (error_cl(err, "clSetKernelArg 1"))
 
 	/*------------------------ GLUT and misc functions --------------------*/
 	rt_time.snap_time();
@@ -320,9 +333,12 @@ int32_t setRays(const CLKernelInfo& clkernelinfo)
 
 	cl_int err;
 
-	/*------------------ Set values for the primary ray bundle-----------------*/
+#if 0
+
+	/*--------------- Set values for the primary ray bundle-------------*/
 	PrimaryRayGenerator::set_rays(rt_cam,primary_ray_bundle,window_size);
-	if (copy_to_cl_mem(*clkernelinfo.clinfo,
+
+	if (copy_to_cl_mem(*rt_clkernelinfo.clinfo,
 			   primary_ray_bundle.size_in_bytes(),
 			   (void*)primary_ray_bundle.ray_array(),
 			   cl_ray_mem))
@@ -330,15 +346,50 @@ int32_t setRays(const CLKernelInfo& clkernelinfo)
 
 	/* Set ray buffer argument */
 	// std::cout << "Setting ray mem object argument for kernel" << std::endl;
-	err = clSetKernelArg(clkernelinfo.kernel,1,
+	err = clSetKernelArg(rt_clkernelinfo.kernel,1,
 			     sizeof(cl_ray_mem),&cl_ray_mem);
 	if (error_cl(err, "clSetKernelArg 1"))
 		return 1;
+#else
 
+	/*-------------- Set cam parameters as arguments ------------------*/
+	/*-- My OpenCL implementation cannot handle using float3 as arguments!--*/
+	cl_float4 cam_pos = vec3_to_float4(rt_cam.pos);
+	cl_float4 cam_dir = vec3_to_float4(rt_cam.dir);
+	cl_float4 cam_right = vec3_to_float4(rt_cam.right);
+	cl_float4 cam_up = vec3_to_float4(rt_cam.up);
+
+	err = clSetKernelArg(ray_clkernelinfo.kernel, 1, 
+			     sizeof(cl_float4), &cam_pos);
+	if (error_cl(err, "clSetKernelArg 1"))
+		return 1;
+
+	err = clSetKernelArg(ray_clkernelinfo.kernel, 2, 
+			     sizeof(cl_float4), &cam_dir);
+	if (error_cl(err, "clSetKernelArg 2"))
+		return 1;
+
+	err = clSetKernelArg(ray_clkernelinfo.kernel, 3, 
+			     sizeof(cl_float4), &cam_right);
+	if (error_cl(err, "clSetKernelArg 3"))
+		return 1;
+
+	err = clSetKernelArg(ray_clkernelinfo.kernel, 4, 
+			     sizeof(cl_float4), &cam_up);
+	if (error_cl(err, "clSetKernelArg 4"))
+		return 1;
+
+	/*------------------ Set ray mem object as argument ------------*/
+
+	err = clSetKernelArg(ray_clkernelinfo.kernel, 0,
+			     sizeof(cl_mem),&cl_ray_mem);
+
+	if (error_cl(err, "clSetKernelArg 4"))
+		return 1;
+
+	if (execute_cl(ray_clkernelinfo))
+		std::cerr << "Error executing ray kernel" << std::endl;
+
+#endif
 	return 0;
 }
-
-// create_filled_cl_mem(*clkernelinfo.clinfo,CL_MEM_READ_ONLY,
-// 				 bundle.size_in_bytes(),
-// 				 (void*)bundle.ray_array(),
-// 				 &cl_ray_mem))
