@@ -7,6 +7,7 @@
 #include <rt/mesh.hpp>
 #include <rt/math.hpp>
 #include <rt/vector.hpp>
+#include <rt/cl_aux.hpp>
 
 typedef uint32_t index_t;
 
@@ -20,7 +21,7 @@ struct BBox {
 	vec3 centroid() const;
 	float surfaceArea() const;
 
-	vec3 hi,lo;
+	cl_float3 hi,lo;
 };
 
 class BVHNode {

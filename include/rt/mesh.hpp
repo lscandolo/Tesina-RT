@@ -6,6 +6,7 @@
 
 #include <rt/vector.hpp>
 #include <rt/geom.hpp>
+#include <rt/cl_aux.hpp>
 
 typedef uint32_t index_t;
 typedef uint32_t tri_id;
@@ -18,12 +19,26 @@ struct Triangle
 
 struct Vertex
 {
-        float position[3];
-        float texCoord[2];
-        float normal[3];
-        float tangent[4];
-        float bitangent[3];
+        cl_float3 position;
+        cl_float3 normal;
+        cl_float4 tangent;
+        cl_float3 bitangent;
+        cl_float2 texCoord;
 };
+
+// struct Triangle
+// {
+// 	index_t v[3];
+// };
+
+// struct Vertex
+// {
+//         float position[3];
+//         float texCoord[2];
+//         float normal[3];
+//         float tangent[4];
+//         float bitangent[3];
+// };
 
 class Material{}; // Get own file for this guy!!
 

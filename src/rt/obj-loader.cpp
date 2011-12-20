@@ -1288,19 +1288,12 @@ void ModelOBJ::toMesh(Mesh* mesh) const
 	/* Copy vertex data */
 	mesh->vertices.resize(getNumberOfVertices());
 	for (int32_t i = 0; i < getNumberOfVertices(); ++i) {
-		for (int32_t j = 0; j < 3; ++j) {
-			mesh->vertices[i].position[j] = m_vertexBuffer[i].position[j];
-			mesh->vertices[i].normal[j] = m_vertexBuffer[i].normal[j];
-			mesh->vertices[i].bitangent[j] = m_vertexBuffer[i].bitangent[j];
-		}
-
-		for (int32_t j = 0; j < 2; ++j) {
-			mesh->vertices[i].texCoord[j] = m_vertexBuffer[i].texCoord[j];
-			mesh->vertices[i].tangent[j] = m_vertexBuffer[i].tangent[j];
-			mesh->vertices[i].tangent[2*j] = m_vertexBuffer[i].tangent[2*j];
-		}
+		mesh->vertices[i].position = makeFloat3(m_vertexBuffer[i].position);
+		mesh->vertices[i].normal   = makeFloat3(m_vertexBuffer[i].normal);
+		mesh->vertices[i].tangent   = makeFloat4(m_vertexBuffer[i].tangent);
+		mesh->vertices[i].bitangent   = makeFloat3(m_vertexBuffer[i].bitangent);
+		mesh->vertices[i].texCoord   = makeFloat2(m_vertexBuffer[i].texCoord);
 	}
-	// mesh->vertices = m_vertexBuffer;
 
 	/* Copy triangle data */
 	mesh->triangles.resize(m_numberOfTriangles);

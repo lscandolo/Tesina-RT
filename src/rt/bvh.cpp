@@ -8,32 +8,21 @@ BBox::BBox()
 	float M = std::numeric_limits<float>::max();
 	float m = std::numeric_limits<float>::min();
 	
-	hi = makeVector(m,m,m);
-	lo = makeVector(M,M,M);
+	hi = makeFloat3(m,m,m);
+	lo = makeFloat3(M,M,M);
 }
 
 BBox::BBox(const Vertex& a, const Vertex& b, const Vertex& c)
 {
-	hi = makeVector(std::max(std::max(a.position[0],b.position[0]),c.position[0]),
-			std::max(std::max(a.position[1],b.position[1]),c.position[1]),
-			std::max(std::max(a.position[2],b.position[2]),c.position[2]));
-
-	lo = makeVector(std::min(std::min(a.position[0],b.position[0]),c.position[0]),
-			std::min(std::min(a.position[1],b.position[1]),c.position[1]),
-			std::min(std::min(a.position[2],b.position[2]),c.position[2]));
+	hi = max(a.position, max(b.position,c.position));
+	lo = min(a.position, min(b.position,c.position));
 }
 
 void 
 BBox::set(const Vertex& a, const Vertex& b, const Vertex& c)
 {
-	hi = makeVector(std::max(std::max(a.position[0],b.position[0]),c.position[0]),
-			std::max(std::max(a.position[1],b.position[1]),c.position[1]),
-			std::max(std::max(a.position[2],b.position[2]),c.position[2]));
-
-	lo = makeVector(std::min(std::min(a.position[0],b.position[0]),c.position[0]),
-			std::min(std::min(a.position[1],b.position[1]),c.position[1]),
-			std::min(std::min(a.position[2],b.position[2]),c.position[2]));
-
+	hi = max(a.position, max(b.position,c.position));
+	lo = min(a.position, min(b.position,c.position));
 }
 
 void 
@@ -46,9 +35,9 @@ BBox::merge(const BBox& b)
 uint8_t 
 BBox::largestAxis() const
 {
-	float dx = hi[0] - lo[0];
-	float dy = hi[1] - lo[1];
-	float dz = hi[2] - lo[2];
+	float dx = hi.x - lo.x;
+	float dy = hi.y - lo.y;
+	float dz = hi.z - lo.z;
 	if (dx > dy && dx > dz)
 		return 0;
 	else if (dy > dz)
@@ -60,13 +49,18 @@ BBox::largestAxis() const
 vec3 
 BBox::centroid() const
 {
-	return (hi+lo) * 0.5f;
+	vec3 hi_vec = float3_to_vec3(hi);
+	vec3 lo_vec = float3_to_vec3(lo);
+	return (hi_vec+lo_vec) * 0.5f;
+	// return vec3_to_float3((hi_vec+lo_vec) * 0.5f);
 }
 
 float 
 BBox::surfaceArea() const
 {
-	vec3 diff = max(hi - lo, makeVector(0.f,0.f,0.f));
+	vec3 hi_vec = float3_to_vec3(hi);
+	vec3 lo_vec = float3_to_vec3(lo);
+	vec3 diff = max(hi_vec - lo_vec, makeVector(0.f,0.f,0.f));
 	return (diff[0] * (diff[1] + diff[2]) + diff[1] * diff[2]) * 2.f;
 	
 }
@@ -221,8 +215,10 @@ BVHNode::chooseSplitLocationSAH(const std::vector<BBox>& bboxes,
 	// Allocate buckets
 	SAHBucket buckets[bucket_count];
 	
-	float outer_bbox_length = m_bbox.hi[axis] - m_bbox.lo[axis];
-	float outer_bbox_min   = m_bbox.lo[axis]; 
+	vec3 hi_vec = float3_to_vec3(m_bbox.hi);
+	vec3 lo_vec = float3_to_vec3(m_bbox.lo);
+	float outer_bbox_length = hi_vec[axis] - lo_vec[axis];
+	float outer_bbox_min   = lo_vec[axis]; 
 	float outer_bbox_surface_area = m_bbox.surfaceArea();
 
 	// Initialize buckets

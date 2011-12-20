@@ -6,7 +6,7 @@ typedef struct
 	float tMin;
 	float tMax;
 } Ray;
-
+ 
 kernel void
 create_ray(global Ray* ray_buffer,
 	   read_only float4 pos,

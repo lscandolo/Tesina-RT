@@ -1,8 +1,3 @@
-typedef struct 
-{
-	float v[3];
-} vec3;
-
 typedef struct
 {
 	float3 ori;
@@ -14,19 +9,19 @@ typedef struct
 
 typedef struct 
 {
-        float position[3];
-        float texCoord[2];
-        float normal[3];
-        float tangent[4];
-        float bitangent[3];
+        float3 position;
+        float3 normal;
+        float4 tangent;
+        float3 bitangent;
+        float2 texCoord;
 } Vertex;
 
 
 typedef unsigned int tri_id;
 
 typedef struct {
-	float hi[3];
-	float lo[3];
+	float3 hi;
+	float3 lo;
 } BBox;
 
 typedef struct {
@@ -70,23 +65,10 @@ bbox_hit(BBox bbox,
 	float tMin = ray.tMin;
 	float tMax = ray.tMax;
 
-	/* float4 axis_t_lo, axis_t_hi; */
-
-	/* float4 bboxlo = (float4)(bbox.lo[0],bbox.lo[1],bbox.lo[2],0); */
-	/* float4 bboxhi = (float4)(bbox.hi[0],bbox.hi[1],bbox.hi[2],0); */
-
-	/* axis_t_lo = (bboxlo - ray.ori) * ray.invDir; */
-	/* axis_t_hi = (bboxhi - ray.ori) * ray.invDir; */
-
-	/* float4 axis_t_max = max(axis_t_lo, axis_t_hi); */
-	/* float4 axis_t_min = min(axis_t_lo, axis_t_hi); */
-
 	float3 axis_t_lo, axis_t_hi;
-	float3 bboxlo = (float3)(bbox.lo[0],bbox.lo[1],bbox.lo[2]);
-	float3 bboxhi = (float3)(bbox.hi[0],bbox.hi[1],bbox.hi[2]);
 
-	axis_t_lo = (bboxlo - ray.ori) * ray.invDir;
-	axis_t_hi = (bboxhi - ray.ori) * ray.invDir;
+	axis_t_lo = (bbox.lo - ray.ori) * ray.invDir;
+	axis_t_hi = (bbox.hi - ray.ori) * ray.invDir;
 
 	float3 axis_t_max = max(axis_t_lo, axis_t_hi);
 	float3 axis_t_min = min(axis_t_lo, axis_t_hi);
@@ -125,9 +107,9 @@ triangle_hit(global Vertex* vertex_buffer,
 	global Vertex* vx1 = &vertex_buffer[index_buffer[3*triangle+1]];
 	global Vertex* vx2 = &vertex_buffer[index_buffer[3*triangle+2]];
 
-	float3 v0 = (float3)(vx0->position[0], vx0->position[1], vx0->position[2]);
-	float3 v1 = (float3)(vx1->position[0], vx1->position[1], vx1->position[2]);
-	float3 v2 = (float3)(vx2->position[0], vx2->position[1], vx2->position[2]);
+	float3 v0 = vx0->position;
+	float3 v1 = vx1->position;
+	float3 v2 = vx2->position;
 	
 	float3 e1 = v1 - v0;
 	float3 e2 = v2 - v0;
@@ -209,9 +191,9 @@ triangle_reflect(global Vertex* vertex_buffer,
 	global Vertex* vx1 = &vertex_buffer[index_buffer[3*info.id+1]];
 	global Vertex* vx2 = &vertex_buffer[index_buffer[3*info.id+2]];
 
-	float3 n0 = normalize((float3)(vx0->normal[0], vx0->normal[1], vx0->normal[2]));
-	float3 n1 = normalize((float3)(vx1->normal[0], vx1->normal[1], vx1->normal[2]));
-	float3 n2 = normalize((float3)(vx2->normal[0], vx2->normal[1], vx2->normal[2]));
+	float3 n0 = normalize(vx0->normal);
+	float3 n1 = normalize(vx1->normal);
+	float3 n2 = normalize(vx2->normal);
 
 	float3 d = ray.dir.xyz;
 
