@@ -21,6 +21,7 @@ env['LIBPATH'] = libpath
 rt_primitives_lib = env.StaticLibrary('lib/rt-primitives' ,
                                       ['src/rt/vector.cpp',
                                        'src/rt/math.cpp',
+                                       'src/rt/cl_aux.cpp',
                                        'src/rt/timing.cpp',
                                        'src/rt/ray.cpp',
                                        'src/rt/mesh.cpp',

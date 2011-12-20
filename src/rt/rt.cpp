@@ -299,6 +299,7 @@ int main (int argc, char** argv)
 	}
 
 	/*---------------------- Initialize cl_mem for rays -------------------------*/
+
 	uint32_t ray_mem_size = 
 		RayBundle::expected_size_in_bytes(window_size[0]*window_size[1]);
 	if (create_empty_cl_mem(clinfo, 

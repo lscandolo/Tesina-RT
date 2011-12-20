@@ -1,12 +1,23 @@
 #include <rt/ray.hpp>
 
 
+/* Constructor */
+Ray::Ray( const vec3& origin, const vec3& direction) {
+	ori = vec3_to_float3(origin);
+	dir = vec3_to_float3(direction);
+	invDir = vec3_to_float3(inv(direction));
+	tMin = 0.f;
+	tMax = std::numeric_limits<float>::max();
+}
+
+
 /* Value setter */
 void Ray::set( const vec3& origin, const vec3& direction)
 {
-	ori = origin; dir = direction;
-	invDir = inv(direction);
-	tMin = 0.f; 
+	ori = vec3_to_float3(origin);
+	dir = vec3_to_float3(direction);
+	invDir = vec3_to_float3(inv(direction));
+	tMin = 0.f;
 	tMax = std::numeric_limits<float>::max();
 }
 

@@ -1,13 +1,13 @@
-typedef struct vec3_t
+typedef struct 
 {
 	float v[3];
 } vec3;
 
-typedef struct 
+typedef struct
 {
-	float ori[3];
-	float dir[3];
-	float invDir[3];
+	float3 ori;
+	float3 dir;
+	float3 invDir;
 	float tMin;
 	float tMax;
 } Ray;
@@ -45,7 +45,8 @@ typedef struct {
 	bool hit;
 	float t;
 	unsigned int id;
-
+	float2 uv;
+ 
 } hit_info;
 
 void __attribute__((always_inline))
@@ -55,6 +56,7 @@ merge_hit_info(hit_info* best_info, hit_info* new_info){
 		if ((*new_info).t < (*best_info).t){
 			(*best_info).t = (*new_info).t;
 			(*best_info).id = (*new_info).id;
+			(*best_info).uv = (*new_info).uv;
 		}
 	}
 }
@@ -68,19 +70,35 @@ bbox_hit(BBox bbox,
 	float tMin = ray.tMin;
 	float tMax = ray.tMax;
 
-	float axis_t_lo, axis_t_hi;
+	/* float4 axis_t_lo, axis_t_hi; */
 
-	for (int i = 0; i < 3; ++i) {
-		if (ray.dir[i] > -0.00001f && ray.dir[i] < 0.00001f)
-			continue;
-		float inv_dir = ray.invDir[i];
+	/* float4 bboxlo = (float4)(bbox.lo[0],bbox.lo[1],bbox.lo[2],0); */
+	/* float4 bboxhi = (float4)(bbox.hi[0],bbox.hi[1],bbox.hi[2],0); */
 
-		axis_t_lo = (bbox.lo[i] - ray.ori[i]) * inv_dir;
-		axis_t_hi = (bbox.hi[i] - ray.ori[i]) * inv_dir;
-		
-		tMin = max(tMin, min(axis_t_lo,axis_t_hi));
-		tMax = min(tMax, max(axis_t_lo,axis_t_hi));
+	/* axis_t_lo = (bboxlo - ray.ori) * ray.invDir; */
+	/* axis_t_hi = (bboxhi - ray.ori) * ray.invDir; */
 
+	/* float4 axis_t_max = max(axis_t_lo, axis_t_hi); */
+	/* float4 axis_t_min = min(axis_t_lo, axis_t_hi); */
+
+	float3 axis_t_lo, axis_t_hi;
+	float3 bboxlo = (float3)(bbox.lo[0],bbox.lo[1],bbox.lo[2]);
+	float3 bboxhi = (float3)(bbox.hi[0],bbox.hi[1],bbox.hi[2]);
+
+	axis_t_lo = (bboxlo - ray.ori) * ray.invDir;
+	axis_t_hi = (bboxhi - ray.ori) * ray.invDir;
+
+	float3 axis_t_max = max(axis_t_lo, axis_t_hi);
+	float3 axis_t_min = min(axis_t_lo, axis_t_hi);
+
+	if (fabs(ray.invDir.x) > 0.0001f) {
+		tMin = max(tMin, axis_t_min.x); tMax = min(tMax, axis_t_max.x); 
+	}
+	if (fabs(ray.invDir).y > 0.0001f) {
+		tMin = max(tMin, axis_t_min.y); tMax = min(tMax, axis_t_max.y);
+	}
+	if (fabs(ray.invDir.z) > 0.0001f) {
+	    tMin = max(tMin, axis_t_min.z); tMax = min(tMax, axis_t_max.z);
 	}
 
 	if (tMin < tMax) {
@@ -100,8 +118,8 @@ triangle_hit(global Vertex* vertex_buffer,
 	hit_info info;
 	info.hit = false;
 
-	float3 p = (float3)(ray.ori[0], ray.ori[1], ray.ori[2]);
-	float3 d = (float3)(ray.dir[0], ray.dir[1], ray.dir[2]);
+	float3 p = ray.ori.xyz;
+ 	float3 d = ray.dir.xyz;
 
 	global Vertex* vx0 = &vertex_buffer[index_buffer[3*triangle]];
 	global Vertex* vx1 = &vertex_buffer[index_buffer[3*triangle+1]];
@@ -137,6 +155,7 @@ triangle_hit(global Vertex* vertex_buffer,
 	if (t_is_within_bounds) {
 		info.hit = true;
 		info.id = triangle;
+		info.uv = (float2)(u,v);
 	}
 	return info;
 }
@@ -181,58 +200,30 @@ hit_reflect_info
 triangle_reflect(global Vertex* vertex_buffer,
 		 global int* index_buffer,
 		 float3 L,
-		 int triangle,
+		 hit_info info,
 		 Ray ray){
 
 	hit_reflect_info ref;
 
-	float3 p = (float3)(ray.ori[0], ray.ori[1], ray.ori[2]);
-	float3 d = (float3)(ray.dir[0], ray.dir[1], ray.dir[2]);
+	global Vertex* vx0 = &vertex_buffer[index_buffer[3*info.id]];
+	global Vertex* vx1 = &vertex_buffer[index_buffer[3*info.id+1]];
+	global Vertex* vx2 = &vertex_buffer[index_buffer[3*info.id+2]];
 
-	float3 v1,v2,v0, n0, n1, n2;
+	float3 n0 = normalize((float3)(vx0->normal[0], vx0->normal[1], vx0->normal[2]));
+	float3 n1 = normalize((float3)(vx1->normal[0], vx1->normal[1], vx1->normal[2]));
+	float3 n2 = normalize((float3)(vx2->normal[0], vx2->normal[1], vx2->normal[2]));
 
-	global Vertex* vx0 = &vertex_buffer[index_buffer[3*triangle]];
-	global Vertex* vx1 = &vertex_buffer[index_buffer[3*triangle+1]];
-	global Vertex* vx2 = &vertex_buffer[index_buffer[3*triangle+2]];
+	float3 d = ray.dir.xyz;
 
-	global float* vert0 = vx0->position;
-	global float* vert1 = vx1->position;
-	global float* vert2 = vx2->position;
+	float u = info.uv.x;
+ 	float v = info.uv.y;
+	float w = 1.f - (u+v);
+	
+	ref.n = (w * n0 + v * n2 + u * n1);
+	ref.r = d - 2.f * ref.n * (dot(d,ref.n));
 
-	global float* norm0 = vx0->normal;
-	global float* norm1 = vx1->normal;
-	global float* norm2 = vx2->normal;
-
-	v0 = (float3)(vert0[0], vert0[1], vert0[2]);
-	v1 = (float3)(vert1[0], vert1[1], vert1[2]);
-	v2 = (float3)(vert2[0], vert2[1], vert2[2]);
-
-	n0 = normalize((float3)(norm0[0], norm0[1], norm0[2]));
-	n1 = normalize((float3)(norm1[0], norm1[1], norm1[2]));
-	n2 = normalize((float3)(norm2[0], norm2[1], norm2[2]));
-
-	float3 e1 = v1 - v0;
-	float3 e2 = v2 - v0;
-
-	float3 h = cross(d, e2);
-	float  a = dot(e1,h);
-
-	float  f = 1.f/a;
-	float3 s = p - v0;
-	float  u = f * dot(s,h);
-	float3 q = cross(s,e1);
-	float  v = f * dot(d,q);
-	float  w = 1.f-(u+v);
-
-	float t = f * dot(e2,q);
-
-	float3 n = (w * n0 + v * n2 + u * n1);
-	float3 r = d - 2.f * n * (dot(d,n));
-
-	ref.n = n;
-	ref.r = r;
-	ref.cosL = clamp(dot(n,-L),0.f,1.f);
-	ref.spec = clamp(dot(r,-L),0.f,1.f);
+	ref.cosL = clamp(dot(ref.n,-L),0.f,1.f);
+	ref.spec = clamp(dot(ref.r,-L),0.f,1.f);
 	ref.spec = pow(ref.spec,8);
 		
 	return ref;
@@ -256,9 +247,9 @@ trace(write_only image2d_t img,
 	int group_x = get_local_size(0);
 	int group_y = get_local_size(1);
 
-	int ray_index = x + y * (width+1);
+	int index = x + y * (width+1);
 
-	private Ray ray = ray_buffer[ray_index];
+	private Ray ray = ray_buffer[index];
 
 	bool ray_hit = false;
 	float ray_t = ray.tMax;
@@ -391,7 +382,7 @@ trace(write_only image2d_t img,
 		ref = triangle_reflect(vertex_buffer,
 				       index_buffer,
 				       L,
-				       best_hit_info.id,
+				       best_hit_info,
 				       ray);
 		valf = (float4)(ray_t * 0.001f * ref.cosL,
 				ray_t * 0.01f * ref.cosL + 1.0f *ref.spec,

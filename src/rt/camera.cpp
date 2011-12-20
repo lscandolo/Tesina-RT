@@ -187,6 +187,7 @@ Ray Camera::getRay(const float& xPosNDC,
 {
 	vec3 offset = right * (xPosNDC * 2.0f - 1.0f) + 
 		      up    * (yPosNDC * 2.0f - 1.0f);
-	return Ray(pos,dir + offset);
+
+	return Ray(pos,dir+offset);
 }
 

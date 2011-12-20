@@ -9,21 +9,21 @@
 #include <rt/vector.hpp>
 #include <rt/math.hpp>
 
+#include <rt/cl_aux.hpp>
+
 class Ray
 {
 public:
 
-	vec3 ori; /* Ray origin */
-	vec3 dir; /* Ray direction */
-	vec3 invDir; /* Ray inverse direction */
+	cl_float3 ori; /* Ray origin */
+	cl_float3 dir; /* Ray direction */
+	cl_float3 invDir; /* Ray inverse direction */
 	float tMin;
 	float tMax;  /*Maximum and minimum valid ray intersection values*/
 
 	/* Constructors */
         inline Ray(){}
-	inline Ray( const vec3& origin, const vec3& direction)
-		: ori(origin), dir(direction), invDir(inv(direction)),
-		  tMin(0.f), tMax(std::numeric_limits<float>::max()){}
+	Ray( const vec3& origin, const vec3& direction);
 
 	/* Setter */
 	void set(const vec3& origin, const vec3& direction);
