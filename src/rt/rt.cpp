@@ -209,6 +209,9 @@ int main (int argc, char** argv)
 	// if (!obj.import("models/obj/teapot-low_res.obj")){
 	// if (!obj.import("models/obj/teapot.obj")){
 	if (!obj.import("models/obj/teapot2.obj")){
+	// if (!obj.import("models/obj/frame_boat1.obj")){
+	// if (!obj.import("models/obj/frame_others1.obj")){
+	// if (!obj.import("models/obj/frame_water1.obj")){
 		std::cerr << "Error importing obj model." << std::endl;
 		exit(1);
 	}

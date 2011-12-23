@@ -44,6 +44,15 @@ typedef struct {
  
 } hit_info;
 
+typedef struct {
+
+	float3 n;
+	float3 r;
+	float  cosL;
+	float  spec;
+
+} reflect_info;
+
 void __attribute__((always_inline))
 merge_hit_info(hit_info* best_info, hit_info* new_info){
 	if ((*new_info).hit) {
@@ -83,7 +92,7 @@ bbox_hit(BBox bbox,
 	    tMin = max(tMin, axis_t_min.z); tMax = min(tMax, axis_t_max.z);
 	}
 
-	if (tMin < tMax) {
+	if (tMin < tMax && tMin > ray.tMin && tMin < ray.tMax) {
 		info.hit = true;
 		info.t   = tMin;
 	}
@@ -169,23 +178,14 @@ leaf_hit(BVHNode node,
 
 }
 
-typedef struct {
-
-	float3 n;
-	float3 r;
-	float  cosL;
-	float  spec;
-
-} hit_reflect_info;
-
-hit_reflect_info 
+reflect_info 
 triangle_reflect(global Vertex* vertex_buffer,
 		 global int* index_buffer,
 		 float3 L,
 		 hit_info info,
 		 Ray ray){
 
-	hit_reflect_info ref;
+	reflect_info ref;
 
 	global Vertex* vx0 = &vertex_buffer[index_buffer[3*info.id]];
 	global Vertex* vx1 = &vertex_buffer[index_buffer[3*info.id+1]];
@@ -197,8 +197,8 @@ triangle_reflect(global Vertex* vertex_buffer,
 
 	float3 d = ray.dir.xyz;
 
-	float u = info.uv.x;
- 	float v = info.uv.y;
+	float u = info.uv.s0;
+ 	float v = info.uv.s1;
 	float w = 1.f - (u+v);
 	
 	ref.n = (w * n0 + v * n2 + u * n1);
@@ -244,18 +244,43 @@ trace(write_only image2d_t img,
 	best_hit_info.hit = false;
 	best_hit_info.t = ray.tMax;
 
-	private int tries = 0;
-
-	/* private int test_idx = 0; */
-	/* private int test_nodes[32]; */
-
 	private BVHNode current_node;
 	private BBox test_bbox;
 
 	bool red_flag = false;
 	
+
+	unsigned int first_child, second_child;
+	bool childrenOrder = true;
+
+	float3 rdir = ray.dir;
+	float3 adir = fabs(rdir);
+	float max_dir_val = max(adir.x, max(adir.y,adir.z)) - 0.00001f;
+	adir = fdim(adir, (float3)(max_dir_val,max_dir_val,max_dir_val));
+
 	while (true) {
 		current_node = bvh_nodes[curr];
+
+		/* Compute node children traversal order */
+		float3 lbbox_vals = bvh_nodes[current_node.l_child].bbox.lo;
+		float3 rbbox_vals = bvh_nodes[current_node.r_child].bbox.lo;
+		float3 choice_vec = dot(rdir,rbbox_vals - lbbox_vals);
+		if (adir.x > 0.f) {
+			childrenOrder = choice_vec.x > 0.f;
+		} else if (adir.y > 0.f) {
+			childrenOrder = choice_vec.y > 0.f;
+		} else {
+			childrenOrder = choice_vec.z > 0.f;
+		}
+		
+		if (childrenOrder) {
+			first_child = current_node.l_child;
+			second_child = current_node.r_child;
+		} else {
+			first_child = current_node.r_child;
+			second_child = current_node.l_child;
+		}
+		
 
 		if (going_up) {
 			// I'm going up from the root, so break
@@ -263,21 +288,21 @@ trace(write_only image2d_t img,
 				break;
 
 				// I'm going up from my left child, do the right one
-			} else if (last == current_node.l_child) {
+			} else if (last == first_child) {
 				last = curr;
-				curr = current_node.r_child;
+				curr = second_child;
 				going_up = false;
 				continue;
 
 			// I'm going up from my right child, go up one more level
-			/* } else { */
-			} else if (last == current_node.r_child) {
+			} else if (last == second_child) {
 				last = curr;
 				curr = current_node.parent;
 				going_up = true;
 				continue;
 			}
 
+			/* This means the node structure is broken */
 			else {
 				red_flag = true;
 				break;
@@ -310,7 +335,7 @@ trace(write_only image2d_t img,
 			// If it hit and it isn't a leaf, go to the left child
 			} else {
 				last = curr;
-				curr = current_node.l_child;
+				curr = first_child;
 				going_up = false;
 				continue;
 			}
@@ -323,23 +348,6 @@ trace(write_only image2d_t img,
 			continue;
 		}
 	}
-
-	/* hit_info leaf_info; */
-	/* leaf_info.hit = false; */
-	/* for (int i = 0; i < test_idx; ++i){ */
-	/* 	leaf_info = leaf_hit(bvh_nodes[test_nodes[i]], */
-	/* 			     vertex_buffer, */
-	/* 			     index_buffer, */
-	/* 			     ordered_triangles, */
-	/* 			     ray); */
-		
-	/* 	if (leaf_info.hit) { */
-	/* 		best_hit_info.hit = true; */
-	/* 		best_hit_info.t = */
-	/* 			min(best_hit_info.t, leaf_info.t); */
-	/* 		ray.tMax = best_hit_info.t; */
-	/* 	} */
-	/* } */
 
 	ray_hit = best_hit_info.hit;
 	ray_t = best_hit_info.t;
@@ -359,34 +367,27 @@ trace(write_only image2d_t img,
 				      0.1f  * (div-8.f),
 				      0.2f));
 	float4 valf;
+
+	/* If it hit compute the reflection information */
 	if (ray_hit) {
-		hit_reflect_info ref;
+		reflect_info ref;
 		ref = triangle_reflect(vertex_buffer,
 				       index_buffer,
 				       L,
 				       best_hit_info,
 				       ray);
+
 		valf = (float4)(ray_t * 0.001f * ref.cosL,
 				ray_t * 0.01f * ref.cosL + 1.0f *ref.spec,
 				ray_t * 0.1f * ref.cosL + 1.0f *ref.spec,1.0f);
-		/* valf = (float4)(ray_t * 0.01f, */
-		/* 		ray_t * 0.1f, */
-		/* 		ray_t * 1.f, */
-		/* 		1.0f); */
+
+	/* Else just paint it black */
 	} else {
 		valf = (float4)(0.f,
 				0.f,
 				0.f,
 				1.0f);
 	}
-
-	/* if (test_idx > 1) */
-	if (tries > 31)
-		valf = (float4)(1.f,
-				0.f,
-				0.f,
-				1.0f);
-
 
 	if (red_flag)
 		valf = (float4)(1.f,
