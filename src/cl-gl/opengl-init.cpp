@@ -12,7 +12,7 @@ GLint init_gl(int argc, char** argv, GLInfo* glinfo, const uint32_t* window_size
 		return 1;
 
 	glutInit(&argc,argv);
-	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH);
+	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA);
 	glutInitWindowPosition(100,100);
 	glutInitWindowSize(window_size[0], window_size[1]);
 	if ((glinfo->window_id = glutCreateWindow(window_title.c_str()) == 0))
@@ -56,13 +56,13 @@ GLuint create_tex_gl(uint32_t width, uint32_t height)
 	// select modulate to mix texture with color for shading
 	glTexEnvf( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_DECAL );
 
-	// when texture area is small, bilinear filter the closest mipmap
+	// when texture area is small, get closest pixel val
 	glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
-			 GL_LINEAR);
+			 GL_NEAREST);
 
-	// when texture area is large, bilinear filter the first mipmap
+	// when texture area is large, get closest pixel val
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, 
-			GL_LINEAR);
+			GL_NEAREST);
 
 
 	// if wrap is true, the texture wraps over at the edges (repeat)
@@ -71,7 +71,9 @@ GLuint create_tex_gl(uint32_t width, uint32_t height)
 	glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,GL_REPEAT);
 
 	// This resizes the texture to be the required height/width
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, tex_data);	
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 
+		     width, height, 0, GL_RGBA, 
+		     GL_UNSIGNED_BYTE, tex_data);	
 
 	// (NO MIPMAPS)
 

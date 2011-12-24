@@ -100,14 +100,11 @@ bbox_hit(BBox bbox,
 	return info;
 }
 
-hit_info 
+bool 
 triangle_hit(global Vertex* vertex_buffer,
 	     global int* index_buffer,
 	     int triangle,
 	     Ray ray){
-
-	hit_info info;
-	info.hit = false;
 
 	float3 p = ray.ori.xyz;
  	float3 d = ray.dir.xyz;
@@ -127,88 +124,37 @@ triangle_hit(global Vertex* vertex_buffer,
 	float  a = dot(e1,h);
 	
 	if (a > -0.000001f && a < 0.00001f)
-		return info;
+		return false;
 
 	float  f = 1.f/a;
 	float3 s = p - v0;
 	float  u = f * dot(s,h);
 	if (u < 0.f || u > 1.f) 
-		return info;
+		return false;
 
 	float3 q = cross(s,e1);
 	float  v = f * dot(d,q);
 	if (v < 0.f || u+v > 1.f)
-		return info;
+		return false;
 
-	info.t = f * dot(e2,q);
-	bool t_is_within_bounds = (info.t < ray.tMax && info.t > ray.tMin);
-
-	if (t_is_within_bounds) {
-		info.hit = true;
-		info.id = triangle;
-		info.uv = (float2)(u,v);
-	}
-	return info;
+	float t = f * dot(e2,q);
+	return (t < ray.tMax && t > ray.tMin);
 }
 
-hit_info 
-leaf_hit(BVHNode node,
-	 global Vertex* vertex_buffer,
-	 global int* index_buffer,
-	 global tri_id* ordered_triangles,
-	 Ray ray){
-
-	hit_info best_hit;
-	best_hit.hit = false;
-	best_hit.t = ray.tMax;
+bool 
+leaf_hit_any(BVHNode node,
+	     global Vertex* vertex_buffer,
+	     global int* index_buffer,
+	     global tri_id* ordered_triangles,
+	     Ray ray){
 
 	for (int i = node.start_index; i < node.end_index; ++i) {
 		int triangle = ordered_triangles[i];
-		hit_info tri_hit = triangle_hit(vertex_buffer,
-						index_buffer,
-						triangle,
-						ray);
-
-		merge_hit_info(&best_hit, &tri_hit);
-
-		if (best_hit.hit)
-			ray.tMax = best_hit.t;
+		if (triangle_hit(vertex_buffer,index_buffer,triangle,ray))
+			return true;
 	}
-	return best_hit;
+	return false;
 
-}
-
-reflect_info 
-triangle_reflect(global Vertex* vertex_buffer,
-		 global int* index_buffer,
-		 float3 L,
-		 hit_info info,
-		 Ray ray){
-
-	reflect_info ref;
-
-	global Vertex* vx0 = &vertex_buffer[index_buffer[3*info.id]];
-	global Vertex* vx1 = &vertex_buffer[index_buffer[3*info.id+1]];
-	global Vertex* vx2 = &vertex_buffer[index_buffer[3*info.id+2]];
-
-	float3 n0 = normalize(vx0->normal);
-	float3 n1 = normalize(vx1->normal);
-	float3 n2 = normalize(vx2->normal);
-
-	float3 d = ray.dir.xyz;
-
-	float u = info.uv.s0;
- 	float v = info.uv.s1;
-	float w = 1.f - (u+v);
-	
-	ref.n = (w * n0 + v * n2 + u * n1);
-	ref.r = d - 2.f * ref.n * (dot(d,ref.n));
-
-	ref.cosL = clamp(dot(ref.n,-L),0.f,1.f);
-	ref.spec = clamp(dot(ref.r,-L),0.f,1.f);
-	ref.spec = pow(ref.spec,8);
-		
-	return ref;
 }
 
 kernel void 
@@ -234,10 +180,9 @@ trace(write_only image2d_t img,
 	private Ray ray = ray_buffer[index];
 
 	bool ray_hit = false;
-	float ray_t = ray.tMax;
+
 
 	bool going_up = false;
-
 	unsigned int last = 0;
 	unsigned int curr = 0;
 	hit_info best_hit_info;
@@ -319,14 +264,18 @@ trace(write_only image2d_t img,
 			if (current_node.leaf) {
  				// Check all primitives in leaf
 				/* test_nodes[test_idx++] = curr; */
-				hit_info leaf_info = leaf_hit(current_node,
-							      vertex_buffer,
-							      index_buffer,
-							      ordered_triangles,
-							      ray);
-				merge_hit_info(&best_hit_info, &leaf_info);
-				if (best_hit_info.hit)
-					ray.tMax = best_hit_info.t;
+				if(leaf_hit_any(current_node,
+						vertex_buffer,
+						index_buffer,
+						ordered_triangles,
+						ray)) {
+					ray_hit = true;
+					break;
+				}
+
+				/* merge_hit_info(&best_hit_info, &leaf_info); */
+				/* if (best_hit_info.hit) */
+				/* 	ray.tMax = best_hit_info.t; */
 				last = curr;
 				curr = current_node.parent;
 				going_up = true;
@@ -349,44 +298,25 @@ trace(write_only image2d_t img,
 		}
 	}
 
-	ray_hit = best_hit_info.hit;
-	ray_t = best_hit_info.t;
-
 	/* Image writing computations */
 	int2 image_size = (int2)(get_image_width(img), get_image_height(img));
 
-	float x_part = (float)x/(float)width; 
-	float y_part = (float)y/(float)height; 
+	/* float x_part = (float)x/(float)width;  */
+	/* float y_part = (float)y/(float)height;  */
 
 	int2 coords = (int2)( ( (image_size.x-1) * x ) / width,
 			      ( (image_size.y-1) * y ) / height);
 
 
-	/* Value for the pixel corresponding to this ray */
-	float3 L = normalize((float3)(0.1f  * (div-8.f) + 0.1f,
-				      0.1f  * (div-8.f),
-				      0.2f));
 	float4 valf;
 
 	/* If it hit compute the reflection information */
 	if (ray_hit) {
-		reflect_info ref;
-		ref = triangle_reflect(vertex_buffer,
-				       index_buffer,
-				       L,
-				       best_hit_info,
-				       ray);
-
-		valf = (float4)(ray_t * 0.001f * ref.cosL,
-				ray_t * 0.01f * ref.cosL + 1.0f *ref.spec,
-				ray_t * 0.1f * ref.cosL + 1.0f *ref.spec,1.0f);
+		valf = (float4)(1.f,1.f,1.f,1.f);
 
 	/* Else just paint it black */
 	} else {
-		valf = (float4)(0.f,
-				0.f,
-				0.f,
-				1.0f);
+		valf = (float4)(0.f,0.f,0.f,1.f);
 	}
 
 	if (red_flag)
@@ -396,5 +326,4 @@ trace(write_only image2d_t img,
 				1.0f);
 
 	write_imagef(img, coords, valf);
-
 }

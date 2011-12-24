@@ -12,11 +12,13 @@
 #include <rt/cl_aux.hpp>
 
 CLKernelInfo rt_clkernelinfo;
+CLKernelInfo shadow_clkernelinfo;
 CLKernelInfo ray_clkernelinfo;
 cl_mem cl_ray_mem;
-cl_mem cl_tex_mem;
 cl_mem cl_vert_mem;
 cl_mem cl_index_mem;
+cl_mem cl_tex_mem;
+cl_mem cl_prim_hit_mem;
 GLuint gl_tex;
 rt_time_t rt_time;
 uint32_t window_size[] = {800, 600};
@@ -36,6 +38,9 @@ void gl_mouse(int x, int y)
 	float delta = 0.001f;
 	float d_inc = delta * (window_size[1]*0.5f - y);//In opengl y points downwards
 	float d_yaw = delta * (x - window_size[0]*0.5f);
+
+	d_inc = std::min(std::max(d_inc, -0.01f), 0.01f);
+	d_yaw = std::min(std::max(d_yaw, -0.01f), 0.01f);
 
 	if (d_inc == 0.f && d_yaw == 0.f)
 		return;
@@ -79,21 +84,17 @@ void gl_loop()
 	static int dir = 1;
 	cl_int err;
 	
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glClear(GL_COLOR_BUFFER_BIT);
 
 	cl_int arg = i%STEPS;
+
 	// Set div argument
-	err = clSetKernelArg(rt_clkernelinfo.kernel,6,
+	err = clSetKernelArg(shadow_clkernelinfo.kernel,6,
 			     sizeof(cl_int),&arg);
 	if (error_cl(err, "clSetKernelArg 6"))
 		exit(1);
 
-	// Set rays
-	// rt_cam.pos[2] = -30-arg;
-	// rt_cam.pos[1] = 3;
-	// rt_cam.modifyPitch(0.01f);
-	// rt_cam.panForward((8.f-arg)/16.f);
-
+	/* Set rays if camera has moved */
 	if (camera_change) {
 		if (setRays(ray_clkernelinfo)){
 			std::cerr << "Error seting ray cl_mem object" << std::endl;
@@ -104,6 +105,8 @@ void gl_loop()
 
 	cl_time.snap_time();
 	execute_cl(rt_clkernelinfo);
+	execute_cl(shadow_clkernelinfo);
+
 	// double cl_msec = cl_time.msec_since_snap();
 	// std::cout << "Time spent on opencl: " << cl_msec << " msec." << std::endl;
 	
@@ -172,23 +175,33 @@ int main (int argc, char** argv)
 		exit(1);
 	print_cl_image_2d_info(cl_tex_mem);
 
-	/* ------------------ Initialize main opencl kernel ----------------------*/
 
-	if (init_cl_kernel(&clinfo,"src/kernel/rt.cl", "trace", &rt_clkernelinfo)){
+	/* ------------------ Initialize primary trace opencl kernel -----------------*/
+
+	if (init_cl_kernel(&clinfo,"src/kernel/trace.cl", "trace", &rt_clkernelinfo)){
 		std::cerr << "Failed to initialize CL kernel" << std::endl;
 		exit(1);
 	} else {
-		std::cerr << "Initialized main CL kernel succesfully" << std::endl;
+		std::cerr << "Initialized primary trace CL kernel succesfully" << std::endl;
 	}
 	rt_clkernelinfo.work_dim = 2;
-	rt_clkernelinfo.arg_count = 7;
+	rt_clkernelinfo.arg_count = 8;
 	rt_clkernelinfo.global_work_size[0] = window_size[0];
 	rt_clkernelinfo.global_work_size[1] = window_size[1];
 
-	std::cout << "Setting texture mem object argument for kernel" << std::endl;
-	err = clSetKernelArg(rt_clkernelinfo.kernel,0,sizeof(cl_mem),&cl_tex_mem);
-	if (error_cl(err, "clSetKernelArg 0"))
+	/* ------------------ Initialize primary shadow ray opencl kernel --------------*/
+
+	if (init_cl_kernel(&clinfo,"src/kernel/trace_any.cl", "trace_any", 
+			   &shadow_clkernelinfo)){
+		std::cerr << "Failed to initialize CL kernel" << std::endl;
 		exit(1);
+	} else {
+		std::cerr << "Initialized primary shadow CL kernel succesfully" << std::endl;
+	}
+	shadow_clkernelinfo.work_dim = 2;
+	shadow_clkernelinfo.arg_count = 8;
+	shadow_clkernelinfo.global_work_size[0] = window_size[0];
+	shadow_clkernelinfo.global_work_size[1] = window_size[1];
 
 	/* ------------------ Initialize ray opencl kernel ----------------------*/
 
@@ -207,8 +220,8 @@ int main (int argc, char** argv)
 	ModelOBJ obj;
 	// if (!obj.import("models/obj/floor.obj")){
 	// if (!obj.import("models/obj/teapot-low_res.obj")){
-	// if (!obj.import("models/obj/teapot.obj")){
-	if (!obj.import("models/obj/teapot2.obj")){
+	if (!obj.import("models/obj/teapot.obj")){
+	// if (!obj.import("models/obj/teapot2.obj")){
 	// if (!obj.import("models/obj/frame_boat1.obj")){
 	// if (!obj.import("models/obj/frame_others1.obj")){
 	// if (!obj.import("models/obj/frame_water1.obj")){
@@ -219,7 +232,6 @@ int main (int argc, char** argv)
 	obj.toMesh(&mesh);
 
 	/*---------------------- Print model data ----------------------*/
-	
 	int triangles = mesh.triangleCount();
 	std::cerr << "Triangle count: " << triangles << std::endl;
 	
@@ -237,10 +249,6 @@ int main (int argc, char** argv)
 	print_cl_mem_info(cl_vert_mem);
 
 
-	std::cout << "Setting vertex mem object argument for kernel" << std::endl;
-	err = clSetKernelArg(rt_clkernelinfo.kernel,2,sizeof(cl_mem),&cl_vert_mem);
-	if (error_cl(err, "clSetKernelArg 2"))
-		exit(1);
 
 	if (create_filled_cl_mem(clinfo,CL_MEM_READ_ONLY,
 				 triangles * 3 * sizeof(uint32_t),
@@ -249,11 +257,6 @@ int main (int argc, char** argv)
 		exit(1);
 	std::cout << "Index buffer info:" << std::endl;
 	print_cl_mem_info(cl_index_mem);
-	std::cout << "Setting index mem object argument for kernel" << std::endl;
-	err = clSetKernelArg(rt_clkernelinfo.kernel,3,sizeof(cl_mem),&cl_index_mem);
-	if (error_cl(err, "clSetKernelArg 3"))
-		exit(1);
-
 
 	/*--------------------- Create Acceleration structure --------------------*/
 	std::cout << "Building BVH." << std::endl;
@@ -265,7 +268,7 @@ int main (int argc, char** argv)
 		  << bvh_build_time << " msec, " 
 		  << bvh.nodeArraySize() << " nodes)" << std::endl;
 
-	/*--------------------- Create mem for bvh structures ---------------------*/
+	/*--------------------- Move bvh to device memory ---------------------*/
 	cl_mem cl_bvh_ordered_tri, cl_bvh_nodes;
 	std::cout << "Moving bvh nodes to device memory." << std::endl;
 	if (create_filled_cl_mem(clinfo,CL_MEM_READ_ONLY,
@@ -273,11 +276,6 @@ int main (int argc, char** argv)
 				 bvh.nodeArray(),
 				 &cl_bvh_nodes))
 		exit(1);
-	std::cout << "Setting bvh node array  argument for kernel" << std::endl;
-	err = clSetKernelArg(rt_clkernelinfo.kernel,4,sizeof(cl_mem),&cl_bvh_nodes);
-	if (error_cl(err, "clSetKernelArg 4"))
-		exit(1);
-
 
 	std::cout << "Moving bvh ordered triangles info to device memory." << std::endl;
 	if (create_filled_cl_mem(clinfo,CL_MEM_READ_ONLY,
@@ -285,24 +283,32 @@ int main (int argc, char** argv)
 				 bvh.orderedTrianglesArray(),
 				 &cl_bvh_ordered_tri))
 		exit(1);
-	std::cout << "Setting bvh ordered triangles argument for kernel" << std::endl;
-	err = clSetKernelArg(rt_clkernelinfo.kernel,5,sizeof(cl_mem),&cl_bvh_ordered_tri);
-	if (error_cl(err, "clSetKernelArg 5"))
-		exit(1);
-
 
 	/*---------------------- Set initial Camera paramaters -----------------------*/
 	rt_cam.set(makeVector(0,3,-30), makeVector(0,0,1), makeVector(0,1,0), M_PI/4.,
 		   window_size[0] / (float)window_size[1]);
 
+
+#if 0
 	/*---------------------- Initialize primary ray bundle -----------------------*/
 	if (!primary_ray_bundle.initialize()){
 		std::cout << "Failed to initialize bundle";
 		return 1;
 	}
+#endif
 
-	/*---------------------- Initialize cl_mem for rays -------------------------*/
+	/*------------- Initialize device memory for primary hit info ----------------*/
+	uint32_t prim_hit_size = sizeof(RayHitInfo) * window_size[0] * window_size[1];
 
+	if (create_empty_cl_mem(clinfo, 
+				CL_MEM_READ_WRITE,
+				prim_hit_size,
+				&cl_prim_hit_mem))
+		exit(1);
+	std::cerr << "Primary rays hit buffer info:" << std::endl;
+	print_cl_mem_info(cl_prim_hit_mem);
+
+	/*---------------------- Initialize device memory for rays -------------------*/
 	uint32_t ray_mem_size = 
 		RayBundle::expected_size_in_bytes(window_size[0]*window_size[1]);
 	if (create_empty_cl_mem(clinfo, 
@@ -313,13 +319,82 @@ int main (int argc, char** argv)
 	std::cerr << "Ray buffer info:" << std::endl;
 	print_cl_mem_info(cl_ray_mem);
 
-	/* Set ray buffer argument */
-	std::cout << "Setting ray mem object argument for kernel" << std::endl;
-	err = clSetKernelArg(rt_clkernelinfo.kernel,1,
-			     sizeof(cl_ray_mem),&cl_ray_mem);
-	if (error_cl(err, "clSetKernelArg 1"))
 
-	/*------------------------ GLUT and misc functions --------------------*/
+	/*----------------------- Set primary trace kernel arguments -----------------*/
+
+	std::cout << "Setting rays hit mem object argument for trace kernel" << std::endl;
+	err = clSetKernelArg(rt_clkernelinfo.kernel,0,
+			     sizeof(cl_mem),&cl_prim_hit_mem);
+	if (error_cl(err, "clSetKernelArg 0"))
+		exit(1);
+
+	std::cout << "Setting ray mem object argument for trace kernel" << std::endl;
+	err = clSetKernelArg(rt_clkernelinfo.kernel,1,
+			     sizeof(cl_mem),&cl_ray_mem);
+	if (error_cl(err, "clSetKernelArg 1"))
+		exit(1);
+
+	std::cout << "Setting vertex mem object argument for trace kernel" << std::endl;
+	err = clSetKernelArg(rt_clkernelinfo.kernel,2,sizeof(cl_mem),&cl_vert_mem);
+	if (error_cl(err, "clSetKernelArg 2"))
+		exit(1);
+
+	std::cout << "Setting index mem object argument for trace kernel" << std::endl;
+	err = clSetKernelArg(rt_clkernelinfo.kernel,3,sizeof(cl_mem),&cl_index_mem);
+	if (error_cl(err, "clSetKernelArg 3"))
+		exit(1);
+
+	std::cout << "Setting bvh node array  argument for trace kernel" << std::endl;
+	err = clSetKernelArg(rt_clkernelinfo.kernel,4,sizeof(cl_mem),&cl_bvh_nodes);
+	if (error_cl(err, "clSetKernelArg 4"))
+		exit(1);
+
+	std::cout << "Setting bvh ordered triangles argument for trace kernel" << std::endl;
+	err = clSetKernelArg(rt_clkernelinfo.kernel,5,sizeof(cl_mem),&cl_bvh_ordered_tri);
+	if (error_cl(err, "clSetKernelArg 5"))
+		exit(1);
+
+	/*----------------------- Set primary shadow kernel arguments -----------------*/
+
+	std::cout << "Setting texture mem object argument for shadow kernel" << std::endl;
+	err = clSetKernelArg(shadow_clkernelinfo.kernel,0,sizeof(cl_mem),&cl_tex_mem);
+	if (error_cl(err, "clSetKernelArg 0"))
+		exit(1);
+
+	std::cout << "Setting ray mem object argument for shadow kernel" << std::endl;
+	err = clSetKernelArg(shadow_clkernelinfo.kernel,1,
+			     sizeof(cl_mem),&cl_ray_mem);
+	if (error_cl(err, "clSetKernelArg 1"))
+		exit(1);
+
+	std::cout << "Setting vertex mem object argument for shadow kernel" << std::endl;
+	err = clSetKernelArg(shadow_clkernelinfo.kernel,2,sizeof(cl_mem),&cl_vert_mem);
+	if (error_cl(err, "clSetKernelArg 2"))
+		exit(1);
+
+	std::cout << "Setting index mem object argument for shadow kernel" << std::endl;
+	err = clSetKernelArg(shadow_clkernelinfo.kernel,3,sizeof(cl_mem),&cl_index_mem);
+	if (error_cl(err, "clSetKernelArg 3"))
+		exit(1);
+
+	std::cout << "Setting bvh node array  argument for shadow kernel" << std::endl;
+	err = clSetKernelArg(shadow_clkernelinfo.kernel,4,sizeof(cl_mem),&cl_bvh_nodes);
+	if (error_cl(err, "clSetKernelArg 4"))
+		exit(1);
+
+	std::cout << "Setting ordered triangles argument for shadow kernel" << std::endl;
+	err = clSetKernelArg(shadow_clkernelinfo.kernel,5,
+			     sizeof(cl_mem),&cl_bvh_ordered_tri);
+	if (error_cl(err, "clSetKernelArg 5"))
+		exit(1);
+
+	std::cout << "Setting rays hit mem object argument for shadow kernel" << std::endl;
+	err = clSetKernelArg(shadow_clkernelinfo.kernel,7,
+			     sizeof(cl_mem),&cl_prim_hit_mem);
+	if (error_cl(err, "clSetKernelArg 7"))
+		exit(1);
+
+	/*------------------------ Set GLUT and misc functions -----------------------*/
 	rt_time.snap_time();
 
 	glutKeyboardFunc(gl_key);
@@ -391,6 +466,7 @@ int32_t setRays(const CLKernelInfo& clkernelinfo)
 	if (error_cl(err, "clSetKernelArg 4"))
 		return 1;
 
+	/*------------------- Execute kernel to create rays ------------*/
 	if (execute_cl(ray_clkernelinfo))
 		std::cerr << "Error executing ray kernel" << std::endl;
 

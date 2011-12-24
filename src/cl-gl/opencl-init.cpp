@@ -192,7 +192,7 @@ int32_t execute_cl(const CLKernelInfo& clkernelinfo){
 	if (error_cl(err, "clEnqueueNDRangeKernel"))
 		return 1;
 
-	//finish command queue
+	/* finish command queue */
 	err = clFinish(clinfo.command_queue);
 	if (error_cl(err, "clFinsish"))
 		return 1;

@@ -97,6 +97,25 @@ private:
 
 };
 
+class RayHitInfo {
+
+	int hit;
+	float t;
+	unsigned int id;
+	cl_float2 uv;
+	cl_float3 p;
+
+};
+
+class RayReflectInfo {
+
+	cl_float3 n;
+	cl_float3 r;
+	float  cosL;
+	float  spec;
+
+};
+
 #endif /* RT_RAY_HPP */
 
 
