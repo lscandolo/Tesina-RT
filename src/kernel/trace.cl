@@ -39,26 +39,21 @@ typedef struct {
 
 	int hit;
 	float t;
-	unsigned int id;
+	int id;
 	float2 uv;
-	float3 p;
  
 } RayHitInfo;
 
 void __attribute__((always_inline))
 merge_hit_info(RayHitInfo* best_info, RayHitInfo* new_info){
-	if ((*new_info).hit) {
-		(*best_info).hit = true;
-		if ((*new_info).t < (*best_info).t){
-			(*best_info).t = (*new_info).t;
-			(*best_info).id = (*new_info).id;
-			(*best_info).uv = (*new_info).uv;
-			(*best_info).p = (*new_info).p;
-		}
+	if (new_info->hit &&
+	      ((best_info->hit && new_info->t < best_info->t) ||
+	       !(best_info->hit)))  {
+		    *best_info = *new_info;
 	}
 }
-
-RayHitInfo __attribute__((always_inline))
+ 
+RayHitInfo /* __attribute__((always_inline)) */
 bbox_hit(BBox bbox,
 	 Ray ray)
 {
@@ -69,14 +64,14 @@ bbox_hit(BBox bbox,
 
 	float3 axis_t_lo, axis_t_hi;
 
-	axis_t_lo = (bbox.lo - ray.ori) * ray.invDir;
+ 	axis_t_lo = (bbox.lo - ray.ori) * ray.invDir;
 	axis_t_hi = (bbox.hi - ray.ori) * ray.invDir;
 
 	float3 axis_t_max = max(axis_t_lo, axis_t_hi);
 	float3 axis_t_min = min(axis_t_lo, axis_t_hi);
 
 	if (fabs(ray.invDir.x) > 0.0001f) {
-		tMin = max(tMin, axis_t_min.x); tMax = min(tMax, axis_t_max.x); 
+		tMin = max(tMin, axis_t_min.x); tMax = min(tMax, axis_t_max.x);
 	}
 	if (fabs(ray.invDir).y > 0.0001f) {
 		tMin = max(tMin, axis_t_min.y); tMax = min(tMax, axis_t_max.y);
@@ -140,7 +135,6 @@ triangle_hit(global Vertex* vertex_buffer,
 		info.hit = true;
 		info.id = triangle;
 		info.uv = (float2)(u,v);
-		info.p  = (1.0f - (u+v)) * v0 + u * v1 + v * v2;
 	}
 	return info;
 }
@@ -149,7 +143,6 @@ RayHitInfo
 leaf_hit(BVHNode node,
 	 global Vertex* vertex_buffer,
 	 global int* index_buffer,
-	 global tri_id* ordered_triangles,
 	 Ray ray){
 
 	RayHitInfo best_hit;
@@ -157,7 +150,7 @@ leaf_hit(BVHNode node,
 	best_hit.t = ray.tMax;
 
 	for (int i = node.start_index; i < node.end_index; ++i) {
-		int triangle = ordered_triangles[i];
+		int triangle = i;
 		RayHitInfo tri_hit = triangle_hit(vertex_buffer,
 						index_buffer,
 						triangle,
@@ -169,7 +162,6 @@ leaf_hit(BVHNode node,
 			ray.tMax = best_hit.t;
 	}
 	return best_hit;
-
 }
 
 kernel void 
@@ -177,9 +169,7 @@ trace(global RayHitInfo* ray_hit_info,
       global Ray* ray_buffer,
       global Vertex* vertex_buffer,
       global int* index_buffer,
-      global BVHNode* bvh_nodes,
-      global tri_id* ordered_triangles)
-
+      global BVHNode* bvh_nodes)
 {
 	int x = get_global_id(0);
 	int y = get_global_id(1);
@@ -251,7 +241,6 @@ trace(global RayHitInfo* ray_hit_info,
 				going_up = true;
 				continue;
 			}
-
 		}
 			
 		test_bbox = current_node.bbox;
@@ -266,7 +255,6 @@ trace(global RayHitInfo* ray_hit_info,
 				RayHitInfo leaf_info = leaf_hit(current_node,
 							      vertex_buffer,
 							      index_buffer,
-							      ordered_triangles,
 							      ray);
 				merge_hit_info(&best_hit_info, &leaf_info);
 				if (best_hit_info.hit)

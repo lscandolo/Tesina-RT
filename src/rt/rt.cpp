@@ -14,11 +14,14 @@
 CLKernelInfo rt_clkernelinfo;
 CLKernelInfo shadow_clkernelinfo;
 CLKernelInfo ray_clkernelinfo;
+CLKernelInfo cm_clkernelinfo;
+
 cl_mem cl_ray_mem;
 cl_mem cl_vert_mem;
 cl_mem cl_index_mem;
 cl_mem cl_tex_mem;
 cl_mem cl_prim_hit_mem;
+
 GLuint gl_tex;
 rt_time_t rt_time;
 uint32_t window_size[] = {800, 600};
@@ -106,6 +109,7 @@ void gl_loop()
 	cl_time.snap_time();
 	execute_cl(rt_clkernelinfo);
 	execute_cl(shadow_clkernelinfo);
+	execute_cl(cm_clkernelinfo);
 
 	// double cl_msec = cl_time.msec_since_snap();
 	// std::cout << "Time spent on opencl: " << cl_msec << " msec." << std::endl;
@@ -167,6 +171,7 @@ int main (int argc, char** argv)
 	} else { 
 		std::cout << "Initialized CL succesfully" << std::endl;
 	}
+	print_cl_info(clinfo);
 
 	/*---------------------- Create shared GL-CL texture ----------------------*/
 	gl_tex = create_tex_gl(window_size[0],window_size[1]);
@@ -220,8 +225,8 @@ int main (int argc, char** argv)
 	ModelOBJ obj;
 	// if (!obj.import("models/obj/floor.obj")){
 	// if (!obj.import("models/obj/teapot-low_res.obj")){
-	if (!obj.import("models/obj/teapot.obj")){
-	// if (!obj.import("models/obj/teapot2.obj")){
+	// if (!obj.import("models/obj/teapot.obj")){
+	if (!obj.import("models/obj/teapot2.obj")){
 	// if (!obj.import("models/obj/frame_boat1.obj")){
 	// if (!obj.import("models/obj/frame_others1.obj")){
 	// if (!obj.import("models/obj/frame_water1.obj")){
@@ -238,6 +243,16 @@ int main (int argc, char** argv)
 	int vertices = mesh.vertexCount();
 	std::cerr << "Vertex count: " << vertices << std::endl;
 
+
+	/*--------------------- Create Acceleration structure --------------------*/
+	std::cout << "Building BVH." << std::endl;
+	rt_time.snap_time();
+	BVH bvh(mesh);
+	bvh.construct();
+	double bvh_build_time = rt_time.msec_since_snap();
+	std::cout << "Built BVH (build time: " 
+		  << bvh_build_time << " msec, " 
+		  << bvh.nodeArraySize() << " nodes)" << std::endl;
 
 	/*---------------------- Move model data to OpenCL device -----------------*/
 	if (create_filled_cl_mem(clinfo,CL_MEM_READ_ONLY,
@@ -258,30 +273,13 @@ int main (int argc, char** argv)
 	std::cout << "Index buffer info:" << std::endl;
 	print_cl_mem_info(cl_index_mem);
 
-	/*--------------------- Create Acceleration structure --------------------*/
-	std::cout << "Building BVH." << std::endl;
-	rt_time.snap_time();
-	BVH bvh(mesh);
-	bvh.construct();
-	double bvh_build_time = rt_time.msec_since_snap();
-	std::cout << "Built BVH (build time: " 
-		  << bvh_build_time << " msec, " 
-		  << bvh.nodeArraySize() << " nodes)" << std::endl;
-
 	/*--------------------- Move bvh to device memory ---------------------*/
-	cl_mem cl_bvh_ordered_tri, cl_bvh_nodes;
+	cl_mem cl_bvh_nodes;
 	std::cout << "Moving bvh nodes to device memory." << std::endl;
 	if (create_filled_cl_mem(clinfo,CL_MEM_READ_ONLY,
 				 bvh.nodeArraySize() * sizeof(BVHNode),
 				 bvh.nodeArray(),
 				 &cl_bvh_nodes))
-		exit(1);
-
-	std::cout << "Moving bvh ordered triangles info to device memory." << std::endl;
-	if (create_filled_cl_mem(clinfo,CL_MEM_READ_ONLY,
-				 bvh.orderedTrianglesArraySize() * sizeof(tri_id),
-				 bvh.orderedTrianglesArray(),
-				 &cl_bvh_ordered_tri))
 		exit(1);
 
 	/*---------------------- Set initial Camera paramaters -----------------------*/
@@ -349,11 +347,6 @@ int main (int argc, char** argv)
 	if (error_cl(err, "clSetKernelArg 4"))
 		exit(1);
 
-	std::cout << "Setting bvh ordered triangles argument for trace kernel" << std::endl;
-	err = clSetKernelArg(rt_clkernelinfo.kernel,5,sizeof(cl_mem),&cl_bvh_ordered_tri);
-	if (error_cl(err, "clSetKernelArg 5"))
-		exit(1);
-
 	/*----------------------- Set primary shadow kernel arguments -----------------*/
 
 	std::cout << "Setting texture mem object argument for shadow kernel" << std::endl;
@@ -361,37 +354,146 @@ int main (int argc, char** argv)
 	if (error_cl(err, "clSetKernelArg 0"))
 		exit(1);
 
-	std::cout << "Setting ray mem object argument for shadow kernel" << std::endl;
+	std::cout << "Setting rays hit mem object argument for shadow kernel" << std::endl;
 	err = clSetKernelArg(shadow_clkernelinfo.kernel,1,
-			     sizeof(cl_mem),&cl_ray_mem);
+			     sizeof(cl_mem),&cl_prim_hit_mem);
 	if (error_cl(err, "clSetKernelArg 1"))
 		exit(1);
 
-	std::cout << "Setting vertex mem object argument for shadow kernel" << std::endl;
-	err = clSetKernelArg(shadow_clkernelinfo.kernel,2,sizeof(cl_mem),&cl_vert_mem);
+	std::cout << "Setting ray mem object argument for shadow kernel" << std::endl;
+	err = clSetKernelArg(shadow_clkernelinfo.kernel,2,
+			     sizeof(cl_mem),&cl_ray_mem);
 	if (error_cl(err, "clSetKernelArg 2"))
 		exit(1);
 
-	std::cout << "Setting index mem object argument for shadow kernel" << std::endl;
-	err = clSetKernelArg(shadow_clkernelinfo.kernel,3,sizeof(cl_mem),&cl_index_mem);
+	std::cout << "Setting vertex mem object argument for shadow kernel" << std::endl;
+	err = clSetKernelArg(shadow_clkernelinfo.kernel,3,sizeof(cl_mem),&cl_vert_mem);
 	if (error_cl(err, "clSetKernelArg 3"))
 		exit(1);
 
-	std::cout << "Setting bvh node array  argument for shadow kernel" << std::endl;
-	err = clSetKernelArg(shadow_clkernelinfo.kernel,4,sizeof(cl_mem),&cl_bvh_nodes);
+	std::cout << "Setting index mem object argument for shadow kernel" << std::endl;
+	err = clSetKernelArg(shadow_clkernelinfo.kernel,4,sizeof(cl_mem),&cl_index_mem);
 	if (error_cl(err, "clSetKernelArg 4"))
 		exit(1);
 
-	std::cout << "Setting ordered triangles argument for shadow kernel" << std::endl;
-	err = clSetKernelArg(shadow_clkernelinfo.kernel,5,
-			     sizeof(cl_mem),&cl_bvh_ordered_tri);
+	std::cout << "Setting bvh node array  argument for shadow kernel" << std::endl;
+	err = clSetKernelArg(shadow_clkernelinfo.kernel,5,sizeof(cl_mem),&cl_bvh_nodes);
 	if (error_cl(err, "clSetKernelArg 5"))
 		exit(1);
 
-	std::cout << "Setting rays hit mem object argument for shadow kernel" << std::endl;
-	err = clSetKernelArg(shadow_clkernelinfo.kernel,7,
+	/*------------------------ Set up cubemap kernel info ---------------------*/
+
+	if (init_cl_kernel(&clinfo,"src/kernel/cubemap.cl", "cubemap", 
+			   &cm_clkernelinfo)){
+		std::cerr << "Failed to initialize CL kernel" << std::endl;
+		exit(1);
+	} else {
+		std::cerr << "Initialized cubemap CL kernel succesfully" << std::endl;
+	}
+	cm_clkernelinfo.work_dim = 2;
+	cm_clkernelinfo.arg_count = 9;
+	cm_clkernelinfo.global_work_size[0] = window_size[0];
+	cm_clkernelinfo.global_work_size[1] = window_size[1];
+	
+	GLuint gl_posx_tex,gl_negx_tex;
+	GLuint gl_posy_tex,gl_negy_tex;
+	GLuint gl_posz_tex,gl_negz_tex;
+
+	cl_mem cl_cm_posx_mem,cl_cm_negx_mem;
+	cl_mem cl_cm_posy_mem,cl_cm_negy_mem;
+	cl_mem cl_cm_posz_mem,cl_cm_negz_mem;
+	cl_cm_negz_mem = cl_cm_posz_mem;
+
+	uint32_t tex_width,tex_height;
+	gl_posx_tex = create_tex_gl_from_jpeg(tex_width,tex_height,
+					      "textures/cubemap/Path/posx.jpg");
+	gl_negx_tex = create_tex_gl_from_jpeg(tex_width,tex_height,
+					      "textures/cubemap/Path/negx.jpg");
+	gl_posy_tex = create_tex_gl_from_jpeg(tex_width,tex_height,
+					      "textures/cubemap/Path/posy.jpg");
+	gl_negy_tex = create_tex_gl_from_jpeg(tex_width,tex_height,
+					      "textures/cubemap/Path/negy.jpg");
+	gl_posz_tex = create_tex_gl_from_jpeg(tex_width,tex_height,
+					      "textures/cubemap/Path/posz.jpg");
+	gl_negz_tex = create_tex_gl_from_jpeg(tex_width,tex_height,
+					      "textures/cubemap/Path/negz.jpg");
+
+	std::cerr << "width: " << tex_width << "\theight: " << tex_height << std::endl;
+
+	if (gl_posx_tex < 0 || gl_negx_tex < 0 || 
+	    gl_posy_tex < 0 || gl_negy_tex < 0 || 
+	    gl_posz_tex < 0 || gl_negz_tex < 0) {
+		std::cerr << "Error loading cubmap textures." << std::endl;
+		exit(1);
+	}
+
+	if (create_cl_mem_from_gl_tex(clinfo, gl_posx_tex, &cl_cm_posx_mem))
+		exit(1);
+	if (create_cl_mem_from_gl_tex(clinfo, gl_negx_tex, &cl_cm_negx_mem))
+		exit(1);
+	if (create_cl_mem_from_gl_tex(clinfo, gl_posy_tex, &cl_cm_posy_mem))
+		exit(1);
+	if (create_cl_mem_from_gl_tex(clinfo, gl_negy_tex, &cl_cm_negy_mem))
+		exit(1);
+	if (create_cl_mem_from_gl_tex(clinfo, gl_posz_tex, &cl_cm_posz_mem))
+		exit(1);
+	if (create_cl_mem_from_gl_tex(clinfo, gl_negz_tex, &cl_cm_negz_mem))
+		exit(1);
+	
+
+	/*------------------------ Set up cubemap kernel arguments -------------------*/
+
+	std::cout << "Setting output mem object argument for cubemap kernel" << std::endl;
+	err = clSetKernelArg(cm_clkernelinfo.kernel,0,sizeof(cl_mem),&cl_tex_mem);
+	if (error_cl(err, "clSetKernelArg 0"))
+		exit(1);
+
+	std::cout << "Setting rays hit mem object argument for cubemap kernel" << std::endl;
+	err = clSetKernelArg(cm_clkernelinfo.kernel,1,
 			     sizeof(cl_mem),&cl_prim_hit_mem);
+	if (error_cl(err, "clSetKernelArg 1"))
+		exit(1);
+
+	std::cout << "Setting ray mem object argument for cubemap kernel" << std::endl;
+	err = clSetKernelArg(cm_clkernelinfo.kernel,2,
+			     sizeof(cl_mem),&cl_ray_mem);
+	if (error_cl(err, "clSetKernelArg 2"))
+		exit(1);
+
+	std::cout << "Setting cubemap positive x texture for cubemap kernel" << std::endl;
+	err = clSetKernelArg(cm_clkernelinfo.kernel,3,
+			     sizeof(cl_mem),&cl_cm_posx_mem);
+	if (error_cl(err, "clSetKernelArg 3"))
+		exit(1);
+
+	std::cout << "Setting cubemap negative x texture for cubemap kernel" << std::endl;
+	err = clSetKernelArg(cm_clkernelinfo.kernel,4,
+			     sizeof(cl_mem),&cl_cm_negx_mem);
+	if (error_cl(err, "clSetKernelArg 4"))
+		exit(1);
+
+	std::cout << "Setting cubemap positive y texture for cubemap kernel" << std::endl;
+	err = clSetKernelArg(cm_clkernelinfo.kernel,5,
+			     sizeof(cl_mem),&cl_cm_posy_mem);
+	if (error_cl(err, "clSetKernelArg 5"))
+		exit(1);
+
+	std::cout << "Setting cubemap negative y texture for cubemap kernel" << std::endl;
+	err = clSetKernelArg(cm_clkernelinfo.kernel,6,
+			     sizeof(cl_mem),&cl_cm_negy_mem);
+	if (error_cl(err, "clSetKernelArg 6"))
+		exit(1);
+
+	std::cout << "Setting cubemap positive z texture for cubemap kernel" << std::endl;
+	err = clSetKernelArg(cm_clkernelinfo.kernel,7,
+			     sizeof(cl_mem),&cl_cm_posz_mem);
 	if (error_cl(err, "clSetKernelArg 7"))
+		exit(1);
+
+	std::cout << "Setting cubemap negative z texture for cubemap kernel" << std::endl;
+	err = clSetKernelArg(cm_clkernelinfo.kernel,8,
+			     sizeof(cl_mem),&cl_cm_negz_mem);
+	if (error_cl(err, "clSetKernelArg 8"))
 		exit(1);
 
 	/*------------------------ Set GLUT and misc functions -----------------------*/

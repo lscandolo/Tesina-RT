@@ -62,7 +62,7 @@ private:
 class BVH {
 
 public:
-	BVH(const Mesh& m);
+	BVH(Mesh& m);
 	bool construct();
 
 	const BVHNode* nodeArray()
@@ -82,7 +82,7 @@ public:
 
 private:
 
-	const Mesh& m_mesh;
+	Mesh& m_mesh;
 	std::vector<BVHNode> m_nodes;
 	std::vector<tri_id> m_ordered_triangles;
 };

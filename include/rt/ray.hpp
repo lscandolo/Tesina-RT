@@ -101,9 +101,8 @@ class RayHitInfo {
 
 	int hit;
 	float t;
-	unsigned int id;
+	int id;
 	cl_float2 uv;
-	cl_float3 p;
 
 };
 

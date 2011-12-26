@@ -122,7 +122,7 @@ BVHNode::sort(const std::vector<BBox>& bboxes,
 }
 
 
-BVH::BVH(const Mesh& m) : m_mesh(m) 
+BVH::BVH(Mesh& m) : m_mesh(m) 
 {
 	uint32_t tris = m_mesh.triangleCount();
 	m_ordered_triangles.resize(tris);
@@ -150,7 +150,10 @@ BVH::construct()
 	root.setBounds(0, m_mesh.triangleCount());
 	root.sort(bboxes, m_ordered_triangles, m_nodes, 0);
 	m_nodes[0] = root;
-	/*------------------ Split method is simple half & half now ----------------*/
+
+
+	/*------------------ Reorder triangles in mesh now ----------------*/
+	m_mesh.reorderTriangles(m_ordered_triangles);
 
 	return true;
 }

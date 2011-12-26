@@ -280,6 +280,7 @@ void print_cl_info(const CLInfo& clinfo)
 {
 
 	cl_int err;
+	cl_uint max_samplers;
 	char device_vendor[128], device_name[128], device_cl_version[128], c_version[128];
 	size_t bytes_returned;
 	err = clGetDeviceInfo (clinfo.device_id,
@@ -309,12 +310,21 @@ void print_cl_info(const CLInfo& clinfo)
 	if (error_cl(err, "clGetDeviceInfo CL_DEVICE_OPENCL_C_VERSION"))
 	    return;
 
+	err = clGetDeviceInfo (clinfo.device_id,
+			       CL_DEVICE_MAX_SAMPLERS, sizeof(max_samplers),
+			       &max_samplers, &bytes_returned);
+
+	if (error_cl(err, "clGetDeviceInfo CL_DEVICE_MAX_SAMPLERS"))
+	    return;
+
 	std::cerr << "OpenCL Info:" << std::endl;
 
 	std::cerr << "\tOpenCL device vendor: " << device_vendor << std::endl;
 	std::cerr << "\tOpenCL device name: " << device_name << std::endl;
 	std::cerr << "\tOpenCL device OpenCL version: " << device_cl_version << std::endl;
 	std::cerr << "\tOpenCL device OpenCL C version: " << c_version << std::endl;
+	std::cerr << "\tOpenCL device maximum sampler support: " 
+		  << max_samplers << std::endl;
 
 	std::cerr << std::endl;
 }

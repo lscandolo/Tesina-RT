@@ -26,11 +26,6 @@ struct Vertex
         cl_float2 texCoord;
 };
 
-// struct Triangle
-// {
-// 	index_t v[3];
-// };
-
 // struct Vertex
 // {
 //         float position[3];
@@ -72,6 +67,10 @@ public:
 
         /* Accesor for the vertex array */
 	const Vertex* vertexArray() const; 
+
+        /* Reorder mesh triangles accorging to order array */
+	void reorderTriangles(const std::vector<uint32_t> order); 
+
 };
 
 class MeshInstance

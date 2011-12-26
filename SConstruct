@@ -9,7 +9,7 @@ env.Append(CCFLAGS = '-g -Wall -O3')
 
 cl_root = env['ENV']['CL_ROOT']
 
-base_libs = ['GL' , 'glut' , 'GLEW' , 'OpenCL', 'rt', 'm']
+base_libs = ['GL' , 'glut' , 'GLEW' , 'OpenCL', 'rt', 'm', 'freeimageplus']
 libpath = [cl_root + '/lib/x86_64' , '/usr/lib/fglrx' ]
 cpppath = [cl_root + '/include' , 'include' ]
 

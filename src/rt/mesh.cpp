@@ -1,4 +1,5 @@
 #include <rt/mesh.hpp>
+#include <rt/assert.hpp>
 
 /* Constructs a basic mesh around arrays of vertex and index data. */
 Mesh::Mesh()
@@ -31,3 +32,12 @@ const Triangle* Mesh::triangleArray() const
 /* Accesor for the vertex array */
 const Vertex* Mesh::vertexArray() const 
 {return &vertices[0];}
+
+/* Reorder mesh triangles accorging to order array */
+void Mesh::reorderTriangles(const std::vector<uint32_t> order){
+	ASSERT(triangles.size() == order.size());
+	std::vector<Triangle> old_triangles = triangles;
+	for (uint32_t i = 0; i < triangles.size(); ++i) {
+		triangles[i] = old_triangles[order[i]];
+	}
+}
