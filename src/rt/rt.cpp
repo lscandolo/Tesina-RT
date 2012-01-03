@@ -8,6 +8,7 @@
 #include <rt/primary-ray-generator.hpp>
 #include <rt/scene.hpp>
 #include <rt/obj-loader.hpp>
+#include <rt/scene.hpp>
 #include <rt/bvh.hpp>
 #include <rt/cl_aux.hpp>
 
@@ -221,7 +222,39 @@ int main (int argc, char** argv)
 	ray_clkernelinfo.global_work_size[0] = window_size[0];
 	ray_clkernelinfo.global_work_size[1] = window_size[1];
 
-	/*---------------------- Load model ---------------------------*/
+	/*---------------------- Set up scene ---------------------------*/
+	Scene scene;
+	mesh_id teapot_mesh_id = scene.load_obj_file("models/obj/teapot2.obj");
+	// mesh_id teapot_mesh_id = scene.load_obj_file("models/obj/teapot-low_res.obj");
+	mesh_id floor_mesh_id = scene.load_obj_file("models/obj/floor.obj");
+
+	object_id teapot_obj_id = scene.geometry.add_object(teapot_mesh_id);
+	object_id teapot_obj_id_2 = scene.geometry.add_object(teapot_mesh_id);
+
+	// object_id floor_obj_id  = scene.geometry.add_object(floor_mesh_id);
+	// Object& floor_obj = scene.geometry.object(floor_obj_id);
+	// floor_obj.geom.scale = 2.f;
+
+	Object& teapot_obj = scene.geometry.object(teapot_obj_id);
+	Object& teapot_obj_2 = scene.geometry.object(teapot_obj_id_2);
+	teapot_obj.geom.pos = makeVector(-8.f,-5.f,0.f);
+	teapot_obj_2.geom.pos = makeVector(8.f,5.f,0.f);
+
+	scene.create_aggregate();
+	Mesh& scene_mesh = scene.get_aggregate_mesh();
+
+	std::cout << "Building BVH." << std::endl;
+	rt_time.snap_time();
+	scene.create_bvh();
+	BVH& scene_bvh   = scene.get_aggregate_bvh ();
+	double bvh_build_time = rt_time.msec_since_snap();
+	std::cout << "Built BVH (build time: " 
+		  << bvh_build_time << " msec, " 
+		  << scene_bvh.nodeArraySize() << " nodes)" << std::endl;
+
+
+
+	/* ---------------- Old method 
 	ModelOBJ obj;
 	// if (!obj.import("models/obj/floor.obj")){
 	// if (!obj.import("models/obj/teapot-low_res.obj")){
@@ -235,29 +268,21 @@ int main (int argc, char** argv)
 	}
 	Mesh mesh;
 	obj.toMesh(&mesh);
+	 ----------------------------*/
 
-	/*---------------------- Print model data ----------------------*/
-	int triangles = mesh.triangleCount();
+	/*---------------------- Print scene data ----------------------*/
+	int triangles = scene_mesh.triangleCount();
 	std::cerr << "Triangle count: " << triangles << std::endl;
 	
-	int vertices = mesh.vertexCount();
+	int vertices = scene_mesh.vertexCount();
 	std::cerr << "Vertex count: " << vertices << std::endl;
 
 
-	/*--------------------- Create Acceleration structure --------------------*/
-	std::cout << "Building BVH." << std::endl;
-	rt_time.snap_time();
-	BVH bvh(mesh);
-	bvh.construct();
-	double bvh_build_time = rt_time.msec_since_snap();
-	std::cout << "Built BVH (build time: " 
-		  << bvh_build_time << " msec, " 
-		  << bvh.nodeArraySize() << " nodes)" << std::endl;
 
 	/*---------------------- Move model data to OpenCL device -----------------*/
 	if (create_filled_cl_mem(clinfo,CL_MEM_READ_ONLY,
 				 vertices * sizeof(Vertex),
-				 mesh.vertexArray(),
+				 scene_mesh.vertexArray(),
 				 &cl_vert_mem))
 		exit(1);
 	std::cerr << "Vertex buffer info:" << std::endl;
@@ -267,7 +292,7 @@ int main (int argc, char** argv)
 
 	if (create_filled_cl_mem(clinfo,CL_MEM_READ_ONLY,
 				 triangles * 3 * sizeof(uint32_t),
-				 mesh.triangleArray(),
+				 scene_mesh.triangleArray(),
 				 &cl_index_mem))
 		exit(1);
 	std::cout << "Index buffer info:" << std::endl;
@@ -277,8 +302,8 @@ int main (int argc, char** argv)
 	cl_mem cl_bvh_nodes;
 	std::cout << "Moving bvh nodes to device memory." << std::endl;
 	if (create_filled_cl_mem(clinfo,CL_MEM_READ_ONLY,
-				 bvh.nodeArraySize() * sizeof(BVHNode),
-				 bvh.nodeArray(),
+				 scene_bvh.nodeArraySize() * sizeof(BVHNode),
+				 scene_bvh.nodeArray(),
 				 &cl_bvh_nodes))
 		exit(1);
 

@@ -122,17 +122,25 @@ BVHNode::sort(const std::vector<BBox>& bboxes,
 }
 
 
-BVH::BVH(Mesh& m) : m_mesh(m) 
+// BVH::BVH(Mesh& m) : m_mesh(m) 
+// {
+// 	uint32_t tris = m_mesh.triangleCount();
+// 	m_ordered_triangles.resize(tris);
+// 	for (uint32_t i = 0 ; i  < tris ; ++i)
+// 		m_ordered_triangles[i] = i;
+// }
+
+bool 
+BVH::construct(Mesh& m_mesh) 
 {
+
+	/*------------------- Initialize members ----------------------------------*/
 	uint32_t tris = m_mesh.triangleCount();
 	m_ordered_triangles.resize(tris);
 	for (uint32_t i = 0 ; i  < tris ; ++i)
 		m_ordered_triangles[i] = i;
-}
 
-bool 
-BVH::construct() 
-{
+
 	/*------------------------ Initialize bboxes ------------------------------*/
 	std::vector<BBox> bboxes;
 	bboxes.resize(m_mesh.triangleCount());

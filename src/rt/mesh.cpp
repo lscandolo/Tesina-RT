@@ -1,6 +1,9 @@
 #include <rt/mesh.hpp>
 #include <rt/assert.hpp>
 
+
+/*-------------------- Mesh Methods -------------------------------*/
+
 /* Constructs a basic mesh around arrays of vertex and index data. */
 Mesh::Mesh()
 {}
@@ -14,11 +17,19 @@ uint32_t Mesh::vertexCount() const
 {return vertices.size(); }
 	
 /* Accessor for the vertex array */
-const Vertex& Mesh::vertex(vtx_id i) const 
+Vertex& Mesh::vertex(vtx_id i) 
+{return vertices[i];}
+
+/* Accessor for the vertex array (copy) */
+Vertex Mesh::vertex(vtx_id i) const 
 {return vertices[i];}
 
 /* Accessor for a triangle */
-const Triangle& Mesh::triangle(tri_id tri) const 
+Triangle& Mesh::triangle(tri_id tri) 
+{ return triangles[tri]; }
+
+/* Accessor for a triangle */
+Triangle Mesh::triangle(tri_id tri) const 
 { return triangles[tri]; }
 
 /* Accessor for a triangle vertex */
@@ -41,3 +52,5 @@ void Mesh::reorderTriangles(const std::vector<uint32_t> order){
 		triangles[i] = old_triangles[order[i]];
 	}
 }
+
+

@@ -5,8 +5,8 @@
 #include <vector>
 
 #include <rt/vector.hpp>
-#include <rt/geom.hpp>
 #include <rt/cl_aux.hpp>
+#include <rt/assert.hpp>
 
 typedef uint32_t index_t;
 typedef uint32_t tri_id;
@@ -26,14 +26,6 @@ struct Vertex
         cl_float2 texCoord;
 };
 
-// struct Vertex
-// {
-//         float position[3];
-//         float texCoord[2];
-//         float normal[3];
-//         float tangent[4];
-//         float bitangent[3];
-// };
 
 class Material{}; // Get own file for this guy!!
 
@@ -54,10 +46,16 @@ public:
 	uint32_t vertexCount() const;
 
         /* Accessor for the vertex array */
-        const Vertex& vertex(vtx_id i) const;
+        Vertex& vertex(vtx_id i) ;
+
+        /* Accessor for the vertex array (copy) */
+        Vertex vertex(vtx_id i) const;
 
         /* Accessor for a triangle */
-	const Triangle& triangle(tri_id tri) const;
+	Triangle& triangle(tri_id tri) ;
+
+        /* Accessor for a triangle (copy) */
+	Triangle triangle(tri_id tri) const;
 
         /* Accessor for the index array */
         index_t triangleVertexIndex(tri_id tri, uint32_t which) const;
@@ -71,13 +69,6 @@ public:
         /* Reorder mesh triangles accorging to order array */
 	void reorderTriangles(const std::vector<uint32_t> order); 
 
-};
-
-class MeshInstance
-{
-private: 
-	Mesh* mesh;
-	GeometricProperties geom;
 };
 
 #endif /* RT_MESH_HPP */
