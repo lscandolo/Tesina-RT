@@ -237,8 +237,10 @@ int main (int argc, char** argv)
 
 	Object& teapot_obj = scene.geometry.object(teapot_obj_id);
 	Object& teapot_obj_2 = scene.geometry.object(teapot_obj_id_2);
-	teapot_obj.geom.pos = makeVector(-8.f,-5.f,0.f);
-	teapot_obj_2.geom.pos = makeVector(8.f,5.f,0.f);
+	teapot_obj.geom.setPos(makeVector(-8.f,-5.f,0.f));
+	teapot_obj_2.geom.setPos(makeVector(8.f,5.f,0.f));
+	teapot_obj_2.geom.setRpy(makeVector(0.2f,0.1f,0.3f));
+	teapot_obj_2.geom.setScale(0.3f);
 
 	scene.create_aggregate();
 	Mesh& scene_mesh = scene.get_aggregate_mesh();

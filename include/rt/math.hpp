@@ -5,6 +5,7 @@
 #include <algorithm>
 
 #include <rt/vector.hpp>
+#include <rt/matrix.hpp>
 #include <rt/assert.hpp>
 
 
@@ -58,6 +59,8 @@ float clamp(float& x, float& xMin, float& xMax );
 float lerp( const float& a, const float& b, const float& t );
 vec3 cross(const vec3& v1, const vec3& v2 );
 
+vec3 homogenize(const vec4& v);
+
 /* Reflection and refraction */
 
 vec3 reflect(const vec3& n,  /* Surface normal */
@@ -66,5 +69,12 @@ bool Refract(const vec3& i, /*Incident vector*/
 	     const vec3& n, /*Surface normal*/
 	     float eta, /*Index of refraction relation (outside/inside)*/
 	     vec3& R);  /*Refraction direction (if there is any)*/
+
+/* Matrix transform creator functions */
+
+mat4x4 translationMatrix4x4(vec3 pos);
+mat4x4 rotationMatrix4x4(vec3 rpy);
+mat4x4 scaleMatrix4x4(float scale);
+
 
 #endif /* RT_MATH_HPP */

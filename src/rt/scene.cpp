@@ -93,11 +93,14 @@ Scene::create_aggregate()
 			geometry_aggregate.triangles.push_back(tri);
 		}
 	}
+	return 0;
 }
 
 uint32_t 
 Scene::create_bvh(){
-	bvh.construct(geometry_aggregate);
+	if (!bvh.construct(geometry_aggregate))
+		return 1;
+	return 0;
 }
 
 /*---------------------------- Misc functions ---------------------------*/

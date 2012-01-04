@@ -66,5 +66,68 @@ bool Refract(const vec3& I, /*Incident vector*/
         }
 }
 
+vec3 homogenize(const vec4& v)
+{
+	ASSERT(v[3] != 0);
+	vec3 h;
+	float invH = 1.f/v[3];
+	h[0] = v[0] * invH;
+	h[1] = v[1] * invH;
+	h[2] = v[2] * invH;
+	return h;
+}
 
 
+mat4x4 translationMatrix4x4(vec3 pos)
+{
+	mat4x4 M(0.f);
+	for (uint32_t i = 0; i < 4; ++i)
+		M.val(i,i) = 1.f;
+	for (uint32_t i = 0; i < 3; ++i)
+		M.val(i,3) = pos[i];
+	return M;
+}
+
+mat4x4 rotationMatrix4x4(vec3 rpy)
+{
+	mat4x4 M(0.f);
+
+	mat4x4 MR(0.f);
+	float cosR = cos(rpy[0]);
+	float sinR = sin(rpy[0]);
+	MR.val(2,2) = 1.f;
+	MR.val(0,0) =  cosR;
+	MR.val(0,1) = -sinR;
+	MR.val(1,0) =  sinR;
+	MR.val(1,1) =  cosR;
+
+	mat4x4 MP(0.f);
+	float cosP = cos(rpy[1]);
+	float sinP = sin(rpy[1]);
+	MP.val(0,0) = 1.f;
+	MP.val(1,1) =  cosP;
+	MP.val(1,2) = -sinP;
+	MP.val(2,1) =  sinP;
+	MP.val(2,2) =  cosP;
+
+	mat4x4 MY(0.f);
+	float cosY = cos(rpy[2]);
+	float sinY = sin(rpy[2]);
+	MY.val(1,1) = 1.f;
+	MY.val(0,0) =  cosY;
+	MY.val(0,2) =  sinY;
+	MY.val(2,0) = -sinY;
+	MY.val(2,2) =  cosY;
+
+	M = MY * MP * MR;
+	M.val(3,3) = 1.f;
+	return M;
+}
+mat4x4 scaleMatrix4x4(float scale)
+{
+	mat4x4 M(0.f);
+	for (uint32_t i = 0; i < 3; ++i)
+		M.val(i,i) = scale;
+	M.val(3,3) = 1.f;
+	return M;
+}
