@@ -1,7 +1,5 @@
 #include <rt/camera.hpp>
 
-#include <iostream> //!!
-
 Camera::Camera(const vec3& Position, /*The position of the camera*/
 	       const vec3& Direction, /*The viewing direction of the camera*/ 
 	       const vec3& Up, /*Camera Up direction*/
@@ -91,7 +89,6 @@ void Camera::modifyRoll(float dr)
 	up    *=  PlaneHeight / up.norm();
 }
 
-//!!
 void Camera::modifyPitch(float dp)
 {
 	dir = dir * cos(dp) + up.normalized() * sin(dp);

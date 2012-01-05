@@ -20,7 +20,8 @@ CLKernelInfo cm_clkernelinfo;
 cl_mem cl_ray_mem;
 cl_mem cl_vert_mem;
 cl_mem cl_index_mem;
-cl_mem cl_tex_mem;
+cl_mem cl_material_mem;
+cl_mem cl_image_mem;
 cl_mem cl_prim_hit_mem;
 
 GLuint gl_tex;
@@ -93,9 +94,9 @@ void gl_loop()
 	cl_int arg = i%STEPS;
 
 	// Set div argument
-	err = clSetKernelArg(shadow_clkernelinfo.kernel,6,
+	err = clSetKernelArg(shadow_clkernelinfo.kernel,7,
 			     sizeof(cl_int),&arg);
-	if (error_cl(err, "clSetKernelArg 6"))
+	if (error_cl(err, "clSetKernelArg 7"))
 		exit(1);
 
 	/* Set rays if camera has moved */
@@ -177,9 +178,9 @@ int main (int argc, char** argv)
 	/*---------------------- Create shared GL-CL texture ----------------------*/
 	gl_tex = create_tex_gl(window_size[0],window_size[1]);
 	print_gl_tex_2d_info(gl_tex);
-	if (create_cl_mem_from_gl_tex(clinfo, gl_tex, &cl_tex_mem))
+	if (create_cl_mem_from_gl_tex(clinfo, gl_tex, &cl_image_mem))
 		exit(1);
-	print_cl_image_2d_info(cl_tex_mem);
+	print_cl_image_2d_info(cl_image_mem);
 
 
 	/* ------------------ Initialize primary trace opencl kernel -----------------*/
@@ -227,6 +228,17 @@ int main (int argc, char** argv)
 	mesh_id teapot_mesh_id = scene.load_obj_file("models/obj/teapot2.obj");
 	// mesh_id teapot_mesh_id = scene.load_obj_file("models/obj/teapot-low_res.obj");
 	mesh_id floor_mesh_id = scene.load_obj_file("models/obj/floor.obj");
+	// mesh_id boat_mesh_id = scene.load_obj_file("models/obj/frame_boat1.obj");
+
+	/* Other models 
+	models/obj/floor.obj
+	models/obj/teapot-low_res.obj
+	models/obj/teapot.obj
+	models/obj/teapot2.obj
+	models/obj/frame_boat1.obj
+	models/obj/frame_others1.obj
+	models/obj/frame_water1.obj
+	 */
 
 	object_id teapot_obj_id = scene.geometry.add_object(teapot_mesh_id);
 	object_id teapot_obj_id_2 = scene.geometry.add_object(teapot_mesh_id);
@@ -236,8 +248,13 @@ int main (int argc, char** argv)
 	// floor_obj.geom.scale = 2.f;
 
 	Object& teapot_obj = scene.geometry.object(teapot_obj_id);
-	Object& teapot_obj_2 = scene.geometry.object(teapot_obj_id_2);
 	teapot_obj.geom.setPos(makeVector(-8.f,-5.f,0.f));
+	teapot_obj.mat.diffuse = Blue;
+	teapot_obj.mat.shininess = 1.f;
+
+	Object& teapot_obj_2 = scene.geometry.object(teapot_obj_id_2);
+	teapot_obj_2.mat.diffuse = Green;
+	teapot_obj_2.mat.shininess = 1.f;
 	teapot_obj_2.geom.setPos(makeVector(8.f,5.f,0.f));
 	teapot_obj_2.geom.setRpy(makeVector(0.2f,0.1f,0.3f));
 	teapot_obj_2.geom.setScale(0.3f);
@@ -253,24 +270,6 @@ int main (int argc, char** argv)
 	std::cout << "Built BVH (build time: " 
 		  << bvh_build_time << " msec, " 
 		  << scene_bvh.nodeArraySize() << " nodes)" << std::endl;
-
-
-
-	/* ---------------- Old method 
-	ModelOBJ obj;
-	// if (!obj.import("models/obj/floor.obj")){
-	// if (!obj.import("models/obj/teapot-low_res.obj")){
-	// if (!obj.import("models/obj/teapot.obj")){
-	if (!obj.import("models/obj/teapot2.obj")){
-	// if (!obj.import("models/obj/frame_boat1.obj")){
-	// if (!obj.import("models/obj/frame_others1.obj")){
-	// if (!obj.import("models/obj/frame_water1.obj")){
-		std::cerr << "Error importing obj model." << std::endl;
-		exit(1);
-	}
-	Mesh mesh;
-	obj.toMesh(&mesh);
-	 ----------------------------*/
 
 	/*---------------------- Print scene data ----------------------*/
 	int triangles = scene_mesh.triangleCount();
@@ -299,6 +298,20 @@ int main (int argc, char** argv)
 		exit(1);
 	std::cout << "Index buffer info:" << std::endl;
 	print_cl_mem_info(cl_index_mem);
+
+	MaterialList& mats = scene.get_material_list();
+	for (uint32_t i = 0 ; i < mats.mats.size(); ++i){
+		std::cerr << "Material " << i << " up to "  << mats.mats[i].max_id 
+			  << std::endl;
+	}
+
+	if (create_filled_cl_mem(clinfo,CL_MEM_READ_ONLY,
+				 scene.get_material_list().size_in_bytes(),
+				 scene.get_material_list().arrayPointer(),
+				 &cl_material_mem))
+		exit(1);
+	std::cout << "Material buffer info:" << std::endl;
+	print_cl_mem_info(cl_material_mem);
 
 	/*--------------------- Move bvh to device memory ---------------------*/
 	cl_mem cl_bvh_nodes;
@@ -377,7 +390,7 @@ int main (int argc, char** argv)
 	/*----------------------- Set primary shadow kernel arguments -----------------*/
 
 	std::cout << "Setting texture mem object argument for shadow kernel" << std::endl;
-	err = clSetKernelArg(shadow_clkernelinfo.kernel,0,sizeof(cl_mem),&cl_tex_mem);
+	err = clSetKernelArg(shadow_clkernelinfo.kernel,0,sizeof(cl_mem),&cl_image_mem);
 	if (error_cl(err, "clSetKernelArg 0"))
 		exit(1);
 
@@ -406,6 +419,11 @@ int main (int argc, char** argv)
 	std::cout << "Setting bvh node array  argument for shadow kernel" << std::endl;
 	err = clSetKernelArg(shadow_clkernelinfo.kernel,5,sizeof(cl_mem),&cl_bvh_nodes);
 	if (error_cl(err, "clSetKernelArg 5"))
+		exit(1);
+
+	std::cout << "Setting material list array  argument for shadow kernel" << std::endl;
+	err = clSetKernelArg(shadow_clkernelinfo.kernel,6,sizeof(cl_mem),&cl_material_mem);
+	if (error_cl(err, "clSetKernelArg 6"))
 		exit(1);
 
 	/*------------------------ Set up cubemap kernel info ---------------------*/
@@ -471,7 +489,7 @@ int main (int argc, char** argv)
 	/*------------------------ Set up cubemap kernel arguments -------------------*/
 
 	std::cout << "Setting output mem object argument for cubemap kernel" << std::endl;
-	err = clSetKernelArg(cm_clkernelinfo.kernel,0,sizeof(cl_mem),&cl_tex_mem);
+	err = clSetKernelArg(cm_clkernelinfo.kernel,0,sizeof(cl_mem),&cl_image_mem);
 	if (error_cl(err, "clSetKernelArg 0"))
 		exit(1);
 

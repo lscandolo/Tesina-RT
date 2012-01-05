@@ -29,14 +29,14 @@ rt_primitives_lib = env.StaticLibrary('lib/rt-primitives' ,
                                        'src/rt/timing.cpp',
                                        'src/rt/ray.cpp',
                                        'src/rt/mesh.cpp',
+                                       'src/rt/material.cpp',
                                        'src/rt/obj-loader.cpp',
                                        'src/rt/camera.cpp',
                                        'src/rt/primary-ray-generator.cpp',
                                        'src/rt/obj-loader.cpp',
                                        'src/rt/bvh.cpp',
                                        'src/rt/scene.cpp'
-                                       ]
-                                      )
+                                       ])
 
 clgl_lib = env.StaticLibrary('lib/clgl' ,
                              Glob('src/cl-gl/open[cg]l-init.cpp')

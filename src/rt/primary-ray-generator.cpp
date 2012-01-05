@@ -6,7 +6,8 @@
 bool 
 PrimaryRayGenerator::set_rays(Camera& cam, RayBundle& bundle, uint32_t size[2])
 {
-	/*!! Assert raybundle size is correct*/
+	/* Assert raybundle size is correct */
+	ASSERT(bundle.size() == size[0] * size[1]);
 
 	uint32_t width = size[0];
 	uint32_t height = size[1];

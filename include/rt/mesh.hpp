@@ -26,9 +26,6 @@ struct Vertex
         cl_float2 texCoord;
 };
 
-
-class Material{}; // Get own file for this guy!!
-
 class Mesh
 {
 

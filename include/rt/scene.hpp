@@ -6,6 +6,7 @@
 #include <stdint.h>
 
 #include <rt/mesh.hpp>
+#include <rt/material.hpp>
 #include <rt/bvh.hpp>
 #include <rt/light.hpp>
 #include <rt/geom.hpp>
@@ -40,8 +41,8 @@ struct Object {
 	Material mat;
 };
 
-struct SceneGeometry
-{
+struct SceneGeometry {
+
 	object_id add_object(Object mi);
 	void remove_object(object_id id);
 	Object& object(object_id id);
@@ -60,6 +61,7 @@ public:
 
 	Mesh& get_aggregate_mesh(){return geometry_aggregate;}
 	BVH&  get_aggregate_bvh (){return bvh;}
+	MaterialList& get_material_list (){return material_list;}
 
 	SceneGeometry geometry;
 
@@ -69,9 +71,7 @@ private:
 
 	Mesh geometry_aggregate;
 	BVH bvh;
+	MaterialList material_list;
 };
-
-
-
 
 #endif /* RT_SCENE_HPP */

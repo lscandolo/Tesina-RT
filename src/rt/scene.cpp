@@ -68,10 +68,14 @@ Scene::load_obj_file(std::string filename)
 uint32_t 
 Scene::create_aggregate()
 {
+	uint32_t base_triangle = 0;
+
 	for (uint32_t i = 0; i < geometry.objects.size(); ++i) {
 		Object obj = geometry.objects[i];
 		if (!obj.is_valid())
 			continue;
+		MaterialList::ObjectMat obj_mat;
+
 		mesh_id m_id = obj.get_mesh_id();
 		uint32_t base_vertex = geometry_aggregate.vertexCount();
 		Mesh& mesh = mesh_atlas[m_id];
@@ -79,10 +83,13 @@ Scene::create_aggregate()
 
 		ASSERT(m_id < mesh_atlas.size());
 
+		obj_mat.mat = obj.mat;
+		obj_mat.max_id = base_triangle + mesh.triangleCount();
+		material_list.mats.push_back(obj_mat);
+
 		for (uint32_t v = 0; v < mesh.vertexCount(); ++v) {
 			Vertex vertex = mesh.vertex(v);
 			g.transform(vertex);
-			/*!! Must finish vertex transform method!! */
 			geometry_aggregate.vertices.push_back(vertex);
 		}
 		for (uint32_t t = 0; t < mesh.triangleCount(); ++t) {
@@ -92,6 +99,8 @@ Scene::create_aggregate()
 			tri.v[2] += base_vertex;
 			geometry_aggregate.triangles.push_back(tri);
 		}
+		base_triangle += mesh.triangleCount();
+		
 	}
 	return 0;
 }
