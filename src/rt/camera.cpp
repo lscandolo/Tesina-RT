@@ -179,12 +179,12 @@ vec3 Camera::getRayDirection(const float& xPosNDC,
 	             up    * (yPosNDC * 2.0f - 1.0f);
 }
 
-Ray Camera::getRay(const float& xPosNDC, 
+ray_cl Camera::getRay(const float& xPosNDC, 
 		    const float& yPosNDC) const
 {
 	vec3 offset = right * (xPosNDC * 2.0f - 1.0f) + 
 		      up    * (yPosNDC * 2.0f - 1.0f);
 
-	return Ray(pos,dir+offset);
+	return ray_cl(pos,dir+offset);
 }
 

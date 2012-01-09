@@ -59,8 +59,8 @@ public:
         vec3 getRayDirection(const float& xPosNDC, 
 			     const float& yPosNDC) const;
 
-        Ray  getRay(const float& xPosNDC, 
-		    const float& yPosNDC) const;
+        ray_cl  getRay(const float& xPosNDC, 
+		       const float& yPosNDC) const;
 	
 };
 

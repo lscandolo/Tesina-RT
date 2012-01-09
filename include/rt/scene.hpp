@@ -38,7 +38,7 @@ struct Object {
 
 	mesh_id id;
 	GeometricProperties geom;
-	Material mat;
+	material_cl mat;
 };
 
 struct SceneGeometry {

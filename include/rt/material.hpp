@@ -11,7 +11,7 @@
 
 /* RGB color will be represented as floats using  [0,1]  */
 /* No constructor, and no privates, so it's POD */
-struct Color {
+struct color_cl {
 
 	float operator[](int32_t i) const;
 	float& operator[](int32_t i);
@@ -22,21 +22,21 @@ struct Color {
 
 /* Helpful color definitions */
 
-const Color Black = {{{0.f,0.f,0.f}}};
-const Color Red   = {{{1.f,0.f,0.f}}};
-const Color Green = {{{0.f,1.f,0.f}}};
-const Color Blue  = {{{0.f,0.f,1.f}}};
-const Color White = {{{1.f,1.f,1.f}}};
+const color_cl Black = {{{0.f,0.f,0.f}}};
+const color_cl Red   = {{{1.f,0.f,0.f}}};
+const color_cl Green = {{{0.f,1.f,0.f}}};
+const color_cl Blue  = {{{0.f,0.f,1.f}}};
+const color_cl White = {{{1.f,1.f,1.f}}};
 
 /* For now it'll be super simple */
-struct Material {
+struct material_cl {
 
-	Color diffuse;
-	float shininess;
-	float reflectiveness;
-	float refractive_index;
+	color_cl diffuse;
+	cl_float shininess;
+	cl_float reflectiveness;
+	cl_float refractive_index;
 
-	Material(){
+	material_cl(){
 		diffuse = Black;
 		shininess = 0.f;
 		reflectiveness = 0.f;
@@ -47,18 +47,18 @@ struct Material {
 
 struct MaterialList {
 
-	struct ObjectMat{
-		uint32_t max_id;
-		Material mat;
+	struct material_item_cl{
+		cl_uint max_id;
+		material_cl mat;
 	};
 
-	std::vector<ObjectMat> mats; 
+	std::vector<material_item_cl> mats; 
 
 	uint32_t size_in_bytes(){
-		return mats.size() * sizeof(ObjectMat);
+		return mats.size() * sizeof(material_item_cl);
 	}
 
-	const ObjectMat* arrayPointer(){
+	const material_item_cl* arrayPointer(){
 		return &(mats[0]);
 	}
 };

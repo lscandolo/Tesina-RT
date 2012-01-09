@@ -24,7 +24,7 @@ PrimaryRayGenerator::set_rays(Camera& cam, RayBundle& bundle, uint32_t size[2])
 		float current_x = x_start;
 		for (uint32_t x = 0; x < width; ++x, current_x += x_step) {
 			uint32_t index = y*width+x;
-			Ray& ray = bundle[index];
+			ray_cl& ray = bundle[index];
 			ray = cam.getRay(current_x,current_y);
 		}
 	}

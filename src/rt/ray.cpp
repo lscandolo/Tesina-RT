@@ -2,7 +2,7 @@
 
 
 /* Constructor */
-Ray::Ray( const vec3& origin, const vec3& direction) {
+ray_cl::ray_cl( const vec3& origin, const vec3& direction) {
 	ori = vec3_to_float3(origin);
 	dir = vec3_to_float3(direction);
 	invDir = vec3_to_float3(inv(direction));
@@ -12,7 +12,7 @@ Ray::Ray( const vec3& origin, const vec3& direction) {
 
 
 /* Value setter */
-void Ray::set( const vec3& origin, const vec3& direction)
+void ray_cl::set( const vec3& origin, const vec3& direction)
 {
 	ori = vec3_to_float3(origin);
 	dir = vec3_to_float3(direction);
@@ -23,7 +23,7 @@ void Ray::set( const vec3& origin, const vec3& direction)
 
 /// Tests whether a 'T-value' is within the ray's valid interval
 
-bool Ray::validT(float t) const 
+bool ray_cl::validT(float t) const 
 { return ( t >= tMin && t < tMax ); };
  
 

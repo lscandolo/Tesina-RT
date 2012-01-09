@@ -4,31 +4,30 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <limits>
-#include <new>
 
 #include <rt/vector.hpp>
 #include <rt/math.hpp>
 
 #include <rt/cl_aux.hpp>
 
-class Ray
+class ray_cl
 {
 public:
 
 	cl_float3 ori; /* Ray origin */
 	cl_float3 dir; /* Ray direction */
 	cl_float3 invDir; /* Ray inverse direction */
-	float tMin;
-	float tMax;  /*Maximum and minimum valid ray intersection values*/
+	cl_float tMin;
+	cl_float tMax;  /*Maximum and minimum valid ray intersection values*/
 
 	/* Constructors */
-        inline Ray(){}
-	Ray( const vec3& origin, const vec3& direction);
+        ray_cl(){}
+	ray_cl( const vec3& origin, const vec3& direction);
 
 	/* Setter */
 	void set(const vec3& origin, const vec3& direction);
 
-        /// Tests whether a value is within the ray's valid t interval
+        /* Tests whether a value is within the ray's valid t interval */
         bool validT(float t) const; 
 };
 
@@ -55,7 +54,7 @@ public:
 				return false;
 			try 
 			{
-				rays = new Ray[ray_count];
+				rays = new ray_cl[ray_count];
 			}
 			catch (std::bad_alloc ba)
 			{ 
@@ -64,7 +63,7 @@ public:
 			return true;
 		};
 
-	Ray& operator[](int32_t i)
+	ray_cl& operator[](int32_t i)
 		{
 			return rays[i];
 		};
@@ -76,23 +75,23 @@ public:
 
 	int32_t size_in_bytes()
 		{
-			return ray_count * sizeof(Ray);
+			return ray_count * sizeof(ray_cl);
 		};
 
 
 	static int32_t expected_size_in_bytes(int32_t expected_ray_count)
 		{
-			return expected_ray_count * sizeof(Ray);
+			return expected_ray_count * sizeof(ray_cl);
 		}
 
-	Ray* ray_array()
+	ray_cl* ray_array()
 		{
 			return rays;
 		}
 
 private:
 
-	Ray* rays;
+	ray_cl* rays;
 	int32_t ray_count;
 
 };

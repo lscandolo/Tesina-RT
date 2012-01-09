@@ -74,7 +74,7 @@ Scene::create_aggregate()
 		Object obj = geometry.objects[i];
 		if (!obj.is_valid())
 			continue;
-		MaterialList::ObjectMat obj_mat;
+		MaterialList::material_item_cl obj_mat;
 
 		mesh_id m_id = obj.get_mesh_id();
 		uint32_t base_vertex = geometry_aggregate.vertexCount();

@@ -1,7 +1,7 @@
 #include <rt/material.hpp>
 
 float 
-Color::operator[](int32_t i) const
+color_cl::operator[](int32_t i) const
 {
 	switch (i) {
 	case 0:
@@ -17,7 +17,7 @@ Color::operator[](int32_t i) const
 }
 
 float& 
-Color::operator[](int32_t i)
+color_cl::operator[](int32_t i)
 {
 	switch (i) {
 	case 0:
