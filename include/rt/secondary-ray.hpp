@@ -32,8 +32,8 @@ public:
 struct bounce_cl
 {
 	cl_float3 hit_point;
-	cl_float3 normal;
 	cl_float3 dir;
+	cl_float3 normal;
 	cl_int flags;
 	cl_float refraction_index;
 };

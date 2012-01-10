@@ -67,20 +67,20 @@ bbox_hit(BBox bbox,
  	axis_t_lo = (bbox.lo - ray.ori) * ray.invDir;
 	axis_t_hi = (bbox.hi - ray.ori) * ray.invDir;
 
-	float3 axis_t_max = max(axis_t_lo, axis_t_hi);
-	float3 axis_t_min = min(axis_t_lo, axis_t_hi);
+	float3 axis_t_max = fmax(axis_t_lo, axis_t_hi);
+	float3 axis_t_min = fmin(axis_t_lo, axis_t_hi);
 
 	if (fabs(ray.invDir.x) > 0.0001f) {
-		tMin = max(tMin, axis_t_min.x); tMax = min(tMax, axis_t_max.x);
+		tMin = fmax(tMin, axis_t_min.x); tMax = fmin(tMax, axis_t_max.x);
 	}
-	if (fabs(ray.invDir).y > 0.0001f) {
-		tMin = max(tMin, axis_t_min.y); tMax = min(tMax, axis_t_max.y);
+	if (fabs(ray.invDir.y) > 0.0001f) {
+		tMin = fmax(tMin, axis_t_min.y); tMax = fmin(tMax, axis_t_max.y);
 	}
 	if (fabs(ray.invDir.z) > 0.0001f) {
-	    tMin = max(tMin, axis_t_min.z); tMax = min(tMax, axis_t_max.z);
+	    tMin = fmax(tMin, axis_t_min.z); tMax = fmin(tMax, axis_t_max.z);
 	}
 
-	if (tMin < tMax && tMin < ray.tMax && tMax > ray.tMin) {
+	if (tMin < tMax) {
 		info.hit = true;
 		info.t   = tMin;
 	}
@@ -195,7 +195,7 @@ trace(global RayHitInfo* ray_hit_info,
 
 	float3 rdir = ray.dir;
 	float3 adir = fabs(rdir);
-	float max_dir_val = max(adir.x, max(adir.y,adir.z)) - 0.00001f;
+	float max_dir_val = fmax(adir.x, fmax(adir.y,adir.z)) - 0.00001f;
 	adir = fdim(adir, (float3)(max_dir_val,max_dir_val,max_dir_val));
 
 	while (true) {
@@ -247,7 +247,7 @@ trace(global RayHitInfo* ray_hit_info,
 		RayHitInfo info = bbox_hit(test_bbox, ray);
 
 		// If it hit, and closer to the closest hit up to now, check it
-		if (info.hit && info.t < ray.tMax && info.t > ray.tMin) {
+		if (info.hit) {
 			// If it's a leaf, check all primitives in the leaf, then go up
 			if (current_node.leaf) {
  				// Check all primitives in leaf

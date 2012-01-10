@@ -16,6 +16,7 @@
 #define MAX_BOUNCE 5
 
 CLKernelInfo rt_clkernelinfo;
+CLKernelInfo bounce_clkernelinfo;
 CLKernelInfo shadow_clkernelinfo;
 CLKernelInfo ray_clkernelinfo;
 CLKernelInfo cm_clkernelinfo;
@@ -26,7 +27,7 @@ cl_mem cl_vert_mem;
 cl_mem cl_index_mem;
 cl_mem cl_material_mem;
 cl_mem cl_image_mem;
-cl_mem cl_prim_hit_mem;
+cl_mem cl_hit_mem;
 
 cl_mem cl_ray_level[MAX_BOUNCE];
 cl_mem cl_bounce_mem[MAX_BOUNCE];
@@ -116,10 +117,34 @@ void gl_loop()
 	}
 
 	cl_time.snap_time();
+
 	execute_cl(rt_clkernelinfo);
 	execute_cl(shadow_clkernelinfo);
 	execute_cl(cm_clkernelinfo);
-	execute_cl(second_cm_clkernelinfo);
+
+	// for (uint32_t i = 0; i < MAX_BOUNCE; ++i) {
+
+	for (uint32_t i = 0; i < 1; ++i) {
+
+		err = clSetKernelArg(second_cm_clkernelinfo.kernel,1,
+				     sizeof(cl_mem),&cl_ray_level[i]);
+		if (error_cl(err, "clSetKernelArg 1"))
+			exit(1);
+
+		err = clSetKernelArg(second_cm_clkernelinfo.kernel,2,
+				     sizeof(cl_mem),&cl_bounce_mem[i]);
+		if (error_cl(err, "clSetKernelArg 2"))
+			exit(1);
+
+		err = clSetKernelArg(bounce_clkernelinfo.kernel,0,
+				     sizeof(cl_mem),&cl_bounce_mem[i]);
+		if (error_cl(err, "clSetKernelArg 0"))
+			exit(1);
+
+		// execute_cl(second_cm_clkernelinfo);
+		execute_cl(bounce_clkernelinfo);
+		execute_cl(shadow_clkernelinfo);
+	}
 
 	// double cl_msec = cl_time.msec_since_snap();
 	// std::cout << "Time spent on opencl: " << cl_msec << " msec." << std::endl;
@@ -193,7 +218,10 @@ int main (int argc, char** argv)
 
 	/* ------------------ Initialize primary trace opencl kernel -----------------*/
 
-	if (init_cl_kernel(&clinfo,"src/kernel/trace.cl", "trace", &rt_clkernelinfo)){
+	if (init_cl_kernel(&clinfo,
+			   "src/kernel/trace.cl", 
+			   "trace", 
+			   &rt_clkernelinfo)){
 		std::cerr << "Failed to initialize CL kernel" << std::endl;
 		exit(1);
 	} else {
@@ -206,17 +234,37 @@ int main (int argc, char** argv)
 
 	/* ------------------ Initialize primary shadow ray opencl kernel --------------*/
 
-	if (init_cl_kernel(&clinfo,"src/kernel/trace_any.cl", "trace_any", 
+	if (init_cl_kernel(&clinfo,
+			   "src/kernel/trace_any.cl", 
+			   "trace_any", 
 			   &shadow_clkernelinfo)){
 		std::cerr << "Failed to initialize CL kernel" << std::endl;
 		exit(1);
 	} else {
-		std::cerr << "Initialized primary shadow CL kernel succesfully" << std::endl;
+		std::cerr << "Initialized primary shadow CL kernel succesfully" 
+			  << std::endl;
 	}
 	shadow_clkernelinfo.work_dim = 2;
 	shadow_clkernelinfo.arg_count = 8;
 	shadow_clkernelinfo.global_work_size[0] = window_size[0];
 	shadow_clkernelinfo.global_work_size[1] = window_size[1];
+
+	/* ------------------ Initialize secondary trace opencl kernel -----------------*/
+
+	if (init_cl_kernel(&clinfo,
+			   "src/kernel/trace_bounce.cl", 
+			   "trace", 
+			   &bounce_clkernelinfo)){
+		std::cerr << "Failed to initialize CL kernel" << std::endl;
+		exit(1);
+	} else {
+		std::cerr << "Initialized secondary trace CL kernel succesfully" 
+			  << std::endl;
+	}
+	bounce_clkernelinfo.work_dim = 2;
+	bounce_clkernelinfo.arg_count = 6;
+	bounce_clkernelinfo.global_work_size[0] = window_size[0];
+	bounce_clkernelinfo.global_work_size[1] = window_size[1];
 
 	/* ------------------ Initialize ray opencl kernel ----------------------*/
 
@@ -264,7 +312,8 @@ int main (int argc, char** argv)
 	Scene scene;
 	mesh_id teapot_mesh_id = scene.load_obj_file("models/obj/teapot2.obj");
 	// mesh_id teapot_mesh_id = scene.load_obj_file("models/obj/teapot-low_res.obj");
-	mesh_id floor_mesh_id = scene.load_obj_file("models/obj/floor.obj");
+	// mesh_id floor_mesh_id = scene.load_obj_file("models/obj/floor.obj");
+	mesh_id floor_mesh_id = scene.load_obj_file("models/obj/frame_water1.obj");
 	// mesh_id boat_mesh_id = scene.load_obj_file("models/obj/frame_boat1.obj");
 
 	/* Other models 
@@ -280,9 +329,10 @@ int main (int argc, char** argv)
 	object_id teapot_obj_id = scene.geometry.add_object(teapot_mesh_id);
 	object_id teapot_obj_id_2 = scene.geometry.add_object(teapot_mesh_id);
 
-	// object_id floor_obj_id  = scene.geometry.add_object(floor_mesh_id);
-	// Object& floor_obj = scene.geometry.object(floor_obj_id);
-	// floor_obj.geom.scale = 2.f;
+	object_id floor_obj_id  = scene.geometry.add_object(floor_mesh_id);
+	Object& floor_obj = scene.geometry.object(floor_obj_id);
+	floor_obj.geom.setScale(2.f);
+	floor_obj.mat.diffuse = Green;
 
 	Object& teapot_obj = scene.geometry.object(teapot_obj_id);
 	teapot_obj.geom.setPos(makeVector(-8.f,-5.f,0.f));
@@ -378,10 +428,10 @@ int main (int argc, char** argv)
 	if (create_empty_cl_mem(clinfo, 
 				CL_MEM_READ_WRITE,
 				prim_hit_size,
-				&cl_prim_hit_mem))
+				&cl_hit_mem))
 		exit(1);
 	std::cerr << "Primary rays hit buffer info:" << std::endl;
-	print_cl_mem_info(cl_prim_hit_mem);
+	print_cl_mem_info(cl_hit_mem);
 
 	/*---------------------- Initialize device memory for rays -------------------*/
 	uint32_t ray_mem_size = 
@@ -434,7 +484,7 @@ int main (int argc, char** argv)
 
 	std::cout << "Setting rays hit mem object argument for trace kernel" << std::endl;
 	err = clSetKernelArg(rt_clkernelinfo.kernel,0,
-			     sizeof(cl_mem),&cl_prim_hit_mem);
+			     sizeof(cl_mem),&cl_hit_mem);
 	if (error_cl(err, "clSetKernelArg 0"))
 		exit(1);
 
@@ -468,7 +518,7 @@ int main (int argc, char** argv)
 
 	std::cout << "Setting rays hit mem object argument for shadow kernel" << std::endl;
 	err = clSetKernelArg(shadow_clkernelinfo.kernel,1,
-			     sizeof(cl_mem),&cl_prim_hit_mem);
+			     sizeof(cl_mem),&cl_hit_mem);
 	if (error_cl(err, "clSetKernelArg 1"))
 		exit(1);
 
@@ -506,6 +556,36 @@ int main (int argc, char** argv)
 	std::cout << "Setting ray bounce array for shadow kernel" << std::endl;
 	err = clSetKernelArg(shadow_clkernelinfo.kernel,8,sizeof(cl_mem),&cl_bounce_mem[0]);
 	if (error_cl(err, "clSetKernelArg 8"))
+		exit(1);
+
+	/*----------------------- Set secondary trace kernel arguments -----------------*/
+
+	std::cout << "Setting rays hit mem object argument for secondary trace kernel" 
+		  << std::endl;
+	err = clSetKernelArg(bounce_clkernelinfo.kernel,1,
+			     sizeof(cl_mem),&cl_hit_mem);
+	if (error_cl(err, "clSetKernelArg 1"))
+		exit(1);
+
+	std::cout << "Setting vertex mem object argument for secondary trace kernel" 
+		  << std::endl;
+	err = clSetKernelArg(bounce_clkernelinfo.kernel,2,
+			     sizeof(cl_mem),&cl_vert_mem);
+	if (error_cl(err, "clSetKernelArg 2"))
+		exit(1);
+
+	std::cout << "Setting index mem object argument for secondary trace kernel" 
+		  << std::endl;
+	err = clSetKernelArg(bounce_clkernelinfo.kernel,3,
+			     sizeof(cl_mem),&cl_index_mem);
+	if (error_cl(err, "clSetKernelArg 3"))
+		exit(1);
+
+	std::cout << "Setting bvh node array  argument for secondary trace kernel" 
+		  << std::endl;
+	err = clSetKernelArg(bounce_clkernelinfo.kernel,4,
+			     sizeof(cl_mem),&cl_bvh_nodes);
+	if (error_cl(err, "clSetKernelArg 4"))
 		exit(1);
 
 	/*------------------------ Set up cubemap kernel info ---------------------*/
@@ -580,7 +660,7 @@ int main (int argc, char** argv)
 			  << std::endl;
 	}
 	second_cm_clkernelinfo.work_dim = 2;
-	second_cm_clkernelinfo.arg_count = 9;
+	second_cm_clkernelinfo.arg_count = 10;
 	second_cm_clkernelinfo.global_work_size[0] = window_size[0];
 	second_cm_clkernelinfo.global_work_size[1] = window_size[1];
 
@@ -593,7 +673,7 @@ int main (int argc, char** argv)
 
 	std::cout << "Setting rays hit mem object argument for cubemap kernel" << std::endl;
 	err = clSetKernelArg(cm_clkernelinfo.kernel,1,
-			     sizeof(cl_mem),&cl_prim_hit_mem);
+			     sizeof(cl_mem),&cl_hit_mem);
 	if (error_cl(err, "clSetKernelArg 1"))
 		exit(1);
 

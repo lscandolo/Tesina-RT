@@ -24,8 +24,8 @@ typedef struct
 typedef struct 
 {
 	float3 hit_point;
-	float3 normal;
 	float3 dir;
+	float3 normal;
 	int flags;
 	float refraction_index;
 } bounce;
@@ -60,28 +60,28 @@ cubemap(write_only image2d_t img,
 {
 	int x = get_global_id(0);
 	int y = get_global_id(1);
-        int width = get_global_size(0)-1;
-	int height = get_global_size(1)-1;
-	int index = x + y * (width+1);
+        int width = get_global_size(0);
+	int height = get_global_size(1);
+	int index = x + y * (width);
 
 	/* Image writing computations */
 	int2 image_size = (int2)(get_image_width(img), get_image_height(img));
-	int2 coords = (int2)( ( (image_size.x-1) * x ) / width,
-			      ( (image_size.y-1) * y ) / height);
+	int2 coords = (int2)( ( (image_size.x-1) * x ) / (width-1),
+			      ( (image_size.y-1) * y ) / (height-1) );
 
 	ray_level level = screen_rays[index];
-	Ray reflection;
-	float3 rn = bounce_info[index].normal;
-	float3 rd = bounce_info[index].dir;
+	if (!level.hit)
+		return;
 
-	reflection.ori = bounce_info[index].hit_point;
-	reflection.dir = rd - 2.f * rn * (dot(rd,rn));
+	bounce b =  bounce_info[index];
+
+	Ray reflection;
+
+	reflection.ori = b.hit_point;
+	reflection.dir = b.dir - 2.f * b.normal * (dot(b.dir,b.normal));
 	reflection.invDir = 1.f / reflection.dir;
 	reflection.tMin = 0.00001f;
 	reflection.tMax = 1e37f;
-
-	if (!level.hit)
-		return;
 
 	float3 d = reflection.dir;
 	d = normalize(d);
