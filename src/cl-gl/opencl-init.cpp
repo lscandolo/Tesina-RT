@@ -97,12 +97,13 @@ init_cl_kernel(CLInfo* clinfo, const char* kernel_file,
 	kernel_source_file.seekg (0, std::ios::end);
 	file_size = kernel_source_file.tellg() - file_size;
 
-	char *kernel_source = new char[file_size];
+	char *kernel_source = new char[(int)file_size+1];
 	memset(kernel_source,0,file_size);
 
 	kernel_source_file.seekg (0, std::ios::beg);
 	kernel_source_file.read(kernel_source,file_size);
 	kernel_source_file.close();
+	kernel_source[file_size] = 0;
 	
 	std::cout << "Creating a program from the kernel source code" << std::endl;
 	clkernelinfo->program = 

@@ -23,8 +23,9 @@ typedef struct
 
 typedef struct 
 {
-	Ray reflect_ray;
-	Ray refract_ray;
+	float3 hit_point;
+	float3 normal;
+	float3 dir;
 	int flags;
 	float refraction_index;
 } bounce;
@@ -35,7 +36,7 @@ typedef struct {
 	int    material_id;
 	int    reflect_ray;
 	int    refract_ray;
-	Color     color;
+	Color  color;
 } ray_level;
 
 
@@ -69,7 +70,15 @@ cubemap(write_only image2d_t img,
 			      ( (image_size.y-1) * y ) / height);
 
 	ray_level level = screen_rays[index];
-	Ray reflection = bounce_info[index].reflect_ray;
+	Ray reflection;
+	float3 rn = bounce_info[index].normal;
+	float3 rd = bounce_info[index].dir;
+
+	reflection.ori = bounce_info[index].hit_point;
+	reflection.dir = rd - 2.f * rn * (dot(rd,rn));
+	reflection.invDir = 1.f / reflection.dir;
+	reflection.tMin = 0.00001f;
+	reflection.tMax = 1e37f;
 
 	if (!level.hit)
 		return;
