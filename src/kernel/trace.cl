@@ -281,5 +281,10 @@ trace(global RayHitInfo* ray_hit_info,
 		}
 	}
 
+	/* Primary hit info*/
 	ray_hit_info[index] = best_hit_info;
+
+	/* This memory will be used later for refraction, we need to clear it*/
+	ray_hit_info[2*index].hit = false;
+
 }

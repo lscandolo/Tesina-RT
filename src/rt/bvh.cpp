@@ -157,6 +157,47 @@ BVH::construct(Mesh& m_mesh)
 	return true;
 }
 
+bool 
+BVH::construct_and_map(Mesh& m_mesh, std::vector<cl_int>& map)
+{
+	/*------------------- Initialize members ----------------------------------*/
+	uint32_t tris = m_mesh.triangleCount();
+	m_ordered_triangles.resize(tris);
+	for (uint32_t i = 0 ; i  < tris ; ++i)
+		m_ordered_triangles[i] = i;
+
+
+	/*------------------------ Initialize bboxes ------------------------------*/
+	std::vector<BBox> bboxes;
+	bboxes.resize(m_mesh.triangleCount());
+	for (uint32_t i = 0; i < bboxes.size(); ++i) {
+		const Triangle& t = m_mesh.triangle(i);
+		bboxes[i].set(m_mesh.vertex(t.v[0]),
+			      m_mesh.vertex(t.v[1]),
+			      m_mesh.vertex(t.v[2]));
+	}
+
+	/*------------------------ Initialize root and sort it ----------------------*/
+	// m_nodes.reserve(2*m_mesh.triangleCount());
+	m_nodes.resize(1);
+	BVHNode root;
+	root.setBounds(0, m_mesh.triangleCount());
+	root.sort(bboxes, m_ordered_triangles, m_nodes, 0);
+	m_nodes[0] = root;
+
+
+	/*------------------ Reorder triangles in mesh now ----------------*/
+	m_mesh.reorderTriangles(m_ordered_triangles);
+
+	/*------------------ Reorder map ----------------------------------*/
+	std::vector<cl_int> new_map = map;
+	for (uint32_t i = 0; i < m_ordered_triangles.size(); ++i) {
+		map[i] = new_map[m_ordered_triangles[i]];
+	}
+
+	return true;
+}
+
 BBox 
 BVHNode::computeBBox(const std::vector<BBox>& bboxes, 
 		     const std::vector<tri_id>& ordered_triangles) const

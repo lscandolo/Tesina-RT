@@ -61,7 +61,8 @@ public:
 
 	Mesh& get_aggregate_mesh(){return geometry_aggregate;}
 	BVH&  get_aggregate_bvh (){return bvh;}
-	MaterialList& get_material_list (){return material_list;}
+	std::vector<material_cl>& get_material_list (){return material_list;}
+	std::vector<cl_int>& get_material_map (){return material_map;}
 
 	SceneGeometry geometry;
 
@@ -71,7 +72,8 @@ private:
 
 	Mesh geometry_aggregate;
 	BVH bvh;
-	MaterialList material_list;
+	std::vector<material_cl> material_list;
+	std::vector<cl_int>   material_map;
 };
 
 #endif /* RT_SCENE_HPP */

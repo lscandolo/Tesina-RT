@@ -69,12 +69,13 @@ uint32_t
 Scene::create_aggregate()
 {
 	uint32_t base_triangle = 0;
+	material_list.clear();
+	material_map.clear();
 
 	for (uint32_t i = 0; i < geometry.objects.size(); ++i) {
 		Object obj = geometry.objects[i];
 		if (!obj.is_valid())
 			continue;
-		MaterialList::material_item_cl obj_mat;
 
 		mesh_id m_id = obj.get_mesh_id();
 		uint32_t base_vertex = geometry_aggregate.vertexCount();
@@ -83,9 +84,9 @@ Scene::create_aggregate()
 
 		ASSERT(m_id < mesh_atlas.size());
 
-		obj_mat.mat = obj.mat;
-		obj_mat.max_id = base_triangle + mesh.triangleCount();
-		material_list.mats.push_back(obj_mat);
+		material_list.push_back(obj.mat);
+		cl_int map_index = material_list.size() - 1;
+		material_map.resize(base_triangle + mesh.triangleCount(), map_index);
 
 		for (uint32_t v = 0; v < mesh.vertexCount(); ++v) {
 			Vertex vertex = mesh.vertex(v);
@@ -107,7 +108,7 @@ Scene::create_aggregate()
 
 uint32_t 
 Scene::create_bvh(){
-	if (!bvh.construct(geometry_aggregate))
+	if (!bvh.construct_and_map(geometry_aggregate, material_map))
 		return 1;
 	return 0;
 }

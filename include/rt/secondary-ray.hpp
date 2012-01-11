@@ -7,13 +7,20 @@
 #include <rt/ray.hpp>
 #include <rt/material.hpp>
 
+// struct ray_level_cl {
+
+// 	cl_int    hit;
+// 	cl_int    material_id;
+// 	cl_int    reflect_ray;
+// 	cl_int    refract_ray;
+// 	color_cl  color;
+// };
 struct ray_level_cl {
 
-	cl_int    hit;
-	cl_int    material_id;
-	cl_int    reflect_ray;
-	cl_int    refract_ray;
-	color_cl  color;
+	cl_int    flags;
+	cl_int    mat_id;
+	color_cl  color1;
+	color_cl  color2;
 };
 
 class screen_shading_info {
@@ -35,7 +42,7 @@ struct bounce_cl
 	cl_float3 dir;
 	cl_float3 normal;
 	cl_int flags;
-	cl_float refraction_index;
+	cl_float refractive_index;
 };
 
 class ray_bounce_info {

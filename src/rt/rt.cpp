@@ -17,15 +17,19 @@
 
 CLKernelInfo rt_clkernelinfo;
 CLKernelInfo bounce_clkernelinfo;
+
 CLKernelInfo shadow_clkernelinfo;
-CLKernelInfo ray_clkernelinfo;
+
 CLKernelInfo cm_clkernelinfo;
 CLKernelInfo second_cm_clkernelinfo;
+
+CLKernelInfo ray_clkernelinfo;
 
 cl_mem cl_ray_mem;
 cl_mem cl_vert_mem;
 cl_mem cl_index_mem;
-cl_mem cl_material_mem;
+cl_mem cl_mat_list_mem;
+cl_mem cl_mat_map_mem;
 cl_mem cl_image_mem;
 cl_mem cl_hit_mem;
 
@@ -36,8 +40,6 @@ GLuint gl_tex;
 rt_time_t rt_time;
 uint32_t window_size[] = {800, 600};
 RayBundle primary_ray_bundle(window_size[0]*window_size[1]);
-
-bool camera_change = true;
 
 Camera rt_cam;
 
@@ -61,7 +63,6 @@ void gl_mouse(int x, int y)
 	rt_cam.modifyAbsYaw(d_yaw);
 	rt_cam.modifyPitch(d_inc);
 	glutWarpPointer(window_size[0] * 0.5f, window_size[1] * 0.5f);
-	camera_change = true;
 }
 
 void gl_key(unsigned char key, int x, int y)
@@ -86,7 +87,6 @@ void gl_key(unsigned char key, int x, int y)
 		exit(1);
 		break;
 	}
-	camera_change = true;
 }
 
 
@@ -102,18 +102,15 @@ void gl_loop()
 	cl_int arg = i%STEPS;
 
 	// Set div argument
-	err = clSetKernelArg(shadow_clkernelinfo.kernel,9,
+	err = clSetKernelArg(shadow_clkernelinfo.kernel,10,
 			     sizeof(cl_int),&arg);
-	if (error_cl(err, "clSetKernelArg 9"))
+	if (error_cl(err, "clSetKernelArg 10"))
 		exit(1);
 
 	/* Set rays if camera has moved */
-	if (camera_change) {
-		if (setRays(ray_clkernelinfo)){
-			std::cerr << "Error seting ray cl_mem object" << std::endl;
-			exit(1);
-		}
-		camera_change = false;
+	if (setRays(ray_clkernelinfo)){
+		std::cerr << "Error seting ray cl_mem object" << std::endl;
+		exit(1);
 	}
 
 	cl_time.snap_time();
@@ -141,8 +138,8 @@ void gl_loop()
 		if (error_cl(err, "clSetKernelArg 0"))
 			exit(1);
 
-		// execute_cl(second_cm_clkernelinfo);
 		execute_cl(bounce_clkernelinfo);
+		execute_cl(second_cm_clkernelinfo);
 		execute_cl(shadow_clkernelinfo);
 	}
 
@@ -193,7 +190,7 @@ int main (int argc, char** argv)
 	
 	/*---------------------- Initialize OpenGL and OpenCL ----------------------*/
 
-	if (init_gl(argc,argv,&glinfo, window_size) != 0){
+	if (init_gl(argc,argv,&glinfo, window_size, "RT") != 0){
 		std::cerr << "Failed to initialize GL" << std::endl;
 		exit(1);
 	} else { 
@@ -332,12 +329,15 @@ int main (int argc, char** argv)
 	object_id floor_obj_id  = scene.geometry.add_object(floor_mesh_id);
 	Object& floor_obj = scene.geometry.object(floor_obj_id);
 	floor_obj.geom.setScale(2.f);
-	floor_obj.mat.diffuse = Green;
+	floor_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
+	floor_obj.mat.diffuse = Blue;
+	floor_obj.mat.reflectiveness = 1.f;
 
 	Object& teapot_obj = scene.geometry.object(teapot_obj_id);
 	teapot_obj.geom.setPos(makeVector(-8.f,-5.f,0.f));
-	teapot_obj.mat.diffuse = Blue;
+	teapot_obj.mat.diffuse = Green;
 	teapot_obj.mat.shininess = 1.f;
+	teapot_obj.mat.reflectiveness = 1.f;
 
 	Object& teapot_obj_2 = scene.geometry.object(teapot_obj_id_2);
 	teapot_obj_2.mat.diffuse = Red;
@@ -345,6 +345,7 @@ int main (int argc, char** argv)
 	teapot_obj_2.geom.setPos(makeVector(8.f,5.f,0.f));
 	teapot_obj_2.geom.setRpy(makeVector(0.2f,0.1f,0.3f));
 	teapot_obj_2.geom.setScale(0.3f);
+	teapot_obj_2.mat.reflectiveness = 1.f;
 
 	scene.create_aggregate();
 	Mesh& scene_mesh = scene.get_aggregate_mesh();
@@ -386,19 +387,32 @@ int main (int argc, char** argv)
 	std::cout << "Index buffer info:" << std::endl;
 	print_cl_mem_info(cl_index_mem);
 
-	MaterialList& mats = scene.get_material_list();
-	for (uint32_t i = 0 ; i < mats.mats.size(); ++i){
-		std::cerr << "Material " << i << " up to "  << mats.mats[i].max_id 
-			  << std::endl;
-	}
+	/*---------------------- Move material data to OpenCL device ------------*/
+
+	std::vector<material_cl>& mat_list = scene.get_material_list();
+	std::vector<cl_int>& mat_map = scene.get_material_map();
+	
+	void* mat_list_ptr = &(mat_list[0]);
+	void* mat_map_ptr  = &(mat_map[0]);
+
+	size_t mat_list_size = sizeof(material_cl) * mat_list.size();
+	size_t mat_map_size  = sizeof(cl_int)      * mat_map.size();
 
 	if (create_filled_cl_mem(clinfo,CL_MEM_READ_ONLY,
-				 scene.get_material_list().size_in_bytes(),
-				 scene.get_material_list().arrayPointer(),
-				 &cl_material_mem))
+				 mat_list_size,
+				 mat_list_ptr,
+				 &cl_mat_list_mem))
 		exit(1);
-	std::cout << "Material buffer info:" << std::endl;
-	print_cl_mem_info(cl_material_mem);
+	std::cout << "Material list buffer info:" << std::endl;
+	print_cl_mem_info(cl_mat_list_mem);
+
+	if (create_filled_cl_mem(clinfo,CL_MEM_READ_ONLY,
+				 mat_map_size,
+				 mat_map_ptr,
+				 &cl_mat_map_mem))
+		exit(1);
+	std::cout << "Material map buffer info:" << std::endl;
+	print_cl_mem_info(cl_mat_map_mem);
 
 	/*--------------------- Move bvh to device memory ---------------------*/
 	cl_mem cl_bvh_nodes;
@@ -423,11 +437,13 @@ int main (int argc, char** argv)
 #endif
 
 	/*------------- Initialize device memory for primary hit info ----------------*/
-	uint32_t prim_hit_size = sizeof(RayHitInfo) * window_size[0] * window_size[1];
+	uint32_t hit_mem_size = sizeof(RayHitInfo) * window_size[0] * window_size[1];
+	hit_mem_size *= 2; /* To reuse in order to compute reflection/refraction */
+
 
 	if (create_empty_cl_mem(clinfo, 
 				CL_MEM_READ_WRITE,
-				prim_hit_size,
+				hit_mem_size,
 				&cl_hit_mem))
 		exit(1);
 	std::cerr << "Primary rays hit buffer info:" << std::endl;
@@ -436,6 +452,8 @@ int main (int argc, char** argv)
 	/*---------------------- Initialize device memory for rays -------------------*/
 	uint32_t ray_mem_size = 
 		RayBundle::expected_size_in_bytes(window_size[0]*window_size[1]);
+	ray_mem_size *= 2; /*We double it to store reflection/refraction rays*/
+	
 	std::cerr << "Ray buffer info:" << std::endl;
 	if (create_empty_cl_mem(clinfo, 
 				CL_MEM_READ_WRITE,
@@ -544,18 +562,23 @@ int main (int argc, char** argv)
 		exit(1);
 
 	std::cout << "Setting material list array argument for shadow kernel" << std::endl;
-	err = clSetKernelArg(shadow_clkernelinfo.kernel,6,sizeof(cl_mem),&cl_material_mem);
+	err = clSetKernelArg(shadow_clkernelinfo.kernel,6,sizeof(cl_mem),&cl_mat_list_mem);
 	if (error_cl(err, "clSetKernelArg 6"))
 		exit(1);
 
-	std::cout << "Setting ray level array shadow kernel" << std::endl;
-	err= clSetKernelArg(shadow_clkernelinfo.kernel,7,sizeof(cl_mem),&cl_ray_level[0]);
+	std::cout << "Setting material map array argument for shadow kernel" << std::endl;
+	err = clSetKernelArg(shadow_clkernelinfo.kernel,7,sizeof(cl_mem),&cl_mat_map_mem);
 	if (error_cl(err, "clSetKernelArg 7"))
 		exit(1);
 
-	std::cout << "Setting ray bounce array for shadow kernel" << std::endl;
-	err = clSetKernelArg(shadow_clkernelinfo.kernel,8,sizeof(cl_mem),&cl_bounce_mem[0]);
+	std::cout << "Setting ray level array shadow kernel" << std::endl;
+	err= clSetKernelArg(shadow_clkernelinfo.kernel,8,sizeof(cl_mem),&cl_ray_level[0]);
 	if (error_cl(err, "clSetKernelArg 8"))
+		exit(1);
+
+	std::cout << "Setting ray bounce array for shadow kernel" << std::endl;
+	err = clSetKernelArg(shadow_clkernelinfo.kernel,9,sizeof(cl_mem),&cl_bounce_mem[0]);
+	if (error_cl(err, "clSetKernelArg 9"))
 		exit(1);
 
 	/*----------------------- Set secondary trace kernel arguments -----------------*/
@@ -586,6 +609,13 @@ int main (int argc, char** argv)
 	err = clSetKernelArg(bounce_clkernelinfo.kernel,4,
 			     sizeof(cl_mem),&cl_bvh_nodes);
 	if (error_cl(err, "clSetKernelArg 4"))
+		exit(1);
+
+	std::cout << "Setting ray mem object argument for secondary trace kernel" 
+		  << std::endl;
+	err = clSetKernelArg(bounce_clkernelinfo.kernel,5,
+			     sizeof(cl_mem),&cl_ray_mem);
+	if (error_cl(err, "clSetKernelArg 5"))
 		exit(1);
 
 	/*------------------------ Set up cubemap kernel info ---------------------*/

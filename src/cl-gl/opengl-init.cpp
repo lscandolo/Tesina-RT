@@ -3,12 +3,11 @@
 #include "cl-gl/opengl-init.hpp"
 #include "cl-gl/opencl-init.hpp"
 
-#include <string>
 #include <iostream>
 
-GLint init_gl(int argc, char** argv, GLInfo* glinfo, const uint32_t* window_size)
+GLint init_gl(int argc, char** argv, GLInfo* glinfo, 
+	      const uint32_t* window_size, const std::string title)
 {
-	std::string window_title("OpenCL-OpenGL interop test");
 
 	if (window_size[0] <= 0 || window_size[1] <= 0)
 		return 1;
@@ -17,13 +16,13 @@ GLint init_gl(int argc, char** argv, GLInfo* glinfo, const uint32_t* window_size
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA);
 	glutInitWindowPosition(100,100);
 	glutInitWindowSize(window_size[0], window_size[1]);
-	if ((glinfo->window_id = glutCreateWindow(window_title.c_str()) == 0))
+	if ((glinfo->window_id = glutCreateWindow(title.c_str()) == 0))
 		return 1;
 	if (glewInit() != GLEW_OK)
 		return 1;
 
 #ifdef _WIN32
-	glinfo->windowHandle = FindWindow(NULL,window_title.c_str());
+	glinfo->windowHandle = FindWindow(NULL,title.c_str());
 	glinfo->deviceContext = GetDC(glinfo->windowHandle);
 	glinfo->renderingContext = wglGetCurrentContext();
 #elif defined __linux__

@@ -104,7 +104,7 @@ int main(int argc, char** argv)
 	uint32_t window_size[] = {TEX_WIDTH, TEX_HEIGHT};
 	cl_int err;
 
-	if (init_gl(argc,argv,&glinfo, window_size) != 0){
+	if (init_gl(argc,argv,&glinfo, window_size, "OpenCL-OpenGL interop test") != 0){
 		std::cerr << "Failed to initialize GL" << std::endl;
 		exit(1);
 	} else { 

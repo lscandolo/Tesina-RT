@@ -1,3 +1,8 @@
+#define NO_FLAGS 0x0
+#define REFLECTION_FLAG 0x1
+#define REFRACTION_FLAG 0x2
+#define INTERIOR_HIT    0x4
+
 typedef struct
 {
 	float3 ori;
@@ -29,12 +34,6 @@ typedef struct
 	float refractive_index;
 
 } Material;
-
-typedef struct 
-{
-	unsigned int max_id;
-	Material mat;
-} ObjectMaterial;
 
 typedef unsigned int tri_id;
 
@@ -70,6 +69,7 @@ typedef struct {
 	float3 r;
 	float  cosL;
 	float  spec;
+	bool   inv_n;
 
 } RayReflectInfo;
 
@@ -80,19 +80,16 @@ typedef struct
 	float3 dir;
 	float3 normal;
 	int flags;
-	float refraction_index;
+	float refractive_index;
 } bounce;
 
 typedef struct {
 
-	int    hit;
-	int    material_id;
-	int    reflect_ray;
-	int    refract_ray;
-	Color     color;
+	int    flags;
+	int    mat_id;
+	Color  color1;
+	Color  color2;
 } ray_level;
-
-
 
 bool __attribute__((always_inline))
 bbox_hit(BBox bbox,
@@ -112,14 +109,14 @@ bbox_hit(BBox bbox,
 	if (fabs(ray.invDir.x) > 0.0001f) {
 		tMin = max(tMin, axis_t_min.x); tMax = min(tMax, axis_t_max.x); 
 	}
-	if (fabs(ray.invDir).y > 0.0001f) {
+	if (fabs(ray.invDir.y) > 0.0001f) {
 		tMin = max(tMin, axis_t_min.y); tMax = min(tMax, axis_t_max.y);
 	}
 	if (fabs(ray.invDir.z) > 0.0001f) {
 	    tMin = max(tMin, axis_t_min.z); tMax = min(tMax, axis_t_max.z);
 	}
 
-	return (tMin < tMax && tMin < ray.tMax && tMax > ray.tMin);
+	return (tMin < tMax);
 }
 
 bool 
@@ -202,6 +199,16 @@ triangle_reflect(global Vertex* vertex_buffer,
 	float w = 1.f - (u+v);
 	
 	ref.n = (w * n0 + v * n2 + u * n1);
+
+	/* If the normal points out, we need to invert it (and day we did) */
+	if (dot(ref.n,d) > 0) { 
+		ref.inv_n = true;
+		ref.n = -ref.n;
+	} else {
+		ref.inv_n = false;
+	}
+	
+
 	ref.r = d - 2.f * ref.n * (dot(d,ref.n));
 
 	ref.cosL = clamp(dot(ref.n,-L),0.f,1.f);
@@ -221,8 +228,9 @@ trace_any(write_only image2d_t img,
 	  global Vertex* vertex_buffer,
 	  global int* index_buffer,
 	  global BVHNode* bvh_nodes,
-	  global ObjectMaterial* material_list,
-	  global ray_level* screen_rays,
+	  global Material* material_list,
+	  global unsigned int* material_map,
+	  global ray_level* ray_levels,
 	  global bounce* bounce_info,
 	  read_only int div)
 {
@@ -240,14 +248,12 @@ trace_any(write_only image2d_t img,
 	RayHitInfo info  = ray_hit_info[index];
 	Ray original_ray = ray_buffer[index];
 
-	int material_index = 0;
-	for(; material_list[material_index].max_id <= info.id && material_index < 10
-	    ; material_index++);
-	Material mat = material_list[material_index].mat;
+	int material_index = material_map[info.id];
+	Material mat = material_list[material_index];
 
 	if (!info.hit){
-		screen_rays[index].hit = false;
-		bounce_info[index].flags = false;
+		ray_levels[index].flags  = NO_FLAGS;
+		bounce_info[index].flags = NO_FLAGS;
 		return;
 	}
 
@@ -259,7 +265,7 @@ trace_any(write_only image2d_t img,
 	ray.dir = -L;
 	ray.invDir = 1.f/ray.dir;
 	ray.ori = original_ray.ori + original_ray.dir * info.t;
-  	ray.tMin = 0.001f;
+  	ray.tMin = 0.0001f;
 	ray.tMax = 1e37f;
 
 	bool shadow_ray_hit = false;
@@ -409,13 +415,28 @@ trace_any(write_only image2d_t img,
 		valf = (float4)(ambient_rgb,1.f);
 	}
 
-	screen_rays[index].hit = true;
-	screen_rays[index].color.rgb = valf.xyz;
-
 	bounce_info[index].hit_point = ray.ori;
 	bounce_info[index].dir  = original_ray.dir;
 	bounce_info[index].normal = reflection_info.n;
-	bounce_info[index].flags = true;
+	bounce_info[index].refractive_index = mat.refractive_index;
+
+	int flags = NO_FLAGS;
+
+	if (mat.reflectiveness > 0)
+		flags |= REFLECTION_FLAG;
+
+	if (mat.refractive_index > 0) 
+		flags |= REFRACTION_FLAG;
+
+	if (reflection_info.inv_n)
+		flags |= INTERIOR_HIT;
+
+
+	/*!! One of these is redundant*/
+	bounce_info[index].flags = flags;
+	ray_levels[index].flags = flags;
+
+	ray_levels[index].color1.rgb = valf.xyz;
 
 	write_imagef(img, coords, valf);
 }

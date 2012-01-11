@@ -64,6 +64,7 @@ class BVH {
 public:
 
 	bool construct(Mesh& m_mesh);
+	bool construct_and_map(Mesh& m_mesh, std::vector<cl_int>& map);
 
 	const BVHNode* nodeArray()
 		{return &(m_nodes[0]);}

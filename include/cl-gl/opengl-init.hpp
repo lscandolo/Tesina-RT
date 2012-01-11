@@ -17,6 +17,7 @@
 #endif
 
 #include <stdint.h>
+#include <string>
 
 struct GLInfo
 {
@@ -39,7 +40,8 @@ struct GLInfo
 	GLuint tbuf;
 };
 
-GLint init_gl(int argc, char** argv, GLInfo* glinfo, const uint32_t* window_size);
+GLint init_gl(int argc, char** argv, GLInfo* glinfo, 
+	      const uint32_t* window_size, const std::string title = std::string());
 GLuint create_tex_gl(uint32_t width, uint32_t height);
 GLuint create_tex_gl_from_jpeg(uint32_t& width, uint32_t& height, const char* file);
 GLuint create_buf_gl(uint32_t buf_size);

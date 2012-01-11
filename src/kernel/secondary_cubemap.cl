@@ -1,3 +1,7 @@
+#define REFLECTION_FLAG 0x1
+#define REFRACTION_FLAG 0x2
+#define INTERIOR_HIT    0x4
+
 typedef struct
 {
 	float3 ori;
@@ -32,11 +36,10 @@ typedef struct
 
 typedef struct {
 
-	int    hit;
-	int    material_id;
-	int    reflect_ray;
-	int    refract_ray;
-	Color  color;
+	int    flags;
+	int    mat_id;
+	Color  color1;
+	Color  color2;
 } ray_level;
 
 
@@ -46,44 +49,16 @@ in_range(float f1,float f2){
 }
 
 
-kernel void 
-cubemap(write_only image2d_t img,
-	global ray_level* screen_rays,
-	global bounce* bounce_info,
-	read_only image2d_t x_pos,
-	read_only image2d_t x_neg,
-	read_only image2d_t y_pos,
-	read_only image2d_t y_neg,
-	read_only image2d_t z_pos,
-	read_only image2d_t z_neg)
-
+float3
+cm_color(float3 d,
+	 read_only image2d_t x_pos,
+	 read_only image2d_t x_neg,
+	 read_only image2d_t y_pos,
+	 read_only image2d_t y_neg,
+	 read_only image2d_t z_pos,
+	 read_only image2d_t z_neg)
 {
-	int x = get_global_id(0);
-	int y = get_global_id(1);
-        int width = get_global_size(0);
-	int height = get_global_size(1);
-	int index = x + y * (width);
 
-	/* Image writing computations */
-	int2 image_size = (int2)(get_image_width(img), get_image_height(img));
-	int2 coords = (int2)( ( (image_size.x-1) * x ) / (width-1),
-			      ( (image_size.y-1) * y ) / (height-1) );
-
-	ray_level level = screen_rays[index];
-	if (!level.hit)
-		return;
-
-	bounce b =  bounce_info[index];
-
-	Ray reflection;
-
-	reflection.ori = b.hit_point;
-	reflection.dir = b.dir - 2.f * b.normal * (dot(b.dir,b.normal));
-	reflection.invDir = 1.f / reflection.dir;
-	reflection.tMin = 0.00001f;
-	reflection.tMax = 1e37f;
-
-	float3 d = reflection.dir;
 	d = normalize(d);
 
 	float3 x_proy = d /  d.x;
@@ -134,8 +109,63 @@ cubemap(write_only image2d_t img,
 		final_val = read_imagef(z_neg, sampler, cm_coords);		
 	}
 
-	float4 valf = (float4)(0.2f * final_val.xyz + 0.8f * level.color.rgb, 1.0f);
-
-	write_imagef(img, coords, valf);
-		
+	return final_val.xyz;
 }
+
+kernel void 
+cubemap(write_only image2d_t img,
+	global ray_level* ray_levels,
+	global bounce* bounce_info,
+	read_only image2d_t x_pos,
+	read_only image2d_t x_neg,
+	read_only image2d_t y_pos,
+	read_only image2d_t y_neg,
+	read_only image2d_t z_pos,
+	read_only image2d_t z_neg)
+
+{
+	int x = get_global_id(0);
+	int y = get_global_id(1);
+        int width = get_global_size(0);
+	int height = get_global_size(1);
+	int index = x + y * (width);
+
+	/* Image writing computations */
+	int2 image_size = (int2)(get_image_width(img), get_image_height(img));
+	int2 coords = (int2)( ( (image_size.x-1) * x ) / (width-1),
+			      ( (image_size.y-1) * y ) / (height-1) );
+
+	ray_level level = ray_levels[index];
+	bounce b =  bounce_info[index];
+
+	float3 dir;
+
+	if (b.flags & REFLECTION_FLAG) {
+
+		dir = b.dir - 2.f * b.normal * (dot(b.dir,b.normal));
+		ray_levels[index].color1.rgb = cm_color(dir,
+							x_pos,x_neg,
+							y_pos,y_neg,
+							z_pos,z_neg);
+	}
+
+	if (b.flags & REFRACTION_FLAG && false) {
+
+		/*Compute refraction dir*/
+		dir = b.dir - 2.f * b.normal * (dot(b.dir,b.normal));
+		ray_levels[index].color2.rgb = cm_color(dir,
+							x_pos,x_neg,
+							y_pos,y_neg,
+							z_pos,z_neg);
+	}
+
+
+	/*This will be gone soon*/
+
+	if (b.flags & REFLECTION_FLAG) {
+		float3 col = ray_levels[index].color1.rgb;
+		float4 valf = (float4)(0.2f * col + 0.8f * level.color1.rgb, 1.0f);
+		write_imagef(img, coords, valf);
+	}
+}
+
