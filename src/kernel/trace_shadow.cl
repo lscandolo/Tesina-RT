@@ -1,4 +1,11 @@
 #define NO_FLAGS 0x0
+
+#define HIT_FLAG 0x1
+#define SHADOW_FLAG 0x2
+
+#define HAS_HITP(x) ((x->flags) & HIT_FLAG)
+#define HAS_HIT(x) ((x.flags) & HIT_FLAG)
+
 #define REFLECTION_FLAG 0x1
 #define REFRACTION_FLAG 0x2
 #define INTERIOR_HIT    0x4
@@ -15,7 +22,7 @@ typedef struct
 typedef struct 
 {
 	Ray   ray;
-	int   pixel;
+	int2   pixel;
 	float contribution;
 } RayPlus;
 
@@ -62,10 +69,11 @@ typedef struct {
 
 typedef struct {
 
-	int hit;
+	int flags;
 	float t;
 	int id;
 	float2 uv;
+	float3 n;
   
 } RayHitInfo;
 
@@ -228,56 +236,11 @@ triangle_reflect(global Vertex* vertex_buffer,
 	return ref;
 }
 
-kernel void 
-trace_any(write_only image2d_t img,
-	  global RayHitInfo* ray_hit_info,
-	  global RayPlus* ray_buffer,
-	  global Vertex* vertex_buffer,
-	  global int* index_buffer,
-	  global BVHNode* bvh_nodes,
-	  global Material* material_list,
-	  global unsigned int* material_map,
-	  global ray_level* ray_levels,
-	  global bounce* bounce_info,
-	  read_only int div)
+bool trace_shadow_ray(Ray ray,
+		      global Vertex* vertex_buffer,
+		      global int* index_buffer,
+		      global BVHNode* bvh_nodes)
 {
-	int x = get_global_id(0);
-	int y = get_global_id(1);
-        int width = get_global_size(0)-1;
-	int height = get_global_size(1)-1;
-	int index = x + y * (width+1);
-
-	/* local int ray_count = 0; */
-	/* cl_barrier(CLK_LOCAL_MEM_FENCE); */
-
-	/* Image writing computations */
-	int2 image_size = (int2)(get_image_width(img), get_image_height(img));
-	int2 coords = (int2)( ( (image_size.x-1) * x ) / width,
-			      ( (image_size.y-1) * y ) / height);
-
-	RayHitInfo info  = ray_hit_info[index];
-	Ray original_ray = ray_buffer[index].ray;
-
-	int material_index = material_map[info.id];
-	Material mat = material_list[material_index];
-
-	if (!info.hit){
-		ray_levels[index].flags  = NO_FLAGS;
-		bounce_info[index].flags = NO_FLAGS;
-		return;
-	}
-
-	float3 L = normalize((float3)(0.1f  * (div-8.f) + 0.1f,
-				      0.1f  * (div-8.f),
-				      0.2f));
-
-	Ray ray;
-	ray.dir = -L;
-	ray.invDir = 1.f/ray.dir;
-	ray.ori = original_ray.ori + original_ray.dir * info.t;
-  	ray.tMin = 0.0001f;
-	ray.tMax = 1e37f;
-
 	bool shadow_ray_hit = false;
 
 	bool going_up = false;
@@ -286,8 +249,6 @@ trace_any(write_only image2d_t img,
 
 	private BVHNode current_node;
 
-	bool red_flag = false;
-	
 	unsigned int first_child, second_child;
 	bool childrenOrder = true;
 
@@ -296,7 +257,7 @@ trace_any(write_only image2d_t img,
 	float max_dir_val = max(adir.x, max(adir.y,adir.z)) - 0.00001f;
 	adir = fdim(adir, (float3)(max_dir_val,max_dir_val,max_dir_val));
 
-	while (info.hit) { 
+	while (true) { 
 		current_node = bvh_nodes[curr];
 
 		/* Compute node children traversal order */
@@ -340,12 +301,6 @@ trace_any(write_only image2d_t img,
 				continue;
 			}
 
-			/* This means the node structure is broken */
-			else {
-				red_flag = true;
-				break;
-			}
-				
 		}
 			
 		// If it hit, and closer to the closest hit up to now, check it
@@ -383,16 +338,64 @@ trace_any(write_only image2d_t img,
 		}
 	}
 
+	return shadow_ray_hit;
+}
+
+
+kernel void 
+trace_shadow(write_only image2d_t img,
+	     global RayHitInfo* trace_info,
+	     global RayPlus* rays,
+	     global Vertex* vertex_buffer,
+	     global int* index_buffer,
+	     global BVHNode* bvh_nodes,
+	     global Material* material_list,
+	     global unsigned int* material_map,
+	     global ray_level* ray_levels,
+	     global bounce* bounce_info,
+	     read_only int div)
+{
+	int index = get_global_id(0);
+
+	/* local int ray_count = 0; */
+	/* cl_barrier(CLK_LOCAL_MEM_FENCE); */
+
+	/* Image writing computations */
+	/* int2 image_size = (int2)(get_image_width(img), get_image_height(img)); */
+	/* int2 coords = (int2)( ( (image_size.x-1) * x ) / width, */
+	/* 		      ( (image_size.y-1) * y ) / height); */
+
+	Ray original_ray = rays[index].ray;
+
+	RayHitInfo info  = trace_info[index];
+	int material_index = material_map[info.id];
+	Material mat = material_list[material_index];
+
+	if (!HAS_HIT(info)){
+		/* ray_levels[index].flags  = NO_FLAGS; */
+		/* bounce_info[index].flags = NO_FLAGS; */
+		return;
+	}
+
+	float3 L = normalize((float3)(0.1f  * (div-8.f) + 0.1f,
+				      0.1f  * (div-8.f),
+				      0.2f));
+
+	Ray ray;
+	ray.dir = -L;
+	ray.invDir = 1.f/ray.dir;
+	ray.ori = original_ray.ori + original_ray.dir * info.t;
+  	ray.tMin = 0.0001f; ray.tMax = 1e37f;
+
+	bool hit = trace_shadow_ray(ray, vertex_buffer, index_buffer, bvh_nodes);
+
+	if (hit)
+		trace_info[index].flags |= SHADOW_FLAG;
+
+/*
 
 	float4 valf = (float4)(0.f,0.f,0.f,1.f);
 
-	if (red_flag)
-		valf = (float4)(1.f,
-				0.f,
-				0.f,
-				1.0f);
-
-	/*Light parameters are still hand picked */
 	float ambient_intensity = 0.05f;
 	float3 light_rgb   = (float3)(1.0f,0.2f,0.2f);
 
@@ -408,15 +411,15 @@ trace_any(write_only image2d_t img,
 					   info,
 					   original_ray);
 
-	if (!shadow_ray_hit) { 
+	if (!hit) { 
 
-		/*Diffuse*/
+	         //Diffuse
 		float3 valrgb = light_rgb * diffuse_rgb * reflection_info.cosL;
 
-		/*Specular*/
+		//Specular
  		valrgb += light_rgb * specular_rgb *  reflection_info.spec;
 
-		/*Ambient*/
+		//Ambient
 		valrgb += ambient_rgb;
 
 		valf = (float4)(valrgb,1.f);
@@ -432,9 +435,6 @@ trace_any(write_only image2d_t img,
 
 	int flags = NO_FLAGS;
 
-	int reflection_ray_index;
-	int refraction_ray_index;
-
 	if (mat.reflectiveness > 0) {
 		flags |= REFLECTION_FLAG;
 	}
@@ -447,13 +447,15 @@ trace_any(write_only image2d_t img,
 		flags |= INTERIOR_HIT;
 
 
-	/*!! One of these is redundant*/
+	// One of these is redundant
 	bounce_info[index].flags = flags;
 	ray_levels[index].flags = flags;
 
 	ray_levels[index].color1.rgb = valf.xyz;
 
-	write_imagef(img, coords, valf);
+	/* write_imagef(img, rays[index].pixel, valf); */
 }
+
+
 
 

@@ -7,8 +7,15 @@ typedef struct
 	float tMax;
 } Ray;
  
+typedef struct 
+{
+	Ray   ray;
+	int2  pixel;
+	float contribution;
+} RayPlus;
+
 kernel void
-create_ray(global Ray* ray_buffer,
+create_ray(global RayPlus* ray_buffer,
 	   read_only float4 pos,
 	   read_only float4 dir,
 	   read_only float4 right,
@@ -21,7 +28,7 @@ create_ray(global Ray* ray_buffer,
 
   	int index = x + width * y;
 
-  	global Ray* ray = &(ray_buffer[index]); 
+  	global Ray* ray = &(ray_buffer[index].ray); 
 
 	float x_start = 0.5f / width;
  	float y_start = 0.5f / height;
@@ -41,5 +48,8 @@ create_ray(global Ray* ray_buffer,
 
 	ray->tMin = 0.f;
 	ray->tMax = 1e37f;
+
+	ray_buffer[index].pixel = (int2)(x,y);
+	ray_buffer[index].contribution = 1.f;
 }
 

@@ -445,7 +445,7 @@ int create_cl_mem_from_gl_tex(const CLInfo& clinfo, const GLuint gl_tex, cl_mem*
 	cl_int err;
 
 	*mem = clCreateFromGLTexture2D(clinfo.context,
-				       CL_MEM_WRITE_ONLY,
+				       CL_MEM_READ_WRITE,
 				       GL_TEXTURE_2D,0,
 				       gl_tex,&err);
 	if (err != CL_SUCCESS){

@@ -7,12 +7,20 @@ typedef struct
 	float tMax;
 } Ray;
 
+typedef struct 
+{
+	Ray   ray;
+	int2  pixel;
+	float contribution;
+} RayPlus;
+
 typedef struct {
 
 	int hit;
 	float t;
 	int id;
 	float2 uv;
+	float3 n;
   
 } RayHitInfo;
 
@@ -24,8 +32,8 @@ in_range(float f1,float f2){
 
 kernel void 
 cubemap(write_only image2d_t img,
-	global RayHitInfo* ray_hit_info,
-	global Ray* ray_buffer,
+	global RayHitInfo* trace_info,
+	global RayPlus* rays,
 	read_only image2d_t x_pos,
 	read_only image2d_t x_neg,
 	read_only image2d_t y_pos,
@@ -45,11 +53,11 @@ cubemap(write_only image2d_t img,
 	int2 coords = (int2)( ( (image_size.x-1) * x ) / width,
 			      ( (image_size.y-1) * y ) / height);
 
-	RayHitInfo info  = ray_hit_info[index];
+	RayHitInfo info  = trace_info[index];
 	if (info.hit)
 		return;
 
-	Ray ray = ray_buffer[index];
+	Ray ray = rays[index].ray;
 	float3 d = ray.dir;
 	d = normalize(d);
 

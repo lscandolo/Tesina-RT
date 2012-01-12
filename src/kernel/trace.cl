@@ -1,3 +1,11 @@
+#define NO_FLAGS 0x0
+#define HIT_FLAG 0x1
+#define SHADOW_FLAG 0x2
+#define INV_N_FLAG 0x4
+
+#define HAS_HITP(x) ((x->flags) & HIT_FLAG)
+#define HAS_HIT(x) ((x.flags) & HIT_FLAG)
+
 typedef struct
 {
 	float3 ori;
@@ -6,6 +14,13 @@ typedef struct
 	float tMin;
 	float tMax;
 } Ray;
+
+typedef struct 
+{
+	Ray   ray;
+	int2  pixel;
+	float contribution;
+} RayPlus;
 
 typedef struct 
 {
@@ -37,28 +52,26 @@ typedef struct {
 
 typedef struct {
 
-	int hit;
+	int flags;
 	float t;
 	int id;
 	float2 uv;
+	float3 n;
  
 } RayHitInfo;
 
 void __attribute__((always_inline))
 merge_hit_info(RayHitInfo* best_info, RayHitInfo* new_info){
-	if (new_info->hit &&
-	      ((best_info->hit && new_info->t < best_info->t) ||
-	       !(best_info->hit)))  {
-		    *best_info = *new_info;
+	if (!(HAS_HITP(best_info)) ||
+	    (HAS_HITP(new_info) && new_info->t < best_info->t)) {
+		*best_info = *new_info;
 	}
 }
  
-RayHitInfo /* __attribute__((always_inline)) */
+bool /* __attribute__((always_inline)) */
 bbox_hit(BBox bbox,
 	 Ray ray)
 {
-	RayHitInfo info;
-	info.hit = false;
 	float tMin = ray.tMin;
 	float tMax = ray.tMax;
 
@@ -80,12 +93,27 @@ bbox_hit(BBox bbox,
 	    tMin = fmax(tMin, axis_t_min.z); tMax = fmin(tMax, axis_t_max.z);
 	}
 
-	if (tMin < tMax) {
-		info.hit = true;
-		info.t   = tMin;
-	}
+	return tMin < tMax;
+}
 
-	return info;
+float3 compute_normal(global Vertex* vertex_buffer,
+		      global int* index_buffer,
+		      int id,
+		      float2 uv)
+{
+	global Vertex* vx0 = &vertex_buffer[index_buffer[3*id]];
+	global Vertex* vx1 = &vertex_buffer[index_buffer[3*id+1]];
+	global Vertex* vx2 = &vertex_buffer[index_buffer[3*id+2]];
+
+	float3 n0 = normalize(vx0->normal);
+	float3 n1 = normalize(vx1->normal);
+	float3 n2 = normalize(vx2->normal);
+
+	float u = uv.s0;
+	float v = uv.s1;
+	float w = 1.f - (u+v);
+
+	return w * n0 + v * n2 + u * n1;
 }
 
 RayHitInfo 
@@ -95,7 +123,7 @@ triangle_hit(global Vertex* vertex_buffer,
 	     Ray ray){
 
 	RayHitInfo info;
-	info.hit = false;
+	info.flags = NO_FLAGS;
 
 	float3 p = ray.ori.xyz;
  	float3 d = ray.dir.xyz;
@@ -132,7 +160,7 @@ triangle_hit(global Vertex* vertex_buffer,
 	bool t_is_within_bounds = (info.t < ray.tMax && info.t > ray.tMin);
 
 	if (t_is_within_bounds) {
-		info.hit = true;
+		info.flags = HIT_FLAG;
 		info.id = triangle;
 		info.uv = (float2)(u,v);
 	}
@@ -146,7 +174,7 @@ leaf_hit(BVHNode node,
 	 Ray ray){
 
 	RayHitInfo best_hit;
-	best_hit.hit = false;
+	best_hit.flags = NO_FLAGS;
 	best_hit.t = ray.tMax;
 
 	for (int i = node.start_index; i < node.end_index; ++i) {
@@ -158,33 +186,23 @@ leaf_hit(BVHNode node,
 
 		merge_hit_info(&best_hit, &tri_hit);
 
-		if (best_hit.hit)
+		if (HAS_HIT(best_hit))
 			ray.tMax = best_hit.t;
 	}
 	return best_hit;
 }
 
-kernel void 
-trace(global RayHitInfo* ray_hit_info,
-      global Ray* ray_buffer,
-      global Vertex* vertex_buffer,
-      global int* index_buffer,
-      global BVHNode* bvh_nodes)
+RayHitInfo trace_ray(Ray ray,
+		     global Vertex* vertex_buffer,
+		     global int* index_buffer,
+		     global BVHNode* bvh_nodes)
 {
-	int x = get_global_id(0);
-	int y = get_global_id(1);
-	int width = get_global_size(0)-1;
-	/* int height = get_global_size(1)-1; */
-	int index = x + y * (width+1);
-
-	Ray ray = ray_buffer[index];
-
 	bool going_up = false;
 
 	unsigned int last = 0;
 	unsigned int curr = 0;
 	RayHitInfo best_hit_info;
-	best_hit_info.hit = false;
+	best_hit_info.flags = NO_FLAGS;
 	best_hit_info.t = ray.tMax;
 
 	BVHNode current_node;
@@ -244,10 +262,10 @@ trace(global RayHitInfo* ray_hit_info,
 		}
 			
 		test_bbox = current_node.bbox;
-		RayHitInfo info = bbox_hit(test_bbox, ray);
+		bool hit = bbox_hit(test_bbox, ray);
 
 		// If it hit, and closer to the closest hit up to now, check it
-		if (info.hit) {
+		if (hit) {
 			// If it's a leaf, check all primitives in the leaf, then go up
 			if (current_node.leaf) {
  				// Check all primitives in leaf
@@ -257,7 +275,7 @@ trace(global RayHitInfo* ray_hit_info,
 							      index_buffer,
 							      ray);
 				merge_hit_info(&best_hit_info, &leaf_info);
-				if (best_hit_info.hit)
+				if (HAS_HIT(best_hit_info))
 					ray.tMax = best_hit_info.t;
 				last = curr;
 				curr = current_node.parent;
@@ -280,11 +298,34 @@ trace(global RayHitInfo* ray_hit_info,
 			continue;
 		}
 	}
+	return best_hit_info;
+}
 
-	/* Primary hit info*/
-	ray_hit_info[index] = best_hit_info;
 
-	/* This memory will be used later for refraction, we need to clear it*/
-	ray_hit_info[2*index].hit = false;
+kernel void 
+trace(global RayHitInfo* trace_info,
+      global RayPlus* rays,
+      global Vertex* vertex_buffer,
+      global int* index_buffer,
+      global BVHNode* bvh_nodes)
+      
+{
+	int index = get_global_id(0);
+	Ray ray = rays[index].ray;
 
+	RayHitInfo hit_info = trace_ray(ray, vertex_buffer, index_buffer, bvh_nodes);
+
+	/* Compute normal at hit point */
+	if (HAS_HIT(hit_info)) {
+		hit_info.n = compute_normal(vertex_buffer, index_buffer, 
+					    hit_info.id, hit_info.uv);
+		/* If the normal is pointing out, invert it and note it in the flags */
+		if (dot(hit_info.n,ray.dir) > 0) {
+			hit_info.flags |= INV_N_FLAG;
+			hit_info.n *= -1.f;
+		}
+	}
+
+	/* Save hit info*/
+	trace_info[index] = hit_info;
 }

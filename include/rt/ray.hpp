@@ -31,6 +31,14 @@ public:
         bool validT(float t) const; 
 };
 
+struct ray_plus_cl
+{
+public:
+	ray_cl ray;
+	cl_int2    pixel;
+	cl_float   contribution;
+};
+
 
 
 class RayBundle {
@@ -98,10 +106,11 @@ private:
 
 class RayHitInfo {
 
-	int hit;
-	float t;
-	int id;
+	cl_int flags;
+	cl_float t;
+	cl_int id;
 	cl_float2 uv;
+	cl_float3 n;
 
 };
 
