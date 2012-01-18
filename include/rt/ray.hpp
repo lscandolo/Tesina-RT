@@ -35,7 +35,7 @@ struct ray_plus_cl
 {
 public:
 	ray_cl ray;
-	cl_int2    pixel;
+	cl_int     pixel;
 	cl_float   contribution;
 };
 

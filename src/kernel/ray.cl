@@ -10,7 +10,7 @@ typedef struct
 typedef struct 
 {
 	Ray   ray;
-	int2  pixel;
+	int  pixel;
 	float contribution;
 } RayPlus;
 
@@ -49,7 +49,7 @@ create_ray(global RayPlus* ray_buffer,
 	ray->tMin = 0.f;
 	ray->tMax = 1e37f;
 
-	ray_buffer[index].pixel = (int2)(x,y);
+	ray_buffer[index].pixel = index;
 	ray_buffer[index].contribution = 1.f;
 }
 

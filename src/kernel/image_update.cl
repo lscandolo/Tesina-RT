@@ -16,7 +16,7 @@ typedef struct
 typedef struct 
 {
 	Ray   ray;
-	int2  pixel;
+	int  pixel;
 	float contribution;
 } RayPlus;
 
@@ -49,10 +49,8 @@ in_range(float f1,float f2){
 	return f1 <= 1.0f && f1 >= -1.0f && f2 <= 1.0f && f2 >= -1.0f;
 }
 
-
 kernel void 
-update(write_only image2d_t img,
-       read_only  image2d_t r_img,
+update(global Color* image,
        global RayHitInfo* trace_info,
        global RayPlus* rays,
        global Material* material_list,
@@ -125,6 +123,14 @@ update(write_only image2d_t img,
 
 		valrgb *= (1.f-mat.reflectiveness);
 
+		/* Code to paint mesh edges green */
+		/* float u,v,w; */
+		/* u = info.uv.s0; */
+		/* v = info.uv.s1; */
+		/* w = 1.f - (u+v); */
+		/* if (u < 0.02 || v < 0.02 || w < 0.02) */
+		/* 	valrgb = (float3)(0.f,1.f,0.f); */
+
 	/* Miss branch: compute color from cubemap */
 	} else {
 
@@ -183,10 +189,18 @@ update(write_only image2d_t img,
 
 	/* float3 prev_val = read_imagef(r_img, sampler, ray_plus.pixel).xyz; */
 
-	float3 prev_val = (float3)(0.f,0.f,0.f);
+	/* float3 prev_val = (float3)(0.f,0.f,0.f); */
 
+	/* float3 write_val = prev_val + ray_plus.contribution * valrgb; */
+
+	/* write_imagef(img, ray_plus.pixel, (float4)(write_val,1.f)); */
+
+	if (ray_plus.contribution == 1.f)
+		image[ray_plus.pixel].rgb = (float3)(0.f,0.f,0.f);
+
+	float3 prev_val = image[ray_plus.pixel].rgb;
 	float3 write_val = prev_val + ray_plus.contribution * valrgb;
 
-	write_imagef(img, ray_plus.pixel, (float4)(write_val,1.f));
+	image[ray_plus.pixel].rgb = write_val;
 		
 }

@@ -25,22 +25,33 @@ CLKernelInfo second_cm_clkernelinfo;
 
 CLKernelInfo ray_clkernelinfo;
 
-CLKernelInfo image_clkernelinfo;
+CLKernelInfo ray_split_clkernelinfo;
+
+CLKernelInfo image_update_clkernelinfo;
+CLKernelInfo image_copy_clkernelinfo;
+CLKernelInfo image_init_clkernelinfo;
+
+cl_int ray_count;
 
 cl_mem cl_ray_mem;
+cl_mem cl_ray2_mem;
 cl_mem cl_vert_mem;
 cl_mem cl_index_mem;
 cl_mem cl_mat_list_mem;
 cl_mem cl_mat_map_mem;
 cl_mem cl_image_mem;
+cl_mem cl_tex_mem;
 cl_mem cl_hit_mem;
+cl_mem cl_ray_count_mem;
 
 cl_mem cl_ray_level[MAX_BOUNCE];
 cl_mem cl_bounce_mem[MAX_BOUNCE];
 
 GLuint gl_tex;
 rt_time_t rt_time;
-uint32_t window_size[] = {800, 600};
+// uint32_t window_size[] = {800, 600};
+uint32_t window_size[] = {400, 400};
+int pixel_count = window_size[0] * window_size[1];
 RayBundle primary_ray_bundle(window_size[0]*window_size[1]);
 
 Camera rt_cam;
@@ -109,9 +120,9 @@ void gl_loop()
 	if (error_cl(err, "clSetKernelArg 10"))
 		exit(1);
 
-	err = clSetKernelArg(image_clkernelinfo.kernel,12,
+	err = clSetKernelArg(image_update_clkernelinfo.kernel,11,
 			     sizeof(cl_int),&arg);
-	if (error_cl(err, "clSetKernelArg 12"))
+	if (error_cl(err, "clSetKernelArg 11"))
 		exit(1);
 
 	/* Set rays if camera has moved */
@@ -122,34 +133,180 @@ void gl_loop()
 
 	cl_time.snap_time();
 
+	err = 0;
+	err =  clEnqueueWriteBuffer(ray_split_clkernelinfo.clinfo->command_queue,
+				   cl_ray_count_mem, 
+				   true, 
+				   0,
+				   sizeof(cl_int),
+				   &err,
+				   0,
+				   NULL,
+				   NULL);
+	if (error_cl(err, "Ray count write"))
+		exit(1);
+
+	rt_clkernelinfo.global_work_size[0] = pixel_count;
+	shadow_clkernelinfo.global_work_size[0] = pixel_count;
+	image_update_clkernelinfo.global_work_size[0] = pixel_count;
+	ray_split_clkernelinfo.global_work_size[0] = pixel_count;
+
+
+	std::cout << "Setting ray mem object argument for trace kernel" << std::endl;
+	err = clSetKernelArg(rt_clkernelinfo.kernel,1,
+			     sizeof(cl_mem),&cl_ray_mem);
+	if (error_cl(err, "clSetKernelArg 1"))
+		exit(1);
+
+	std::cout << "Setting ray mem object argument for shadow kernel" << std::endl;
+	err = clSetKernelArg(shadow_clkernelinfo.kernel,2,
+			     sizeof(cl_mem),&cl_ray_mem);
+	if (error_cl(err, "clSetKernelArg 2"))
+		exit(1);
+
+	std::cout << "Setting ray mem object argument for update kernel" << std::endl;
+	err = clSetKernelArg(image_update_clkernelinfo.kernel,2,
+			     sizeof(cl_mem),&cl_ray_mem);
+	if (error_cl(err, "clSetKernelArg 2"))
+		exit(1);
+
+	std::cout << "Setting rays mem object argument for split kernel" << std::endl;
+	err = clSetKernelArg(ray_split_clkernelinfo.kernel,
+			     1,
+			     sizeof(cl_mem),
+			     &cl_ray_mem);
+	if (error_cl(err, "clSetKernelArg 1"))
+		exit(1);
+
+	std::cout << "Setting ray out mem object for splitter kernel" << std::endl;
+	err = clSetKernelArg(ray_split_clkernelinfo.kernel,
+			     4,
+			     sizeof(cl_mem),
+			     &cl_ray2_mem);
+	if (error_cl(err, "clSetKernelArg 4"))
+		exit(1);
+
+	execute_cl(image_init_clkernelinfo);
 	execute_cl(rt_clkernelinfo);
 	execute_cl(shadow_clkernelinfo);
-	execute_cl(image_clkernelinfo);
-	// execute_cl(cm_clkernelinfo);
+	execute_cl(image_update_clkernelinfo);
+	execute_cl(ray_split_clkernelinfo);
 
+	cl_int secondary_ray_count;
 	// for (uint32_t i = 0; i < MAX_BOUNCE; ++i) {
+	for (uint32_t i = 0; i < 3; ++i) {
 
-	for (uint32_t i = 0; i < 0; ++i) {
+		cl_mem* ray_in, *ray_out;
+		if ((i%2)){ 
+			ray_in = &cl_ray_mem;
+			ray_out = &cl_ray2_mem;
+		} else {
+			ray_in = &cl_ray2_mem;
+			ray_out = &cl_ray_mem;
+		}
 
-		err = clSetKernelArg(second_cm_clkernelinfo.kernel,1,
-				     sizeof(cl_mem),&cl_ray_level[i]);
+		err =  clEnqueueReadBuffer(ray_split_clkernelinfo.clinfo->command_queue,
+					   cl_ray_count_mem, 
+					   true, 
+					   0,
+					   sizeof(cl_int),
+					   &secondary_ray_count,
+					   0,
+					   NULL,
+					   NULL);
+		if (error_cl(err, "Ray count read"))
+			exit(1);
+		std::cout << "Secondary ray count: " << secondary_ray_count << std::endl;
+
+		err = 0;
+		err =  clEnqueueWriteBuffer(ray_split_clkernelinfo.clinfo->command_queue,
+					    cl_ray_count_mem, 
+					    true, 
+					    0,
+					    sizeof(cl_int),
+					    &err,
+					    0,
+					    NULL,
+					    NULL);
+
+		rt_clkernelinfo.global_work_size[0] = secondary_ray_count;
+		shadow_clkernelinfo.global_work_size[0] = secondary_ray_count;
+		image_update_clkernelinfo.global_work_size[0] = secondary_ray_count;
+		ray_split_clkernelinfo.global_work_size[0] = secondary_ray_count;
+
+		err = clSetKernelArg(rt_clkernelinfo.kernel,1,
+				     sizeof(cl_mem),ray_in);
 		if (error_cl(err, "clSetKernelArg 1"))
 			exit(1);
-
-		err = clSetKernelArg(second_cm_clkernelinfo.kernel,2,
-				     sizeof(cl_mem),&cl_bounce_mem[i]);
+		
+		err = clSetKernelArg(shadow_clkernelinfo.kernel,2,
+				     sizeof(cl_mem),ray_in);
 		if (error_cl(err, "clSetKernelArg 2"))
 			exit(1);
-
-		err = clSetKernelArg(bounce_clkernelinfo.kernel,0,
-				     sizeof(cl_mem),&cl_bounce_mem[i]);
-		if (error_cl(err, "clSetKernelArg 0"))
+		
+		err = clSetKernelArg(image_update_clkernelinfo.kernel,2,
+				     sizeof(cl_mem),ray_in);
+		if (error_cl(err, "clSetKernelArg 2"))
+			exit(1);
+		
+		err = clSetKernelArg(ray_split_clkernelinfo.kernel,
+				     1,
+				     sizeof(cl_mem),
+				     ray_in);
+		if (error_cl(err, "clSetKernelArg 1"))
+			exit(1);
+		
+		err = clSetKernelArg(ray_split_clkernelinfo.kernel,
+				     4,
+				     sizeof(cl_mem),
+				     ray_out);
+		if (error_cl(err, "clSetKernelArg 4"))
 			exit(1);
 
-		execute_cl(bounce_clkernelinfo);
-		execute_cl(second_cm_clkernelinfo);
+		execute_cl(rt_clkernelinfo);
 		execute_cl(shadow_clkernelinfo);
+		execute_cl(image_update_clkernelinfo);
+		execute_cl(ray_split_clkernelinfo);
+
+		// err = clSetKernelArg(rt_cm_clkernelinfo.kernel,1,
+		// 		     sizeof(cl_mem),&cl_ray_level[i]);
+		// if (error_cl(err, "clSetKernelArg 1"))
+		// 	exit(1);
+
+		// err = clSetKernelArg(second_cm_clkernelinfo.kernel,1,
+		// 		     sizeof(cl_mem),&cl_ray_level[i]);
+		// if (error_cl(err, "clSetKernelArg 1"))
+		// 	exit(1);
+
+		// err = clSetKernelArg(second_cm_clkernelinfo.kernel,2,
+		// 		     sizeof(cl_mem),&cl_bounce_mem[i]);
+		// if (error_cl(err, "clSetKernelArg 2"))
+		// 	exit(1);
+
+		// err = clSetKernelArg(bounce_clkernelinfo.kernel,0,
+		// 		     sizeof(cl_mem),&cl_bounce_mem[i]);
+		// if (error_cl(err, "clSetKernelArg 0"))
+		// 	exit(1);
+
+		// execute_cl(bounce_clkernelinfo);
+		// execute_cl(second_cm_clkernelinfo);
+		// execute_cl(shadow_clkernelinfo);
 	}
+	err =  clEnqueueReadBuffer(ray_split_clkernelinfo.clinfo->command_queue,
+				   cl_ray_count_mem, 
+				   true, 
+				   0,
+				   sizeof(cl_int),
+				   &secondary_ray_count,
+				   0,
+				   NULL,
+				   NULL);
+	if (error_cl(err, "Ray count read"))
+		exit(1);
+	std::cout << "Secondary ray count: " << secondary_ray_count << std::endl;
+	std::cout << "Final secondary ray count: " << secondary_ray_count << std::endl;
+
+	execute_cl(image_copy_clkernelinfo);
 
 	// double cl_msec = cl_time.msec_since_snap();
 	// std::cout << "Time spent on opencl: " << cl_msec << " msec." << std::endl;
@@ -216,9 +373,22 @@ int main (int argc, char** argv)
 	/*---------------------- Create shared GL-CL texture ----------------------*/
 	gl_tex = create_tex_gl(window_size[0],window_size[1]);
 	print_gl_tex_2d_info(gl_tex);
-	if (create_cl_mem_from_gl_tex(clinfo, gl_tex, &cl_image_mem))
+	if (create_cl_mem_from_gl_tex(clinfo, gl_tex, &cl_tex_mem))
 		exit(1);
-	print_cl_image_2d_info(cl_image_mem);
+	print_cl_image_2d_info(cl_tex_mem);
+
+	/*---------------------- Create image mem ----------------------*/
+
+	uint32_t image_mem_size = sizeof(color_cl) * window_size[0] * window_size[1];
+
+	if (create_empty_cl_mem(clinfo, 
+				CL_MEM_READ_WRITE,
+				image_mem_size,
+				&cl_image_mem))
+		exit(1);
+
+	std::cout << "Image memory buffer info:" << std::endl;
+	print_cl_mem_info(cl_image_mem);
 
 
 	/* ------------------ Initialize primary trace opencl kernel -----------------*/
@@ -272,6 +442,21 @@ int main (int argc, char** argv)
 	bounce_clkernelinfo.global_work_size[0] = window_size[0];
 	bounce_clkernelinfo.global_work_size[1] = window_size[1];
 
+	/* ------------------ Initialize ray splitter kernel ----------------------*/
+
+	if (init_cl_kernel(&clinfo,
+			   "src/kernel/ray_split.cl",
+			   "split",
+			   &ray_split_clkernelinfo)){
+		std::cerr << "Failed to initialize CL kernel" << std::endl;
+		exit(1);
+	} else {
+		std::cerr << "Initialized ray splitter CL kernel succesfully" << std::endl;
+	}
+	ray_split_clkernelinfo.work_dim = 1;
+	ray_split_clkernelinfo.arg_count = 5;
+	ray_split_clkernelinfo.global_work_size[0] = window_size[0] * window_size[1];
+
 	/* ------------------ Initialize ray opencl kernel ----------------------*/
 
 	if (init_cl_kernel(&clinfo,"src/kernel/ray.cl", "create_ray", &ray_clkernelinfo)){
@@ -318,9 +503,10 @@ int main (int argc, char** argv)
 	Scene scene;
 	mesh_id teapot_mesh_id = scene.load_obj_file("models/obj/teapot2.obj");
 	// mesh_id teapot_mesh_id = scene.load_obj_file("models/obj/teapot-low_res.obj");
-	// mesh_id floor_mesh_id = scene.load_obj_file("models/obj/floor.obj");
 
+	// mesh_id floor_mesh_id = scene.load_obj_file("models/obj/floor.obj");
 	mesh_id floor_mesh_id = scene.load_obj_file("models/obj/frame_water1.obj");
+
 	// mesh_id boat_mesh_id = scene.load_obj_file("models/obj/frame_boat1.obj");
 
 	/* Other models 
@@ -333,13 +519,15 @@ int main (int argc, char** argv)
 	models/obj/frame_water1.obj
 	 */
 
-
 	object_id floor_obj_id  = scene.geometry.add_object(floor_mesh_id);
 	Object& floor_obj = scene.geometry.object(floor_obj_id);
-	floor_obj.geom.setScale(2.f);
+ 	floor_obj.geom.setScale(2.f);
 	floor_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
 	floor_obj.mat.diffuse = Blue;
-	floor_obj.mat.reflectiveness = 0.5f;
+	floor_obj.mat.reflectiveness = 0.f;
+	floor_obj.mat.refractive_index = 0.f;
+	// floor_obj.mat.reflectiveness = 0.5f;
+	floor_obj.mat.refractive_index = 1.396f;
 
 	object_id teapot_obj_id = scene.geometry.add_object(teapot_mesh_id);
 	Object& teapot_obj = scene.geometry.object(teapot_obj_id);
@@ -347,6 +535,7 @@ int main (int argc, char** argv)
 	teapot_obj.mat.diffuse = Green;
 	teapot_obj.mat.shininess = 1.f;
 	teapot_obj.mat.reflectiveness = 0.5f;
+	// teapot_obj.mat.refractive_index = 1.396f;
 
 	object_id teapot_obj_id_2 = scene.geometry.add_object(teapot_mesh_id);
 	Object& teapot_obj_2 = scene.geometry.object(teapot_obj_id_2);
@@ -462,7 +651,6 @@ int main (int argc, char** argv)
 	/*---------------------- Initialize device memory for rays -------------------*/
 	uint32_t ray_mem_size = sizeof(ray_plus_cl) * window_size[0] * window_size[1];
 
-	std::cerr << "Ray buffer info:" << std::endl;
 	if (create_empty_cl_mem(clinfo, 
 				CL_MEM_READ_WRITE,
 				ray_mem_size,
@@ -470,6 +658,24 @@ int main (int argc, char** argv)
 		exit(1);
 	std::cerr << "Ray buffer info:" << std::endl;
 	print_cl_mem_info(cl_ray_mem);
+
+
+	//!!
+	if (create_empty_cl_mem(clinfo, 
+				CL_MEM_READ_WRITE,
+				ray_mem_size,
+				&cl_ray2_mem))
+		exit(1);
+	std::cerr << "Ray buffer 2 info:" << std::endl;
+	print_cl_mem_info(cl_ray2_mem);
+
+	if (create_empty_cl_mem(clinfo, 
+				CL_MEM_READ_WRITE,
+				sizeof(cl_int),
+				&cl_ray_count_mem))
+		exit(1);
+	std::cerr << "Ray count buffer info:" << std::endl;
+	print_cl_mem_info(cl_ray_count_mem);
 
 	/*---------------------- Initialize device memory ray bounce array ------------*/
 	uint32_t bounce_mem_size = 
@@ -626,20 +832,93 @@ int main (int argc, char** argv)
 	if (error_cl(err, "clSetKernelArg 5"))
 		exit(1);
 
-	/*------------------------ Set up image update kernel info ---------------------*/
+	/*----------------------- Set ray splitter kernel arguments -----------------*/
 
+	std::cout << "Setting rays hit mem object argument for split kernel" << std::endl;
+	err = clSetKernelArg(ray_split_clkernelinfo.kernel,
+			     0,
+			     sizeof(cl_mem),
+			     &cl_hit_mem);
+	if (error_cl(err, "clSetKernelArg 0"))
+		exit(1);
+
+	std::cout << "Setting rays mem object argument for split kernel" << std::endl;
+	err = clSetKernelArg(ray_split_clkernelinfo.kernel,
+			     1,
+			     sizeof(cl_mem),
+			     &cl_ray_mem);
+	if (error_cl(err, "clSetKernelArg 1"))
+		exit(1);
+
+	std::cout << "Setting material list argument for split kernel" << std::endl;
+	err = clSetKernelArg(ray_split_clkernelinfo.kernel,
+			     2,
+			     sizeof(cl_mem),
+			     &cl_mat_list_mem);
+	if (error_cl(err, "clSetKernelArg 2"))
+		exit(1);
+
+	std::cout << "Setting material map argument for split kernel" << std::endl;
+	err = clSetKernelArg(ray_split_clkernelinfo.kernel,
+			     3,
+			     sizeof(cl_mem),
+			     &cl_mat_map_mem);
+	if (error_cl(err, "clSetKernelArg 3"))
+		exit(1);
+
+	std::cout << "Setting ray out mem object for splitter kernel" << std::endl;
+	err = clSetKernelArg(ray_split_clkernelinfo.kernel,
+			     4,
+			     sizeof(cl_mem),
+			     &cl_ray2_mem);
+	if (error_cl(err, "clSetKernelArg 4"))
+		exit(1);
+
+	std::cout << "Setting ray count argument for split kernel" << std::endl;
+	err = clSetKernelArg(ray_split_clkernelinfo.kernel,
+			     5,
+			     sizeof(cl_mem),
+			     &cl_ray_count_mem);
+	if (error_cl(err, "clSetKernelArg 5"))
+		exit(1);
+
+	/*------------------------ Set up image init kernel info ---------------------*/
+	if (init_cl_kernel(&clinfo,"src/kernel/image_init.cl", "init", 
+			   &image_init_clkernelinfo)){
+		std::cerr << "Failed to initialize CL kernel" << std::endl;
+		exit(1);
+	} else {
+		std::cerr << "Initialized image init CL kernel succesfully" << std::endl;
+	}
+	image_init_clkernelinfo.work_dim = 1;
+	image_init_clkernelinfo.arg_count = 1;
+	image_init_clkernelinfo.global_work_size[0] = window_size[0] * window_size[1];
+
+	/*------------------------ Set up image copy kernel info ---------------------*/
+	if (init_cl_kernel(&clinfo,"src/kernel/image_copy.cl", "copy", 
+			   &image_copy_clkernelinfo)){
+		std::cerr << "Failed to initialize CL kernel" << std::endl;
+		exit(1);
+	} else {
+		std::cerr << "Initialized image copy CL kernel succesfully" << std::endl;
+	}
+	image_copy_clkernelinfo.work_dim = 1;
+	image_copy_clkernelinfo.arg_count = 2;
+	image_copy_clkernelinfo.global_work_size[0] = window_size[0] * window_size[1];
+
+	/*------------------------ Set up image update kernel info ---------------------*/
 	if (init_cl_kernel(&clinfo,"src/kernel/image_update.cl", "update", 
-			   &image_clkernelinfo)){
+			   &image_update_clkernelinfo)){
 		std::cerr << "Failed to initialize CL kernel" << std::endl;
 		exit(1);
 	} else {
 		std::cerr << "Initialized image update CL kernel succesfully" << std::endl;
 	}
-	image_clkernelinfo.work_dim = 1;
-	image_clkernelinfo.arg_count = 13;
-	image_clkernelinfo.global_work_size[0] = window_size[0] * window_size[1];
-	// image_clkernelinfo.global_work_size[0] = window_size[0];
-	// image_clkernelinfo.global_work_size[1] = window_size[1];
+	image_update_clkernelinfo.work_dim = 1;
+	image_update_clkernelinfo.arg_count = 12;
+	image_update_clkernelinfo.global_work_size[0] = window_size[0] * window_size[1];
+	// image_update_clkernelinfo.global_work_size[0] = window_size[0];
+	// image_update_clkernelinfo.global_work_size[1] = window_size[1];
 
 	/*------------------------ Set up cubemap kernel info ---------------------*/
 
@@ -718,74 +997,97 @@ int main (int argc, char** argv)
 	second_cm_clkernelinfo.global_work_size[0] = window_size[0];
 	second_cm_clkernelinfo.global_work_size[1] = window_size[1];
 
-	/*------------------------ Set up image update kernel arguments --------------*/
+	/*------------------------ Set up image init kernel arguments --------------*/
 
-	std::cout << "Setting write img mem object argument for update kernel" << std::endl;
-	err = clSetKernelArg(image_clkernelinfo.kernel,0,sizeof(cl_mem),&cl_image_mem);
+	std::cout << "Setting write img mem object argument for init kernel" << std::endl;
+	err = clSetKernelArg(image_init_clkernelinfo.kernel,
+			     0,
+			     sizeof(cl_mem),
+			     &cl_image_mem);
 	if (error_cl(err, "clSetKernelArg 0"))
 		exit(1);
 
-	std::cout << "Setting read img mem object argument for update kernel" << std::endl;
-	err = clSetKernelArg(image_clkernelinfo.kernel,1,sizeof(cl_mem),&cl_image_mem);
+	/*------------------------ Set up image copy kernel arguments --------------*/
+
+	std::cout << "Setting write img mem object argument for copy kernel" << std::endl;
+	err = clSetKernelArg(image_copy_clkernelinfo.kernel,
+			     0,
+			     sizeof(cl_mem),
+			     &cl_image_mem);
+	if (error_cl(err, "clSetKernelArg 0"))
+		exit(1);
+
+	std::cout << "Setting write tex mem object argument for copy kernel" << std::endl;
+	err = clSetKernelArg(image_copy_clkernelinfo.kernel,
+			     1,
+			     sizeof(cl_mem),
+			     &cl_tex_mem);
 	if (error_cl(err, "clSetKernelArg 1"))
 		exit(1);
 
+	/*------------------------ Set up image update kernel arguments --------------*/
+
+	std::cout << "Setting write img mem object argument for update kernel" << std::endl;
+	err = clSetKernelArg(image_update_clkernelinfo.kernel,0,sizeof(cl_mem),&cl_image_mem);
+	if (error_cl(err, "clSetKernelArg 0"))
+		exit(1);
+
 	std::cout << "Setting rays hit mem object argument for update kernel" << std::endl;
-	err = clSetKernelArg(image_clkernelinfo.kernel,2,
+	err = clSetKernelArg(image_update_clkernelinfo.kernel,1,
 			     sizeof(cl_mem),&cl_hit_mem);
-	if (error_cl(err, "clSetKernelArg 2"))
+	if (error_cl(err, "clSetKernelArg 1"))
 		exit(1);
 
 	std::cout << "Setting ray mem object argument for update kernel" << std::endl;
-	err = clSetKernelArg(image_clkernelinfo.kernel,3,
+	err = clSetKernelArg(image_update_clkernelinfo.kernel,2,
 			     sizeof(cl_mem),&cl_ray_mem);
-	if (error_cl(err, "clSetKernelArg 3"))
+	if (error_cl(err, "clSetKernelArg 2"))
 		exit(1);
 
 	std::cout << "Setting material list array argument for update kernel" << std::endl;
-	err = clSetKernelArg(image_clkernelinfo.kernel,4,sizeof(cl_mem),&cl_mat_list_mem);
-	if (error_cl(err, "clSetKernelArg 4"))
+	err = clSetKernelArg(image_update_clkernelinfo.kernel,3,sizeof(cl_mem),&cl_mat_list_mem);
+	if (error_cl(err, "clSetKernelArg 3"))
 		exit(1);
 
 	std::cout << "Setting material map array argument for update kernel" << std::endl;
-	err = clSetKernelArg(image_clkernelinfo.kernel,5,sizeof(cl_mem),&cl_mat_map_mem);
-	if (error_cl(err, "clSetKernelArg 5"))
+	err = clSetKernelArg(image_update_clkernelinfo.kernel,4,sizeof(cl_mem),&cl_mat_map_mem);
+	if (error_cl(err, "clSetKernelArg 4"))
 		exit(1);
 
 	std::cout << "Setting cubemap positive x texture for update kernel" << std::endl;
-	err = clSetKernelArg(image_clkernelinfo.kernel,6,
+	err = clSetKernelArg(image_update_clkernelinfo.kernel,5,
 			     sizeof(cl_mem),&cl_cm_posx_mem);
-	if (error_cl(err, "clSetKernelArg 6"))
+	if (error_cl(err, "clSetKernelArg 5"))
 		exit(1);
 
 	std::cout << "Setting cubemap negative x texture for update kernel" << std::endl;
-	err = clSetKernelArg(image_clkernelinfo.kernel,7,
+	err = clSetKernelArg(image_update_clkernelinfo.kernel,6,
 			     sizeof(cl_mem),&cl_cm_negx_mem);
-	if (error_cl(err, "clSetKernelArg 7"))
+	if (error_cl(err, "clSetKernelArg 6"))
 		exit(1);
 
 	std::cout << "Setting cubemap positive y texture for update kernel" << std::endl;
-	err = clSetKernelArg(image_clkernelinfo.kernel,8,
+	err = clSetKernelArg(image_update_clkernelinfo.kernel,7,
 			     sizeof(cl_mem),&cl_cm_posy_mem);
-	if (error_cl(err, "clSetKernelArg 8"))
+	if (error_cl(err, "clSetKernelArg 7"))
 		exit(1);
 
 	std::cout << "Setting cubemap negative y texture for update kernel" << std::endl;
-	err = clSetKernelArg(image_clkernelinfo.kernel,9,
+	err = clSetKernelArg(image_update_clkernelinfo.kernel,8,
 			     sizeof(cl_mem),&cl_cm_negy_mem);
-	if (error_cl(err, "clSetKernelArg 9"))
+	if (error_cl(err, "clSetKernelArg 8"))
 		exit(1);
 
 	std::cout << "Setting cubemap positive z texture for update kernel" << std::endl;
-	err = clSetKernelArg(image_clkernelinfo.kernel,10,
+	err = clSetKernelArg(image_update_clkernelinfo.kernel,9,
 			     sizeof(cl_mem),&cl_cm_posz_mem);
-	if (error_cl(err, "clSetKernelArg 10"))
+	if (error_cl(err, "clSetKernelArg 9"))
 		exit(1);
 
 	std::cout << "Setting cubemap negative z texture for update kernel" << std::endl;
-	err = clSetKernelArg(image_clkernelinfo.kernel,11,
+	err = clSetKernelArg(image_update_clkernelinfo.kernel,10,
 			     sizeof(cl_mem),&cl_cm_negz_mem);
-	if (error_cl(err, "clSetKernelArg 11"))
+	if (error_cl(err, "clSetKernelArg 10"))
 		exit(1);
 
 	/*------------------------ Set up cubemap kernel arguments -------------------*/

@@ -18,7 +18,7 @@ typedef struct
 typedef struct 
 {
 	Ray   ray;
-	int2  pixel;
+	int   pixel;
 	float contribution;
 } RayPlus;
 
