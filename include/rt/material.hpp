@@ -20,6 +20,15 @@ struct color_cl {
 
 };
 
+/* Help color struct for synchronization purposes */
+struct color_int_cl {
+
+	float operator[](int32_t i) const;
+	float& operator[](int32_t i);
+
+	cl_int rgb;
+};
+
 /* Helpful color definitions */
 
 const color_cl Black = {{{0.f,0.f,0.f}}};

@@ -343,27 +343,16 @@ bool trace_shadow_ray(Ray ray,
 
 
 kernel void 
-trace_shadow(write_only image2d_t img,
-	     global RayHitInfo* trace_info,
+trace_shadow(global RayHitInfo* trace_info,
 	     global RayPlus* rays,
 	     global Vertex* vertex_buffer,
 	     global int* index_buffer,
 	     global BVHNode* bvh_nodes,
 	     global Material* material_list,
 	     global unsigned int* material_map,
-	     global ray_level* ray_levels,
-	     global bounce* bounce_info,
 	     read_only int div)
 {
 	int index = get_global_id(0);
-
-	/* local int ray_count = 0; */
-	/* cl_barrier(CLK_LOCAL_MEM_FENCE); */
-
-	/* Image writing computations */
-	/* int2 image_size = (int2)(get_image_width(img), get_image_height(img)); */
-	/* int2 coords = (int2)( ( (image_size.x-1) * x ) / width, */
-	/* 		      ( (image_size.y-1) * y ) / height); */
 
 	Ray original_ray = rays[index].ray;
 
@@ -392,68 +381,6 @@ trace_shadow(write_only image2d_t img,
 	if (hit)
 		trace_info[index].flags |= SHADOW_FLAG;
 
-/*
-
-	float4 valf = (float4)(0.f,0.f,0.f,1.f);
-
-	float ambient_intensity = 0.05f;
-	float3 light_rgb   = (float3)(1.0f,0.2f,0.2f);
-
-	float3 diffuse_rgb = mat.diffuse.rgb;
-	float3 specular_rgb = (float3)(1.0f,1.0f,1.0f);
-
-	float3 ambient_rgb = ambient_intensity * diffuse_rgb;
-
-	RayReflectInfo reflection_info;
-	reflection_info = triangle_reflect(vertex_buffer,
-					   index_buffer,
-					   L,
-					   info,
-					   original_ray);
-
-	if (!hit) { 
-
-	         //Diffuse
-		float3 valrgb = light_rgb * diffuse_rgb * reflection_info.cosL;
-
-		//Specular
- 		valrgb += light_rgb * specular_rgb *  reflection_info.spec;
-
-		//Ambient
-		valrgb += ambient_rgb;
-
-		valf = (float4)(valrgb,1.f);
-
-	} else {
-		valf = (float4)(ambient_rgb,1.f);
-	}
-
-	bounce_info[index].hit_point = ray.ori;
-	bounce_info[index].dir  = original_ray.dir;
-	bounce_info[index].normal = reflection_info.n;
-	bounce_info[index].refractive_index = mat.refractive_index;
-
-	int flags = NO_FLAGS;
-
-	if (mat.reflectiveness > 0) {
-		flags |= REFLECTION_FLAG;
-	}
-
-	if (mat.refractive_index > 0) {
-		flags |= REFRACTION_FLAG;
-	}
-
-	if (reflection_info.inv_n)
-		flags |= INTERIOR_HIT;
-
-
-	// One of these is redundant
-	bounce_info[index].flags = flags;
-	ray_levels[index].flags = flags;
-
-	ray_levels[index].color1.rgb = valf.xyz;
-
-	/* write_imagef(img, rays[index].pixel, valf); */
 }
 
 

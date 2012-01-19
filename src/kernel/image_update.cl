@@ -37,6 +37,11 @@ typedef struct
 
 typedef struct 
 {
+	int rgb;
+} ColorInt;
+
+typedef struct 
+{
 	Color diffuse;
 	float shininess;
 	float reflectiveness;
@@ -50,7 +55,7 @@ in_range(float f1,float f2){
 }
 
 kernel void 
-update(global Color* image,
+update(global ColorInt* image,
        global RayHitInfo* trace_info,
        global RayPlus* rays,
        global Material* material_list,
@@ -195,12 +200,29 @@ update(global Color* image,
 
 	/* write_imagef(img, ray_plus.pixel, (float4)(write_val,1.f)); */
 
-	if (ray_plus.contribution == 1.f)
-		image[ray_plus.pixel].rgb = (float3)(0.f,0.f,0.f);
+	/* if (ray_plus.contribution == 1.f) */
+	/* 	image[ray_plus.pixel].rgb = (float3)(0.f,0.f,0.f); */
 
-	float3 prev_val = image[ray_plus.pixel].rgb;
-	float3 write_val = prev_val + ray_plus.contribution * valrgb;
+	const float3 maxrgb = (float3)(1.f,1.f,1.f);
 
-	image[ray_plus.pixel].rgb = write_val;
+	float3 f_rgb = ray_plus.contribution * (min(valrgb,maxrgb));
+
+	int rgb = 0.f;
+	rgb += f_rgb.s0 * 255;
+	rgb <<= 8;
+	rgb += f_rgb.s1 * 255;
+	rgb <<= 8;
+	rgb += f_rgb.s2 * 255;
+
+	global int* pixel_ptr = &(image[ray_plus.pixel].rgb);
+
+	atomic_add(pixel_ptr, rgb);
+
+	/* float3 prev_val = image[ray_plus.pixel].rgb; */
+
+	
+	/* float3 write_val = prev_val + ray_plus.contribution * valrgb; */
+
+	/* image[ray_plus.pixel].rgb += ray_plus.contribution * valrgb; */
 		
 }

@@ -6,6 +6,9 @@
 #define HAS_HITP(x) ((x->flags) & HIT_FLAG)
 #define HAS_HIT(x) ((x.flags) & HIT_FLAG)
 
+/* #define MAX_RAYS 400*400*4 */
+#define MAX_RAYS 512*512*4
+
 typedef struct
 {
 	float3 ori;
@@ -58,7 +61,8 @@ split(global RayHitInfo* ray_hit_info,
 	int index = get_global_id(0);
 
 	RayHitInfo info  = ray_hit_info[index];
-	Ray original_ray = ray_in[index].ray;
+	RayPlus rayplus = ray_in[index];
+	Ray original_ray = rayplus.ray;
 
 	if (!HAS_HIT(info)){
 		return;
@@ -69,33 +73,44 @@ split(global RayHitInfo* ray_hit_info,
 
 	if (mat.refractive_index > 0.f) {
 
-		float ind;
-		if ((info.flags & INV_N_FLAG))
-			ind = mat.refractive_index;
-		else
-			ind = 1.f/mat.refractive_index;
+		float etai;
+		float etat;
+		if ((info.flags & INV_N_FLAG)){ 
+			etat = 1.f;
+			etai = mat.refractive_index;
+		} else {
+			etai = 1.f;
+			etat = mat.refractive_index;
+		}
 
 
 		float3 d = -normalize(original_ray.dir);
 		float3 n = normalize(info.n);
-		float w  = ind * (dot(d,n));
-		float k  = (1.f + (w-ind) * (w+ind));
-		if (k > 0.00001f) {
+
+		float cosi = dot(d,n);
+
+		float rel_eta = (etai / etat);
+		float w  = rel_eta * cosi;
+		float k  = (1.f + (w-rel_eta) * (w+rel_eta));
+
+		float R = 1.f;
+		
+		if (k > 0.f) {
+
+			/*Schlik approximation*/
+			float R0 = (etat - 1.f) / (etat+1.f);
+			R0 *= R0;
+			float cos5 = pow((1.f-cosi),5.f);
+			R = R0 + (1.f-R0)*cos5;
 
 			k = sqrt(k);
-
-			float3 dir = normalize((w-k)* n - ind*d);
-
-			if (dot(d,n) < 0.1f)
-				return;
+			float3 dir = normalize((w-k)* n - etai*d);
 
 			Ray refract_ray;
 			int ray_id = atomic_inc(ray_count);
 
-			if (ray_id >= 400*400)
+			if (ray_id >= MAX_RAYS)
 				return;
-
-			/* dir = original_ray.dir; */
 
 			refract_ray.ori = original_ray.ori + original_ray.dir * info.t;
 			refract_ray.dir = dir;
@@ -103,12 +118,30 @@ split(global RayHitInfo* ray_hit_info,
 			refract_ray.tMin = 0.0001f;
 			refract_ray.tMax = 1e37f;
 			ray_out[ray_id].ray = refract_ray;
-			ray_out[ray_id].pixel = ray_in[index].pixel;
-			ray_out[ray_id].contribution =  ray_in[index].contribution * 0.95f;
+			ray_out[ray_id].pixel = rayplus.pixel;
+			ray_out[ray_id].contribution =  
+				rayplus.contribution * mat.reflectiveness * (1.f-R);
 			/* ray_out[ray_id].contribution =  //!! fix this */
 			/* 	ray_in[index].contribution * mat.reflectiveness; */
 
-		} 
+		}
+
+		Ray reflect_ray;
+		d = -d;
+		int ray_id = atomic_inc(ray_count);
+
+		if (ray_id >= MAX_RAYS)
+			return;
+
+		reflect_ray.ori = original_ray.ori + original_ray.dir * info.t;
+		reflect_ray.dir = d - 2.f * n * (dot(d,n));
+		reflect_ray.invDir = 1.f/reflect_ray.dir;
+		reflect_ray.tMin = 0.0001f;
+		reflect_ray.tMax = 1e37f;
+		ray_out[ray_id].ray = reflect_ray;
+		ray_out[ray_id].pixel = rayplus.pixel;
+		ray_out[ray_id].contribution =
+			rayplus.contribution * mat.reflectiveness * R;
 
 		return;
 	}
@@ -116,9 +149,9 @@ split(global RayHitInfo* ray_hit_info,
 	if (mat.reflectiveness > 0.f) { 
 
 		Ray reflect_ray;
-		int ray_id = atomic_inc(ray_count);
 
-		if (ray_id >= 400*400)
+		int ray_id = atomic_inc(ray_count);
+		if (ray_id >= MAX_RAYS)
 			return;
 
 		float3 d = original_ray.dir;
@@ -129,9 +162,9 @@ split(global RayHitInfo* ray_hit_info,
 		reflect_ray.tMin = 0.0001f;
 		reflect_ray.tMax = 1e37f;
 		ray_out[ray_id].ray = reflect_ray;
-		ray_out[ray_id].pixel = ray_in[index].pixel;
+		ray_out[ray_id].pixel = rayplus.pixel;
 		ray_out[ray_id].contribution = 
-			ray_in[index].contribution * mat.reflectiveness;
+			rayplus.contribution * mat.reflectiveness * 0.5f;
 
 		return;
 	}
