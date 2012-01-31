@@ -8,6 +8,7 @@
 #include <rt/vector.hpp>
 #include <rt/math.hpp>
 
+#include <cl-gl/opencl-init.hpp>
 #include <rt/cl_aux.hpp>
 
 class ray_cl
@@ -34,74 +35,9 @@ public:
 struct ray_plus_cl
 {
 public:
-	ray_cl ray;
+	ray_cl     ray;
 	cl_int     pixel;
 	cl_float   contribution;
-};
-
-
-
-class RayBundle {
-
-public:
-	RayBundle(int32_t rs)
-		{
-		ray_count = rs;
-		rays = NULL;
-		};
-
-	~RayBundle()
-		{
-			if (rays!=NULL)
-				delete[] rays;
-		};
-
-	bool initialize()
-		{
-			if (ray_count <= 0)
-				return false;
-			try 
-			{
-				rays = new ray_cl[ray_count];
-			}
-			catch (std::bad_alloc ba)
-			{ 
-				return false;
-			}
-			return true;
-		};
-
-	ray_cl& operator[](int32_t i)
-		{
-			return rays[i];
-		};
-
-	int32_t size()
-		{
-			return ray_count;
-		};
-
-	int32_t size_in_bytes()
-		{
-			return ray_count * sizeof(ray_cl);
-		};
-
-
-	static int32_t expected_size_in_bytes(int32_t expected_ray_count)
-		{
-			return expected_ray_count * sizeof(ray_cl);
-		}
-
-	ray_cl* ray_array()
-		{
-			return rays;
-		}
-
-private:
-
-	ray_cl* rays;
-	int32_t ray_count;
-
 };
 
 class RayHitInfo {
@@ -122,6 +58,27 @@ class RayReflectInfo {
 	float  spec;
 
 };
+
+class RayBundle {
+
+public:
+
+	RayBundle();
+	~RayBundle();
+
+	bool initialize(const int32_t rays,
+			const CLInfo& clinfo); // Create mem object
+	bool is_valid();                    // Check that it's correctly initialized 
+	cl_mem& mem();                      // Return mem object
+
+private:
+
+	cl_mem  ray_mem;
+	int32_t ray_count;
+	bool    initialized;
+
+};
+
 
 #endif /* RT_RAY_HPP */
 

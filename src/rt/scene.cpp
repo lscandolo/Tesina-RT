@@ -113,6 +113,68 @@ Scene::create_bvh(){
 	return 0;
 }
 
+/*---------------------------- Scene Info methods ---------------------------*/
+
+bool 
+SceneInfo::initialize(Scene& scene, const CLInfo& clinfo)
+{
+
+	/*---------------------- Move model data to OpenCL device -----------------*/
+
+	Mesh& scene_mesh = scene.get_aggregate_mesh();
+	BVH& scene_bvh   = scene.get_aggregate_bvh ();
+	
+	int triangles = scene_mesh.triangleCount();
+	int vertices = scene_mesh.vertexCount();
+
+	if (create_filled_cl_mem(clinfo,CL_MEM_READ_ONLY,
+				 vertices * sizeof(Vertex),
+				 scene_mesh.vertexArray(),
+				 &vert_m))
+		return false;
+
+
+	if (create_filled_cl_mem(clinfo,CL_MEM_READ_ONLY,
+				 triangles * 3 * sizeof(uint32_t),
+				 scene_mesh.triangleArray(),
+				 &index_m))
+		return false;
+
+	/*---------------------- Move material data to OpenCL device ------------*/
+
+	std::vector<material_cl>& mat_list = scene.get_material_list();
+	std::vector<cl_int>& mat_map = scene.get_material_map();
+	
+	void* mat_list_ptr = &(mat_list[0]);
+	void* mat_map_ptr  = &(mat_map[0]);
+
+	size_t mat_list_size = sizeof(material_cl) * mat_list.size();
+	size_t mat_map_size  = sizeof(cl_int)      * mat_map.size();
+
+	if (create_filled_cl_mem(clinfo,CL_MEM_READ_ONLY,
+				 mat_list_size,
+				 mat_list_ptr,
+				 &mat_list_m))
+		return false;
+
+	if (create_filled_cl_mem(clinfo,CL_MEM_READ_ONLY,
+				 mat_map_size,
+				 mat_map_ptr,
+				 &mat_map_m))
+		return false;
+
+	/*--------------------- Move bvh to device memory ---------------------*/
+	if (create_filled_cl_mem(clinfo,CL_MEM_READ_ONLY,
+				 scene_bvh.nodeArraySize() * sizeof(BVHNode),
+				 scene_bvh.nodeArray(),
+				 &bvh_m))
+		return false;
+
+	return true;
+
+}
+
+
 /*---------------------------- Misc functions ---------------------------*/
 
 static mesh_id invalid_mesh_id(){return -1;}

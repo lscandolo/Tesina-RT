@@ -7,7 +7,14 @@
 class PrimaryRayGenerator{
 
 public:
-	static bool set_rays(Camera& cam, RayBundle& bundle, uint32_t size[2]);
+	bool initialize(CLInfo& clinfo);
+	bool set_rays(const Camera& cam, RayBundle& bundle, uint32_t size[2],
+		      const int32_t ray_count, const int32_t offset);
+
+	
+private:
+
+	CLKernelInfo ray_clk;
 
 };
 

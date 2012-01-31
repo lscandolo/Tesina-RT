@@ -4,6 +4,16 @@
 #define HAS_HITP(x) ((x->flags) & HIT_FLAG)
 #define HAS_HIT(x) ((x.flags) & HIT_FLAG)
 
+typedef struct 
+{
+	float3 rgb;
+} Color;
+
+typedef struct 
+{
+	int rgb;
+} ColorInt;
+
 typedef struct
 {
 	float3 ori;
@@ -29,16 +39,6 @@ typedef struct {
 	float3 n;
   
 } RayHitInfo;
-
-typedef struct 
-{
-	float3 rgb;
-} Color;
-
-typedef struct 
-{
-	int rgb;
-} ColorInt;
 
 typedef struct 
 {
@@ -75,11 +75,6 @@ update(global ColorInt* image,
 		CLK_FILTER_NEAREST;
 
 	int index = get_global_id(0);
-
-	/* Image writing computations */
-	/* int2 image_size = (int2)(get_image_width(img), get_image_height(img)); */
-	/* int2 coords = (int2)( ( (image_size.x-1) * x ) / width, */
-	/* 		      ( (image_size.y-1) * y ) / height); */
 
 	float3 L = normalize((float3)(0.1f  * (div-8.f) + 0.1f,
 				      0.1f  * (div-8.f),
@@ -189,23 +184,10 @@ update(global ColorInt* image,
 		valrgb = final_val.xyz;
 	}
 
-	/* if (ray_plus.contribution == 1.f) */
-	/* 	write_imagef(img, ray_plus.pixel, (float4)(0.f,0.f,0.f,1.f)); */
-
-	/* float3 prev_val = read_imagef(r_img, sampler, ray_plus.pixel).xyz; */
-
-	/* float3 prev_val = (float3)(0.f,0.f,0.f); */
-
-	/* float3 write_val = prev_val + ray_plus.contribution * valrgb; */
-
-	/* write_imagef(img, ray_plus.pixel, (float4)(write_val,1.f)); */
-
-	/* if (ray_plus.contribution == 1.f) */
-	/* 	image[ray_plus.pixel].rgb = (float3)(0.f,0.f,0.f); */
-
+	const float3 minrgb = (float3)(0.f,0.f,0.f);
 	const float3 maxrgb = (float3)(1.f,1.f,1.f);
 
-	float3 f_rgb = ray_plus.contribution * (min(valrgb,maxrgb));
+	float3 f_rgb = ray_plus.contribution * (clamp(valrgb,minrgb,maxrgb));
 
 	int rgb = 0.f;
 	rgb += f_rgb.s0 * 255;
@@ -217,12 +199,4 @@ update(global ColorInt* image,
 	global int* pixel_ptr = &(image[ray_plus.pixel].rgb);
 
 	atomic_add(pixel_ptr, rgb);
-
-	/* float3 prev_val = image[ray_plus.pixel].rgb; */
-
-	
-	/* float3 write_val = prev_val + ray_plus.contribution * valrgb; */
-
-	/* image[ray_plus.pixel].rgb += ray_plus.contribution * valrgb; */
-		
 }

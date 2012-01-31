@@ -13,6 +13,7 @@ public:
 			pos = makeVector(0.f,0.f,0.f);
 			rpy = makeVector(0.f,0.f,0.f);
 			scale = 1.f;
+			updateTransform();
 		}
 
 	void setPos(const vec3& new_pos);

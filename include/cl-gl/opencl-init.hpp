@@ -32,6 +32,15 @@ struct CLInfo
 	cl_uint num_of_devices;
 	cl_context_properties properties[10];
 
+	cl_ulong global_mem_size;
+	cl_bool  image_support;
+	size_t image2d_max_height,image2d_max_width;
+
+	cl_uint  max_compute_units;
+	cl_ulong max_mem_alloc_size;
+	size_t   max_work_group_size;
+	size_t   max_work_item_sizes[3];
+
 	bool initialized;	
 
 	CLInfo(){initialized = false;}
@@ -48,6 +57,7 @@ struct CLKernelInfo
 	CLInfo* clinfo;
 	cl_program program;
 	cl_kernel kernel;
+	size_t global_work_offset[3];
 	size_t global_work_size[3];
 	size_t local_work_size[3];
 	int8_t work_dim;
@@ -58,6 +68,7 @@ struct CLKernelInfo
 			for (int8_t i = 0; i < 3; ++i) {
 				local_work_size[i] = 0;
 				global_work_size[i] = 0;
+				global_work_offset[i] = 0;
 			}
 			arg_count = -1;
 			work_dim = -1;

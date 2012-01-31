@@ -7,6 +7,7 @@ int32_t
 init_cl(const GLInfo& glinfo, CLInfo* clinfo)
 {
 	cl_int err;
+	size_t bytes_returned;
 	
 	//retrieve the list of platforms available
 	std::cout << "Retrieving the list of platforms available" << std::endl;
@@ -69,6 +70,78 @@ init_cl(const GLInfo& glinfo, CLInfo* clinfo)
 		clCreateCommandQueue(clinfo->context,clinfo->device_id,0,&err);
 	if (error_cl(err, "clCreateCommandQueue"))
 		return err;
+
+	// Get size of global memory in the device
+	err = clGetDeviceInfo (clinfo->device_id,
+			       CL_DEVICE_GLOBAL_MEM_SIZE, 
+			       sizeof(cl_ulong),
+			       &clinfo->global_mem_size, 
+			       &bytes_returned);
+	if (error_cl(err, "clGetDeviceInfo CL_DEVICE_GLOBAL_MEM_SIZE"))
+	    return err;
+
+	// Get bool stating if cl device supports images
+	err = clGetDeviceInfo (clinfo->device_id,
+			       CL_DEVICE_IMAGE_SUPPORT, 
+			       sizeof(cl_bool),
+			       &clinfo->image_support, 
+			       &bytes_returned);
+	if (error_cl(err, "clGetDeviceInfo CL_DEVICE_IMAGE_SUPPORT"))
+	    return err;
+	
+	// Get max image2d height
+	err = clGetDeviceInfo (clinfo->device_id,
+			       CL_DEVICE_IMAGE2D_MAX_HEIGHT, 
+			       sizeof(size_t),
+			       &clinfo->image2d_max_height, 
+			       &bytes_returned);
+	if (error_cl(err, "clGetDeviceInfo CL_DEVICE_IMAGE2D_MAX_HEIGHT"))
+	    return err;
+	
+	// Get max image2d width
+	err = clGetDeviceInfo (clinfo->device_id,
+			       CL_DEVICE_IMAGE2D_MAX_WIDTH, 
+			       sizeof(size_t),
+			       &clinfo->image2d_max_width, 
+			       &bytes_returned);
+	if (error_cl(err, "clGetDeviceInfo CL_DEVICE_IMAGE2D_MAX_WIDTH"))
+	    return err;
+
+	// Get amount of compute units in the device
+	err = clGetDeviceInfo (clinfo->device_id,
+			       CL_DEVICE_MAX_COMPUTE_UNITS, 
+			       sizeof(cl_uint),
+			       &clinfo->max_compute_units, 
+			       &bytes_returned);
+	if (error_cl(err, "clGetDeviceInfo CL_DEVICE_MAX_COMPUTE_UNITS"))
+	    return err;
+
+	// Get maximum size of global mem objects for the device
+	err = clGetDeviceInfo (clinfo->device_id,
+			       CL_DEVICE_MAX_MEM_ALLOC_SIZE, 
+			       sizeof(cl_ulong),
+			       &clinfo->max_mem_alloc_size, 
+			       &bytes_returned);
+	if (error_cl(err, "clGetDeviceInfo CL_DEVICE_MAX_MEM_ALLOC_SIZE"))
+	    return err;
+
+	// Get maximum size of a work group
+	err = clGetDeviceInfo (clinfo->device_id,
+			       CL_DEVICE_MAX_WORK_GROUP_SIZE, 
+			       sizeof(size_t),
+			       &clinfo->max_work_group_size, 
+			       &bytes_returned);
+	if (error_cl(err, "clGetDeviceInfo CL_DEVICE_MAX_WORK_GROUP_SIZE"))
+	    return err;
+
+	// Get maximum number of items that can be specified in each dimension
+	err = clGetDeviceInfo (clinfo->device_id,
+			       CL_DEVICE_MAX_WORK_ITEM_SIZES, 
+			       sizeof(clinfo->max_work_item_sizes),
+			       clinfo->max_work_item_sizes, 
+			       &bytes_returned);
+	if (error_cl(err, "clGetDeviceInfo CL_DEVICE_MAX_WORK_ITEM_SIZES"))
+	    return err;
 
 	clinfo->initialized = true;
 	return CL_SUCCESS;
@@ -169,6 +242,7 @@ int32_t execute_cl(const CLKernelInfo& clkernelinfo){
 	}
 
 	bool local_size_set = True;
+
 	for (int8_t i = 0; i < clkernelinfo.work_dim; ++i)
 		local_size_set = local_size_set && (clkernelinfo.local_work_size[i] > 0);
 
@@ -177,7 +251,7 @@ int32_t execute_cl(const CLKernelInfo& clkernelinfo){
 		err = clEnqueueNDRangeKernel(clinfo.command_queue,
 					     clkernelinfo.kernel,
 					     clkernelinfo.work_dim,
-					     NULL,
+					     clkernelinfo.global_work_offset,
 					     clkernelinfo.global_work_size,
 					     clkernelinfo.local_work_size,
 					     0,NULL,NULL);
@@ -185,7 +259,7 @@ int32_t execute_cl(const CLKernelInfo& clkernelinfo){
 		err = clEnqueueNDRangeKernel(clinfo.command_queue,
 					     clkernelinfo.kernel,
 					     clkernelinfo.work_dim,
-					     NULL,
+					     clkernelinfo.global_work_offset,
 					     clkernelinfo.global_work_size,
 					     NULL,
 					     0,NULL,NULL);
@@ -282,7 +356,6 @@ void print_cl_info(const CLInfo& clinfo)
 
 	cl_int err;
 	cl_uint max_samplers;
-	cl_ulong max_mem_alloc;
 	char device_vendor[128], device_name[128], device_cl_version[128], c_version[128];
 	size_t bytes_returned;
 	err = clGetDeviceInfo (clinfo.device_id,
@@ -319,25 +392,32 @@ void print_cl_info(const CLInfo& clinfo)
 	if (error_cl(err, "clGetDeviceInfo CL_DEVICE_MAX_SAMPLERS"))
 	    return;
 
-	err = clGetDeviceInfo (clinfo.device_id,
-			       CL_DEVICE_MAX_MEM_ALLOC_SIZE, sizeof(max_mem_alloc),
-			       &max_mem_alloc, &bytes_returned);
+	std::cout << "OpenCL Info:" << std::endl;
 
-	if (error_cl(err, "clGetDeviceInfo CL_DEVICE_MAX_MEM_ALLOC_SIZE"))
-	    return;
-
-	std::cerr << "OpenCL Info:" << std::endl;
-
-	std::cerr << "\tOpenCL device vendor: " << device_vendor << std::endl;
-	std::cerr << "\tOpenCL device name: " << device_name << std::endl;
-	std::cerr << "\tOpenCL device OpenCL version: " << device_cl_version << std::endl;
-	std::cerr << "\tOpenCL device OpenCL C version: " << c_version << std::endl;
-	std::cerr << "\tOpenCL device maximum sampler support: " 
+	std::cout << "\tOpenCL device vendor: " << device_vendor << std::endl;
+	std::cout << "\tOpenCL device name: " << device_name << std::endl;
+	std::cout << "\tOpenCL device OpenCL version: " << device_cl_version << std::endl;
+	std::cout << "\tOpenCL device OpenCL C version: " << c_version << std::endl;
+	std::cout << "\tOpenCL device maximum sampler support: " 
 		  << max_samplers << std::endl;
-	std::cerr << "\tOpenCL device maximum mem alloc size: " 
-		  << max_mem_alloc << std::endl;
+	std::cout << "\tOpenCL device global mem size: " 
+		  << clinfo.global_mem_size << std::endl;
+	std::cout << "\tOpenCL device maximum mem alloc size: " 
+		  << clinfo.max_mem_alloc_size << std::endl;
+	std::cout << "\tOpenCL device image2d max size: " 
+		  << clinfo.image2d_max_width << " x "
+		  << clinfo.image2d_max_width << std::endl;
+	std::cout << "\tOpenCL device compute units: " 
+		  << clinfo.max_compute_units << std::endl;
+	std::cout << "\tOpenCL device max work group size: " 
+		  << clinfo.max_work_group_size << std::endl;
+	std::cout << "\tOpenCL device max work item sizes per dimension: " 
+		  << clinfo.max_work_item_sizes[0] << " "
+		  << clinfo.max_work_item_sizes[1] << " "
+		  << clinfo.max_work_item_sizes[2] << std::endl;
+	
 
-	std::cerr << std::endl;
+	std::cout << std::endl;
 }
 
 void print_cl_mem_info(const cl_mem& mem){

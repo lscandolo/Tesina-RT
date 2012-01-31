@@ -131,7 +131,7 @@ bbox_hit(BBox bbox,
 	    tMin = max(tMin, axis_t_min.z); tMax = min(tMax, axis_t_max.z);
 	}
 
-	return (tMin < tMax);
+	return (tMin <= tMax);
 }
 
 bool 
@@ -361,8 +361,6 @@ trace_shadow(global RayHitInfo* trace_info,
 	Material mat = material_list[material_index];
 
 	if (!HAS_HIT(info)){
-		/* ray_levels[index].flags  = NO_FLAGS; */
-		/* bounce_info[index].flags = NO_FLAGS; */
 		return;
 	}
 

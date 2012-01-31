@@ -93,7 +93,7 @@ bbox_hit(BBox bbox,
 	    tMin = fmax(tMin, axis_t_min.z); tMax = fmin(tMax, axis_t_max.z);
 	}
 
-	return tMin < tMax;
+	return tMin <= tMax;
 }
 
 float3 compute_normal(global Vertex* vertex_buffer,
@@ -269,7 +269,6 @@ RayHitInfo trace_ray(Ray ray,
 			// If it's a leaf, check all primitives in the leaf, then go up
 			if (current_node.leaf) {
  				// Check all primitives in leaf
-				/* test_nodes[test_idx++] = curr; */
 				RayHitInfo leaf_info = leaf_hit(current_node,
 							      vertex_buffer,
 							      index_buffer,
@@ -311,6 +310,7 @@ trace(global RayHitInfo* trace_info,
       
 {
 	int index = get_global_id(0);
+	int offset = get_global_offset(0);
 	Ray ray = rays[index].ray;
 
 	RayHitInfo hit_info = trace_ray(ray, vertex_buffer, index_buffer, bvh_nodes);
