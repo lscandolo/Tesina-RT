@@ -3,6 +3,7 @@
 
 #include <cl-gl/opencl-init.hpp>
 #include <rt/scene.hpp>
+#include <rt/ray.hpp>
 
 class Tracer {
 
@@ -11,10 +12,10 @@ public:
 	bool initialize(CLInfo& clinfo);
 
 	bool trace(SceneInfo& scene_info, int32_t ray_count, 
-		   cl_mem& ray_mem, cl_mem& hit_mem);
+		   RayBundle& rays, cl_mem& hit_mem);
 
 	bool shadow_trace(SceneInfo& scene_info, int32_t ray_count, 
-			  cl_mem& ray_mem, cl_mem& hit_mem, cl_int arg);
+			  RayBundle& rays, cl_mem& hit_mem, cl_int arg);
 
 private:
 

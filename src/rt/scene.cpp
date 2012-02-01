@@ -1,4 +1,8 @@
+
 #include <rt/scene.hpp>
+
+static mesh_id invalid_mesh_id();
+// static object_id invalid_object_id();
 
 /*-------------------- Object Methods -------------------------------*/
 
@@ -178,8 +182,7 @@ SceneInfo::initialize(Scene& scene, const CLInfo& clinfo)
 /*---------------------------- Misc functions ---------------------------*/
 
 static mesh_id invalid_mesh_id(){return -1;}
-static object_id invalid_object_id(){return -1;}
-
+// static object_id invalid_object_id(){return -1;}
 
 bool is_valid_mesh_id(mesh_id id)
 {

@@ -3,14 +3,8 @@
 
 bool 
 FrameBuffer::initialize(CLInfo& clinfo, uint32_t sz[2],
-			SceneInfo& scene_info, cl_mem& cl_hit_mem,
-			cl_mem& cl_cm_posx_mem,
-			cl_mem& cl_cm_negx_mem,
-			cl_mem& cl_cm_posy_mem,
-			cl_mem& cl_cm_negy_mem,
-			cl_mem& cl_cm_posz_mem,
-			cl_mem& cl_cm_negz_mem)
-			
+			SceneInfo& scene_info, cl_mem& cl_hit_mem)
+		
 {
 	cl_int err;
 
@@ -74,31 +68,6 @@ FrameBuffer::initialize(CLInfo& clinfo, uint32_t sz[2],
 	if (error_cl(err, "clSetKernelArg 4"))
 		return false;
 
-	err = clSetKernelArg(update_clk.kernel,5,sizeof(cl_mem),&cl_cm_posx_mem);
-	if (error_cl(err, "clSetKernelArg 5"))
-		return false;
-
-	err = clSetKernelArg(update_clk.kernel,6,sizeof(cl_mem),&cl_cm_negx_mem);
-	if (error_cl(err, "clSetKernelArg 6"))
-		return false;
-
-	err = clSetKernelArg(update_clk.kernel,7,sizeof(cl_mem),&cl_cm_posy_mem);
-	if (error_cl(err, "clSetKernelArg 7"))
-		return false;
-
-	err = clSetKernelArg(update_clk.kernel,8,sizeof(cl_mem),&cl_cm_negy_mem);
-	if (error_cl(err, "clSetKernelArg 8"))
-		return false;
-
-	err = clSetKernelArg(update_clk.kernel,9,sizeof(cl_mem),&cl_cm_posz_mem);
-	if (error_cl(err, "clSetKernelArg 9"))
-		return false;
-
-	err = clSetKernelArg(update_clk.kernel,10,sizeof(cl_mem),&cl_cm_negz_mem);
-	if (error_cl(err, "clSetKernelArg 10"))
-		return false;
-
-
 	/*------------------------ Set up image copy kernel info ---------------------*/
 	if (init_cl_kernel(&clinfo,"src/kernel/framebuffer.cl", "copy", 
 			   &copy_clk))
@@ -123,12 +92,36 @@ FrameBuffer::clear()
 }
 
 bool 
-FrameBuffer::update(cl_mem& ray_mem, int32_t work_size, cl_int arg)
+FrameBuffer::update(RayBundle& rays, Cubemap& cm, int32_t work_size, cl_int arg)
 {
 	cl_int err;
 
-	err = clSetKernelArg(update_clk.kernel,2,sizeof(cl_mem),&ray_mem);
+	err = clSetKernelArg(update_clk.kernel,2,sizeof(cl_mem),&rays.mem());
 	if (error_cl(err, "clSetKernelArg 2"))
+		return false;
+
+	err = clSetKernelArg(update_clk.kernel,5,sizeof(cl_mem),&cm.positive_x_mem());
+	if (error_cl(err, "clSetKernelArg 5"))
+		return false;
+
+	err = clSetKernelArg(update_clk.kernel,6,sizeof(cl_mem),&cm.negative_x_mem());
+	if (error_cl(err, "clSetKernelArg 6"))
+		return false;
+
+	err = clSetKernelArg(update_clk.kernel,7,sizeof(cl_mem),&cm.positive_y_mem());
+	if (error_cl(err, "clSetKernelArg 7"))
+		return false;
+
+	err = clSetKernelArg(update_clk.kernel,8,sizeof(cl_mem),&cm.negative_y_mem());
+	if (error_cl(err, "clSetKernelArg 8"))
+		return false;
+
+	err = clSetKernelArg(update_clk.kernel,9,sizeof(cl_mem),&cm.positive_z_mem());
+	if (error_cl(err, "clSetKernelArg 9"))
+		return false;
+
+	err = clSetKernelArg(update_clk.kernel,10,sizeof(cl_mem),&cm.negative_z_mem());
+	if (error_cl(err, "clSetKernelArg 10"))
 		return false;
 
 	err = clSetKernelArg(update_clk.kernel,11,sizeof(cl_int),&arg);

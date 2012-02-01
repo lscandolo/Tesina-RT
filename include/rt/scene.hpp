@@ -25,9 +25,6 @@ typedef int32_t object_id;
 bool is_valid_mesh_id(mesh_id id);
 bool is_valid_object_id(object_id id);
 
-static mesh_id invalid_mesh_id();
-static object_id invalid_object_id();
-
 struct Object {
 
 	Object(mesh_id id);
