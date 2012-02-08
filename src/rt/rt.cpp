@@ -241,14 +241,14 @@ void gl_loop()
 		ray_count = 0;
 	}		
 
-	std::cout << "\nPrim Gen time: \t" << prim_gen_time  << std::endl;
-	std::cout << "Sec Gen time: \t" << sec_gen_time << std::endl;
-	std::cout << "Tracer time: \t" << trace_time << std::endl;
-	std::cout << "Shadow time: \t" << shadow_trace_time << std::endl;
-	std::cout << "Shader time: \t " << shader_time << std::endl;
-	std::cout << "Fb clear time: \t" << fb_clear_time << std::endl;
-	std::cout << "Fb copy time: \t" << fb_copy_time << std::endl;
-	std::cout << std::endl;
+	// std::cout << "\nPrim Gen time: \t" << prim_gen_time  << std::endl;
+	// std::cout << "Sec Gen time: \t" << sec_gen_time << std::endl;
+	// std::cout << "Tracer time: \t" << trace_time << std::endl;
+	// std::cout << "Shadow time: \t" << shadow_trace_time << std::endl;
+	// std::cout << "Shader time: \t " << shader_time << std::endl;
+	// std::cout << "Fb clear time: \t" << fb_clear_time << std::endl;
+	// std::cout << "Fb copy time: \t" << fb_copy_time << std::endl;
+	// std::cout << std::endl;
 
 	glutSwapBuffers();
 }
@@ -294,15 +294,15 @@ int main (int argc, char** argv)
 	models/obj/frame_water1.obj
 	*/
 
-	// mesh_id floor_mesh_id = scene.load_obj_file("models/obj/floor.obj");
-	mesh_id floor_mesh_id = scene.load_obj_file("models/obj/frame_water1.obj");
-	object_id floor_obj_id  = scene.geometry.add_object(floor_mesh_id);
-	Object& floor_obj = scene.geometry.object(floor_obj_id);
- 	floor_obj.geom.setScale(2.f);
-	floor_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
-	floor_obj.mat.diffuse = Blue;
-	floor_obj.mat.reflectiveness = 0.9f;
-	floor_obj.mat.refractive_index = 1.333f;
+	// // mesh_id floor_mesh_id = scene.load_obj_file("models/obj/floor.obj");
+	// mesh_id floor_mesh_id = scene.load_obj_file("models/obj/frame_water1.obj");
+	// object_id floor_obj_id  = scene.geometry.add_object(floor_mesh_id);
+	// Object& floor_obj = scene.geometry.object(floor_obj_id);
+ 	// floor_obj.geom.setScale(2.f);
+	// floor_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
+	// floor_obj.mat.diffuse = Blue;
+	// floor_obj.mat.reflectiveness = 0.9f;
+	// floor_obj.mat.refractive_index = 1.333f;
 
 	mesh_id teapot_mesh_id = scene.load_obj_file("models/obj/teapot2.obj");
 	// mesh_id teapot_mesh_id = scene.load_obj_file("models/obj/teapot-low_res.obj");
@@ -311,7 +311,7 @@ int main (int argc, char** argv)
 	teapot_obj.geom.setPos(makeVector(-8.f,-5.f,0.f));
 	teapot_obj.mat.diffuse = Green;
 	teapot_obj.mat.shininess = 1.f;
-	teapot_obj.mat.reflectiveness = 0.5f;
+	teapot_obj.mat.reflectiveness = 0.3f;
 
 	object_id teapot_obj_id_2 = scene.geometry.add_object(teapot_mesh_id);
 	Object& teapot_obj_2 = scene.geometry.object(teapot_obj_id_2);
@@ -320,7 +320,7 @@ int main (int argc, char** argv)
 	teapot_obj_2.geom.setPos(makeVector(8.f,5.f,0.f));
 	teapot_obj_2.geom.setRpy(makeVector(0.2f,0.1f,0.3f));
 	teapot_obj_2.geom.setScale(0.3f);
-	teapot_obj_2.mat.reflectiveness = 0.5f;
+	teapot_obj_2.mat.reflectiveness = 0.3f;
 
 	// mesh_id boat_mesh_id = scene.load_obj_file("models/obj/frame_boat1.obj");
 	// object_id boat_obj_id = scene.geometry.add_object(boat_mesh_id);
@@ -450,7 +450,6 @@ int main (int argc, char** argv)
 	total_cl_mem += cl_mem_size(cl_hit_mem);
 	total_cl_mem += cl_mem_size(cubemap.positive_x_mem()) * 6;
 	total_cl_mem += cl_mem_size(framebuffer.image_mem());
-	total_cl_mem += ray_shader.buffer_size();
 
 	std::cout << "\nMemory stats: " << std::endl;
 	std::cout << "\tTotal opencl mem usage: " 
@@ -467,9 +466,6 @@ int main (int argc, char** argv)
 	std::cout << "\tRay hit info mem usage: " 
 		  << cl_mem_size(cl_hit_mem)
 		  << " bytes."<< std::endl;
-	std::cout << "\tRay shader buffer mem usage: " 
-		  << ray_shader.buffer_size() << std::endl;
-
 
         /* !! ---------------------- Test area ---------------- */
 	std::cerr << std::endl;

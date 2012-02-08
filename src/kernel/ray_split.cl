@@ -48,7 +48,6 @@ split(global RayHitInfo* ray_hit_info,
       const int max_rays)
 {
 	int index = get_global_id(0);
-
 	RayHitInfo info  = ray_hit_info[index];
 
 	if (!info.hit){
@@ -111,8 +110,6 @@ split(global RayHitInfo* ray_hit_info,
 			ray_out[ray_id].pixel = rayplus.pixel;
 			ray_out[ray_id].contribution =  
 				rayplus.contribution * mat.reflectiveness * (1.f-R);
-			/* ray_out[ray_id].contribution =  //!! fix this */
-			/* 	ray_in[index].contribution * mat.reflectiveness; */
 
 		}
 
@@ -154,7 +151,7 @@ split(global RayHitInfo* ray_hit_info,
 		ray_out[ray_id].ray = reflect_ray;
 		ray_out[ray_id].pixel = rayplus.pixel;
 		ray_out[ray_id].contribution = 
-			rayplus.contribution * mat.reflectiveness * 0.5f;
+			rayplus.contribution * mat.reflectiveness;
 
 		return;
 	}

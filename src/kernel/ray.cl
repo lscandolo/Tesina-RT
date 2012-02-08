@@ -85,3 +85,4 @@ create_ray(global RayPlus* ray_buffer,
 	ray_buffer[index].pixel = width * real_y + real_x;
 	ray_buffer[index].contribution = 1.f;
 }
+
