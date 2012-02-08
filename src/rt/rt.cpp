@@ -3,43 +3,29 @@
 
 #include <cl-gl/opengl-init.hpp>
 #include <cl-gl/opencl-init.hpp>
-#include <rt/math.hpp>
-#include <rt/ray.hpp>
-#include <rt/timing.hpp>
-#include <rt/camera.hpp>
-#include <rt/primary-ray-generator.hpp>
-#include <rt/secondary-ray-generator.hpp>
-#include <rt/cubemap.hpp>
-#include <rt/framebuffer.hpp>
-#include <rt/tracer.hpp>
-#include <rt/scene.hpp>
-#include <rt/obj-loader.hpp>
-#include <rt/scene.hpp>
-#include <rt/bvh.hpp>
-#include <rt/cl_aux.hpp>
+#include <rt/rt.hpp>
 
-#define MAX_BOUNCE 3
+#define MAX_BOUNCE 5
 
 cl_mem cl_tex_mem;
 cl_mem cl_hit_mem;
 
-RayBundle ray_bundle_1,ray_bundle_2;
-PrimaryRayGenerator prim_ray_gen;
+RayBundle             ray_bundle_1,ray_bundle_2;
+PrimaryRayGenerator   prim_ray_gen;
 SecondaryRayGenerator sec_ray_gen;
-SceneInfo scene_info;
-Cubemap cubemap;
-FrameBuffer framebuffer;
-Tracer tracer;
-Camera camera;
+RayShader             ray_shader;
+SceneInfo             scene_info;
+Cubemap               cubemap;
+FrameBuffer           framebuffer;
+Tracer                tracer;
+Camera                camera;
 
-CLInfo* cli;
 GLuint gl_tex;
 rt_time_t rt_time;
-uint32_t window_size[] = {512, 512};
+uint32_t window_size[] = {400, 400};
 
-cl_int max_secondary_ray_count = window_size[0] * window_size[1]*4;
-int pixel_count = window_size[0] * window_size[1];
-
+int32_t pixel_count = window_size[0] * window_size[1];
+int32_t best_tile_size;
 
 #define STEPS 16
 
@@ -91,9 +77,9 @@ void gl_loop()
 	static int i = 0;
 	static int dir = 1;
 	static int ray_count = 0;
-
-	int tile_size = cli->max_compute_units * cli->max_work_item_sizes[0];
-	tile_size *= 32;
+	int tile_ray_count = 0;
+	int tile_ray_aggregate = 0;
+	int tile_ray_max = 0;
 
 	// std::cerr << "Tiles in screen: " << ((float)pixel_count)/tile_size << std::endl;
 
@@ -106,8 +92,11 @@ void gl_loop()
 
 	cl_int arg = i%STEPS;
 
+	int32_t tile_size = best_tile_size;
+
 	for (int32_t offset = 0; offset < pixel_count; offset+= tile_size) {
 
+		
 		RayBundle* ray_in =  &ray_bundle_1;
 		RayBundle* ray_out = &ray_bundle_2;
 
@@ -124,11 +113,12 @@ void gl_loop()
 
 		cl_time.snap_time();
 
+		tile_ray_count = tile_size;
 		ray_count += tile_size;
 		tracer.trace(scene_info, tile_size, *ray_in, cl_hit_mem);
 		tracer.shadow_trace(scene_info, tile_size, *ray_in, cl_hit_mem, arg);
 
-		if (!framebuffer.update(*ray_in, cubemap, tile_size, arg)){
+		if (!ray_shader.shade(*ray_in, cubemap, tile_size, arg)){
 			std::cerr << "Failed to update framebuffer." << std::endl;
 			exit(1);
 		}
@@ -144,15 +134,16 @@ void gl_loop()
 			if (!secondary_ray_count)
 				break;
 
+			tile_ray_count += secondary_ray_count;
 			ray_count += secondary_ray_count;
 			tracer.trace(scene_info, secondary_ray_count, 
 				     *ray_in, cl_hit_mem);
 			tracer.shadow_trace(scene_info, secondary_ray_count, 
 					    *ray_in, cl_hit_mem, arg);
 
-			if (!framebuffer.update(*ray_in, cubemap, 
+			if (!ray_shader.shade(*ray_in, cubemap, 
 						secondary_ray_count, arg)){
-				std::cerr << "Failed to update framebuffer." << std::endl;
+				std::cerr << "Ray shader failed execution." << std::endl;
 				exit(1);
 			}
 
@@ -161,6 +152,9 @@ void gl_loop()
 
 		}
 
+		tile_ray_aggregate += tile_ray_count;
+		tile_ray_max = std::max(tile_ray_max,tile_ray_count);
+
 	}
 
 	if (!framebuffer.copy(cl_tex_mem)){
@@ -168,6 +162,10 @@ void gl_loop()
 		exit(1);
 	}
 
+	// std::cerr << "Max Tile ray count: " << tile_ray_max << std::endl;
+	// std::cerr << "Mean Tile ray count: " 
+	// 	  << tile_ray_aggregate/(pixel_count/tile_size + 1)
+	// 	  << std::endl;
 	// double cl_msec = cl_time.msec_since_snap();
 	// std::cout << "Time spent on opencl: " << cl_msec << " msec." << std::endl;
 	
@@ -216,7 +214,7 @@ int main (int argc, char** argv)
 
 	CLInfo clinfo;
 	GLInfo glinfo;
-	
+
 	/*---------------------- Initialize OpenGL and OpenCL ----------------------*/
 
 	if (init_gl(argc,argv,&glinfo, window_size, "RT") != 0){
@@ -233,50 +231,11 @@ int main (int argc, char** argv)
 		std::cout << "Initialized CL succesfully" << std::endl;
 	}
 	print_cl_info(clinfo);
-	cli = &clinfo;
 
 	/*---------------------- Create shared GL-CL texture ----------------------*/
 	gl_tex = create_tex_gl(window_size[0],window_size[1]);
-	print_gl_tex_2d_info(gl_tex);
 	if (create_cl_mem_from_gl_tex(clinfo, gl_tex, &cl_tex_mem))
 		exit(1);
-	print_cl_image_2d_info(cl_tex_mem);
-
-
-	/* ------------------ Initialize ray tracer kernel ----------------------*/
-
-	if (!tracer.initialize(clinfo)){
-		std::cerr << "Failed to initialize tracer." << std::endl;
-		return 0;
-	}
-	std::cerr << "Initialized tracer succesfully." << std::endl;
-
-
-	/* ------------------ Initialize Primary Ray Generator ----------------------*/
-
-	if (!prim_ray_gen.initialize(clinfo)) {
-		std::cerr << "Error initializing primary ray generator." << std::endl;
-		exit(1);
-	}
-	std::cout << "Initialized primary ray generator succesfully." << std::endl;
-
-
-	/* ------------------ Initialize Secondary Ray Generator ----------------------*/
-	if (!sec_ray_gen.initialize(clinfo)) {
-		std::cerr << "Error initializing secondary ray generator." << std::endl;
-		exit(1);
-	}
-	std::cout << "Initialized secondary ray generator succesfully." << std::endl;
-
-
-	/* !! ---------------------- Test area ---------------- */
-	std::cerr << "color_cl size: "
-		  << sizeof(color_cl)
-		  << std::endl;
-
-	std::cerr << "ray_cl size: "
-		  << sizeof(ray_cl)
-		  << std::endl;
 
 	/*---------------------- Set up scene ---------------------------*/
 	Scene scene;
@@ -301,63 +260,79 @@ int main (int argc, char** argv)
 	floor_obj.mat.reflectiveness = 0.9f;
 	floor_obj.mat.refractive_index = 1.333f;
 
-	// mesh_id teapot_mesh_id = scene.load_obj_file("models/obj/teapot2.obj");
+	mesh_id teapot_mesh_id = scene.load_obj_file("models/obj/teapot2.obj");
 	// mesh_id teapot_mesh_id = scene.load_obj_file("models/obj/teapot-low_res.obj");
-	// object_id teapot_obj_id = scene.geometry.add_object(teapot_mesh_id);
-	// Object& teapot_obj = scene.geometry.object(teapot_obj_id);
-	// teapot_obj.geom.setPos(makeVector(-8.f,-5.f,0.f));
-	// teapot_obj.mat.diffuse = Green;
-	// teapot_obj.mat.shininess = 1.f;
-	// teapot_obj.mat.reflectiveness = 0.5f;
+	object_id teapot_obj_id = scene.geometry.add_object(teapot_mesh_id);
+	Object& teapot_obj = scene.geometry.object(teapot_obj_id);
+	teapot_obj.geom.setPos(makeVector(-8.f,-5.f,0.f));
+	teapot_obj.mat.diffuse = Green;
+	teapot_obj.mat.shininess = 1.f;
+	teapot_obj.mat.reflectiveness = 0.5f;
 
-	// object_id teapot_obj_id_2 = scene.geometry.add_object(teapot_mesh_id);
-	// Object& teapot_obj_2 = scene.geometry.object(teapot_obj_id_2);
-	// teapot_obj_2.mat.diffuse = Red;
-	// teapot_obj_2.mat.shininess = 1.f;
-	// teapot_obj_2.geom.setPos(makeVector(8.f,5.f,0.f));
-	// teapot_obj_2.geom.setRpy(makeVector(0.2f,0.1f,0.3f));
-	// teapot_obj_2.geom.setScale(0.3f);
-	// teapot_obj_2.mat.reflectiveness = 0.5f;
+	object_id teapot_obj_id_2 = scene.geometry.add_object(teapot_mesh_id);
+	Object& teapot_obj_2 = scene.geometry.object(teapot_obj_id_2);
+	teapot_obj_2.mat.diffuse = Red;
+	teapot_obj_2.mat.shininess = 1.f;
+	teapot_obj_2.geom.setPos(makeVector(8.f,5.f,0.f));
+	teapot_obj_2.geom.setRpy(makeVector(0.2f,0.1f,0.3f));
+	teapot_obj_2.geom.setScale(0.3f);
+	teapot_obj_2.mat.reflectiveness = 0.5f;
 
-	mesh_id boat_mesh_id = scene.load_obj_file("models/obj/frame_boat1.obj");
-	object_id boat_obj_id = scene.geometry.add_object(boat_mesh_id);
-	Object& boat_obj = scene.geometry.object(boat_obj_id);
-	boat_obj.geom.setPos(makeVector(0.f,-18.f,0.f));
-	boat_obj.mat.diffuse = Red;
-	boat_obj.mat.shininess = 1.f;
-	boat_obj.mat.reflectiveness = 0.0f;
+	// mesh_id boat_mesh_id = scene.load_obj_file("models/obj/frame_boat1.obj");
+	// object_id boat_obj_id = scene.geometry.add_object(boat_mesh_id);
+	// Object& boat_obj = scene.geometry.object(boat_obj_id);
+	// boat_obj.geom.setPos(makeVector(0.f,-18.f,0.f));
+	// boat_obj.mat.diffuse = Red;
+	// boat_obj.mat.shininess = 1.f;
+	// boat_obj.mat.reflectiveness = 0.0f;
+
 
 	scene.create_aggregate();
 	Mesh& scene_mesh = scene.get_aggregate_mesh();
+	std::cout << "Created scene aggregate succesfully." << std::endl;
 
-	std::cout << "Building BVH." << std::endl;
 	rt_time.snap_time();
 	scene.create_bvh();
 	BVH& scene_bvh   = scene.get_aggregate_bvh ();
 	double bvh_build_time = rt_time.msec_since_snap();
-	std::cout << "Built BVH (build time: " 
+	std::cout << "Created BVH succesfully (build time: " 
 		  << bvh_build_time << " msec, " 
-		  << scene_bvh.nodeArraySize() << " nodes)" << std::endl;
-
-	/*---------------------- Print scene data ----------------------*/
-	std::cerr << "Triangle count: " << scene_mesh.triangleCount() << std::endl;
-	std::cerr << "Vertex count: " << scene_mesh.vertexCount() << std::endl;
+		  << scene_bvh.nodeArraySize() << " nodes)." << std::endl;
 
 	/*---------------------- Initialize SceneInfo ----------------------------*/
 	if (!scene_info.initialize(scene,clinfo)) {
 		std::cerr << "Failed to initialize scene info." << std::endl;
 		exit(1);
 	}
-	
-	std::cout << "Succesfully initialized scene info." << std::endl;
+	std::cout << "Initialized scene info succesfully." << std::endl;
 
 	/*---------------------- Set initial Camera paramaters -----------------------*/
 	camera.set(makeVector(0,3,-30), makeVector(0,0,1), makeVector(0,1,0), M_PI/4.,
 		   window_size[0] / (float)window_size[1]);
 
 
+	/*---------------------------- Set tile size ------------------------------*/
+	best_tile_size = clinfo.max_compute_units * clinfo.max_work_item_sizes[0];
+	best_tile_size *= 32;
+
+	/*---------------------- Initialize ray bundles -----------------------------*/
+	int32_t ray_bundle_size = best_tile_size * 4;
+
+	if (!ray_bundle_1.initialize(ray_bundle_size, clinfo)) {
+		std::cerr << "Error initializing ray bundle 1" << std::endl;
+		std::cerr.flush();
+		exit(1);
+	}
+
+	if (!ray_bundle_2.initialize(ray_bundle_size, clinfo)) {
+		std::cerr << "Error initializing ray bundle 2" << std::endl;
+		std::cerr.flush();
+		exit(1);
+	}
+	std::cout << "Initialized ray bundles succesfully" << std::endl;
+
 	/*------------- Initialize device memory for primary hit info ----------------*/
-	uint32_t hit_mem_size = sizeof(RayHitInfo) * window_size[0] * window_size[1];
+	uint32_t hit_mem_size = sizeof(RayHitInfo) * ray_bundle_size;
 	hit_mem_size *= 4; /* To reuse in order to compute reflection/refraction */
 
 
@@ -366,25 +341,6 @@ int main (int argc, char** argv)
 				hit_mem_size,
 				&cl_hit_mem))
 		exit(1);
-	std::cerr << "Primary rays hit buffer info:" << std::endl;
-	print_cl_mem_info(cl_hit_mem);
-
-	/*---------------------- Initialize ray bundles -----------------------------*/
-
-	if (!ray_bundle_1.initialize(pixel_count*4, clinfo)) {
-		std::cerr << "Error initializing ray bundle 1" << std::endl;
-		std::cerr.flush();
-		exit(1);
-	}
-
-	if (!ray_bundle_2.initialize(pixel_count*4, clinfo)) {
-		std::cerr << "Error initializing ray bundle 2" << std::endl;
-		std::cerr.flush();
-		exit(1);
-	}
-
-	std::cout << "Initialized ray bundles succesfully" << std::endl;
-
 	/*----------------------- Initialize cubemap ---------------------------*/
 	
 	if (!cubemap.initialize("textures/cubemap/Path/posx.jpg",
@@ -397,21 +353,92 @@ int main (int argc, char** argv)
 		std::cerr << "Failed to initialize cubemap." << std::endl;
 		exit(1);
 	}
-
 	std::cerr << "Initialized cubemap succesfully." << std::endl;
 
-
 	/*------------------------ Initialize FrameBuffer ---------------------------*/
-	if (!framebuffer.initialize(clinfo, 
-				    window_size, 
-				    scene_info, 
-				    cl_hit_mem)) {
+	if (!framebuffer.initialize(clinfo, window_size)) {
 		std::cerr << "Error initializing framebuffer." << std::endl;
 		exit(1);
 	}
+	std::cout << "Initialized framebuffer succesfully." << std::endl;
 
-	std::cerr << "Initialized framebuffer succesfully." << std::endl;
+	/* ------------------ Initialize ray tracer kernel ----------------------*/
 
+	if (!tracer.initialize(clinfo)){
+		std::cerr << "Failed to initialize tracer." << std::endl;
+		return 0;
+	}
+	std::cerr << "Initialized tracer succesfully." << std::endl;
+
+
+	/* ------------------ Initialize Primary Ray Generator ----------------------*/
+
+	if (!prim_ray_gen.initialize(clinfo)) {
+		std::cerr << "Error initializing primary ray generator." << std::endl;
+		exit(1);
+	}
+	std::cout << "Initialized primary ray generator succesfully." << std::endl;
+
+
+	/* ------------------ Initialize Secondary Ray Generator ----------------------*/
+	if (!sec_ray_gen.initialize(clinfo)) {
+		std::cerr << "Error initializing secondary ray generator." << std::endl;
+		exit(1);
+	}
+	sec_ray_gen.set_max_rays(ray_bundle_1.count());
+	std::cout << "Initialized secondary ray generator succesfully." << std::endl;
+
+	/*------------------------ Initialize RayShader ---------------------------*/
+	if (!ray_shader.initialize(clinfo, scene_info, framebuffer, cl_hit_mem)) {
+		std::cerr << "Error initializing ray shader." << std::endl;
+		exit(1);
+	}
+	std::cout << "Initialized ray shader succesfully." << std::endl;
+
+	/*---------------------- Print scene data ----------------------*/
+	std::cerr << "\nScene stats: " << std::endl;
+	std::cerr << "\tTriangle count: " << scene_mesh.triangleCount() << std::endl;
+	std::cerr << "\tVertex count: " << scene_mesh.vertexCount() << std::endl;
+
+	/*------------------------- Count mem usage -----------------------------------*/
+	int32_t total_cl_mem = 0;
+	total_cl_mem += pixel_count * 4; /* 4bpp texture */
+	total_cl_mem += scene_info.size();
+	total_cl_mem += cl_mem_size(ray_bundle_1.mem()) + cl_mem_size(ray_bundle_2.mem());
+	total_cl_mem += cl_mem_size(cl_hit_mem);
+	total_cl_mem += cl_mem_size(cubemap.positive_x_mem()) * 6;
+	total_cl_mem += cl_mem_size(framebuffer.image_mem());
+
+	std::cout << "\nMemory stats: " << std::endl;
+	std::cout << "\tTotal opencl mem usage: " 
+		  << total_cl_mem << " bytes." << std::endl;
+	std::cout << "\tScene mem usage: " << scene_info.size() << " bytes." << std::endl;
+	std::cout << "\tFramebuffer+Tex mem usage: " 
+		  << cl_mem_size(framebuffer.image_mem()) + pixel_count * 4
+		  << " bytes."<< std::endl;
+	std::cout << "\tCubemap mem usage: " << cl_mem_size(cubemap.positive_x_mem()) * 6 
+		  << " bytes."<< std::endl;
+	std::cout << "\tRay info mem usage: " 
+		  << cl_mem_size(ray_bundle_1.mem())*2 + cl_mem_size(cl_hit_mem)
+		  << " bytes."<< std::endl;
+
+
+        /* !! ---------------------- Test area ---------------- */
+	std::cerr << std::endl;
+	std::cerr << "Misc info: " << std::endl;
+
+	std::cerr << "Tile size: " << best_tile_size << std::endl;
+	std::cerr << "Tiles: " << pixel_count / (float)best_tile_size << std::endl;
+	std::cerr << "color_cl size: "
+		  << sizeof(color_cl)
+		  << std::endl;
+
+	std::cerr << "ray_cl size: "
+		  << sizeof(ray_cl)
+		  << std::endl;
+	std::cerr << "ray_plus_cl size: "
+		  << sizeof(ray_plus_cl)
+		  << std::endl;
 
 	/*------------------------ Set GLUT and misc functions -----------------------*/
 	rt_time.snap_time();

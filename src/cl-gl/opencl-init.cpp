@@ -178,7 +178,6 @@ init_cl_kernel(CLInfo* clinfo, const char* kernel_file,
 	kernel_source_file.close();
 	kernel_source[file_size] = 0;
 	
-	std::cout << "Creating a program from the kernel source code" << std::endl;
 	clkernelinfo->program = 
 		clCreateProgramWithSource(clinfo->context,1,
 					  (const char**)&kernel_source,NULL,&err);
@@ -206,7 +205,6 @@ init_cl_kernel(CLInfo* clinfo, const char* kernel_file,
 	}
 
 	//specify which kernel from the program to execute
-	std::cout << "Specifying which kernel from the program to execute" << std::endl;
 	clkernelinfo->kernel = clCreateKernel(clkernelinfo->program,
 					      kernel_name.c_str(),&err);
 	if (error_cl(err, "clCreateKernel"))
@@ -544,4 +542,22 @@ inline int error_cl(cl_int err_num, std::string msg)
 		return 1;
 	}
 	return 0;
+}
+
+size_t cl_mem_size(const cl_mem& mem)
+{
+	size_t mem_size, bytes_written;
+	cl_int err;
+	
+
+	err = clGetMemObjectInfo(mem,
+				 CL_MEM_SIZE,
+				 sizeof(size_t),
+				 &mem_size,
+				 &bytes_written);
+
+	if (error_cl(err, "clGetMemObjectInfo CL_MEM_SIZE"))
+		return -1;
+
+	return mem_size;
 }

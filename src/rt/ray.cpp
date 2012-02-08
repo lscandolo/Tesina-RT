@@ -66,6 +66,12 @@ RayBundle::is_valid()
 	return initialized;
 }
 
+int32_t 
+RayBundle::count()
+{
+	return ray_count;
+}
+
 cl_mem&
 RayBundle::mem()
 {

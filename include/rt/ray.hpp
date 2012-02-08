@@ -69,6 +69,7 @@ public:
 	bool initialize(const int32_t rays,
 			const CLInfo& clinfo); // Create mem object
 	bool is_valid();                    // Check that it's correctly initialized 
+	int32_t count();                // Return number of rays in the bundle
 	cl_mem& mem();                      // Return mem object
 
 private:

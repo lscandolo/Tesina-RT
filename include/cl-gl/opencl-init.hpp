@@ -93,5 +93,6 @@ int32_t error_cl(cl_int err_num, std::string msg);
 void print_cl_info(const CLInfo& clinfo);
 void print_cl_image_2d_info(const cl_mem& mem);
 void print_cl_mem_info(const cl_mem& mem);
+size_t cl_mem_size(const cl_mem& mem);
 
 #endif //OPENCL_INIT_HPP

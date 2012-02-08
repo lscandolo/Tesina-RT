@@ -87,6 +87,7 @@ public:
 	cl_mem& mat_list_mem(){return mat_list_m;}
 	cl_mem& bvh_mem(){return bvh_m;}
 
+	size_t size(); /* Size in bytes of the combined memory buffers */
 
 private:
 

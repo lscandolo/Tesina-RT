@@ -178,6 +178,15 @@ SceneInfo::initialize(Scene& scene, const CLInfo& clinfo)
 
 }
 
+size_t 
+SceneInfo::size()
+{
+	return cl_mem_size(vert_m) + cl_mem_size(index_m) + 
+	       cl_mem_size(mat_map_m) + cl_mem_size(mat_list_m) + 
+	       cl_mem_size(bvh_m);
+}
+
+
 
 /*---------------------------- Misc functions ---------------------------*/
 

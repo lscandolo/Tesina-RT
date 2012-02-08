@@ -39,6 +39,7 @@ rt_primitives_lib = env.StaticLibrary('lib/rt-primitives' ,
                                        'src/rt/scene.cpp',
                                        'src/rt/cubemap.cpp',
                                        'src/rt/framebuffer.cpp',
+                                       'src/rt/ray-shader.cpp',
                                        'src/rt/tracer.cpp'
                                        ])
 

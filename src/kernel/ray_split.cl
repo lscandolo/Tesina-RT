@@ -6,9 +6,6 @@
 #define HAS_HITP(x) ((x->flags) & HIT_FLAG)
 #define HAS_HIT(x) ((x.flags) & HIT_FLAG)
 
-/* #define MAX_RAYS 400*400*4 */
-#define MAX_RAYS 512*512*4
-
 typedef struct
 {
 	float3 ori;
@@ -56,7 +53,8 @@ split(global RayHitInfo* ray_hit_info,
       global Material* material_list,
       global unsigned int* material_map,
       global RayPlus* ray_out,
-      global int* ray_count)
+      global int* ray_count,
+      const int max_rays)
 {
 	int index = get_global_id(0);
 
@@ -109,7 +107,7 @@ split(global RayHitInfo* ray_hit_info,
 			Ray refract_ray;
 			int ray_id = atomic_inc(ray_count);
 
-			if (ray_id >= MAX_RAYS)
+			if (ray_id >= max_rays)
 				return;
 
 			refract_ray.ori = original_ray.ori + original_ray.dir * info.t;
@@ -130,7 +128,7 @@ split(global RayHitInfo* ray_hit_info,
 		d = -d;
 		int ray_id = atomic_inc(ray_count);
 
-		if (ray_id >= MAX_RAYS)
+		if (ray_id >= max_rays)
 			return;
 
 		reflect_ray.ori = original_ray.ori + original_ray.dir * info.t;
@@ -151,7 +149,7 @@ split(global RayHitInfo* ray_hit_info,
 		Ray reflect_ray;
 
 		int ray_id = atomic_inc(ray_count);
-		if (ray_id >= MAX_RAYS)
+		if (ray_id >= max_rays)
 			return;
 
 		float3 d = original_ray.dir;
