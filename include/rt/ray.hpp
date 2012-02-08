@@ -42,12 +42,14 @@ public:
 
 class RayHitInfo {
 
-	cl_int flags;
+	cl_bool hit;
+	cl_bool shadow_hit;
+	cl_bool inverse_n;
+	cl_bool reserved;
 	cl_float t;
 	cl_int id;
 	cl_float2 uv;
 	cl_float3 n;
-
 };
 
 class RayReflectInfo {

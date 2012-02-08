@@ -20,7 +20,7 @@ bool Tracer::initialize(CLInfo& clinfo)
 		return false;
 
 	shadow_clk.work_dim = 1;
-	shadow_clk.arg_count = 8;
+	shadow_clk.arg_count = 6;
 
 	return true;
 }
@@ -83,16 +83,8 @@ Tracer::shadow_trace(SceneInfo& si, int32_t ray_count,
 	if (error_cl(err, "clSetKernelArg 4"))
 		return false;
 
-	err = clSetKernelArg(shadow_clk.kernel,5,sizeof(cl_mem),&si.mat_list_mem());
+	err = clSetKernelArg(shadow_clk.kernel,5,sizeof(cl_int),&arg);
 	if (error_cl(err, "clSetKernelArg 5"))
-		return false;
-
-	err = clSetKernelArg(shadow_clk.kernel,6,sizeof(cl_mem),&si.mat_map_mem());
-	if (error_cl(err, "clSetKernelArg 6"))
-		return false;
-
-	err = clSetKernelArg(shadow_clk.kernel,7,sizeof(cl_int),&arg);
-	if (error_cl(err, "clSetKernelArg 7"))
 		return false;
 
 	shadow_clk.global_work_size[0] = ray_count;

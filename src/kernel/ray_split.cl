@@ -1,11 +1,3 @@
-#define NO_FLAGS 0x0
-#define HIT_FLAG 0x1
-#define SHADOW_FLAG 0x2
-#define INV_N_FLAG 0x4
-
-#define HAS_HITP(x) ((x->flags) & HIT_FLAG)
-#define HAS_HIT(x) ((x.flags) & HIT_FLAG)
-
 typedef struct
 {
 	float3 ori;
@@ -22,11 +14,7 @@ typedef struct
 	float contribution;
 } RayPlus;
 
-
-typedef struct 
-{
-	float3 rgb;
-} Color;
+typedef float3 Color;
 
 typedef struct 
 {
@@ -39,7 +27,10 @@ typedef struct
 
 typedef struct {
 
-	int flags;
+	bool hit;
+	bool shadow_hit;
+	bool inverse_n;
+	bool reserved;
 	float t;
 	int id;
 	float2 uv;
@@ -59,12 +50,13 @@ split(global RayHitInfo* ray_hit_info,
 	int index = get_global_id(0);
 
 	RayHitInfo info  = ray_hit_info[index];
-	RayPlus rayplus = ray_in[index];
-	Ray original_ray = rayplus.ray;
 
-	if (!HAS_HIT(info)){
+	if (!info.hit){
 		return;
 	}
+
+	RayPlus rayplus = ray_in[index];
+	Ray original_ray = rayplus.ray;
 
 	int material_index = material_map[info.id];
 	Material mat = material_list[material_index];
@@ -73,7 +65,7 @@ split(global RayHitInfo* ray_hit_info,
 
 		float etai;
 		float etat;
-		if ((info.flags & INV_N_FLAG)){ 
+		if (info.inverse_n){ 
 			etat = 1.f;
 			etai = mat.refractive_index;
 		} else {

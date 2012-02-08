@@ -10,6 +10,7 @@ struct rt_time_t {
 	timespec tp;
 	void snap_time();
 	double msec_since_snap() const;
+	double nsec_since_snap() const;
 	
 };
 
@@ -21,6 +22,7 @@ struct rt_time_t {
 
 
 double msec_diff(const rt_time_t& begin, const rt_time_t& end);
+double nsec_diff(const rt_time_t& begin, const rt_time_t& end);
 
 
 

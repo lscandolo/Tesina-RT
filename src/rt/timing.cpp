@@ -12,6 +12,12 @@ double rt_time_t::msec_since_snap() const {
 	return msec_diff(*this, t_aux);
 }
 
+double rt_time_t::nsec_since_snap() const {
+	rt_time_t t_aux;
+	t_aux.snap_time();
+	return nsec_diff(*this, t_aux);
+}
+
 
 double msec_diff(const rt_time_t& begin, const rt_time_t& end){
 
@@ -20,13 +26,29 @@ double msec_diff(const rt_time_t& begin, const rt_time_t& end){
 	const timespec& tp_begin = begin.tp;
 	if ((tp_end.tv_nsec - tp_begin.tv_nsec) < 0) {
 		tp_aux.tv_sec = tp_end.tv_sec-tp_begin.tv_sec-1;
-		tp_aux.tv_nsec = 1000000000+tp_end.tv_nsec-tp_begin.tv_nsec;
+		tp_aux.tv_nsec = 1e9 + tp_end.tv_nsec-tp_begin.tv_nsec;
 	} else {
 		tp_aux.tv_sec = tp_end.tv_sec-tp_begin.tv_sec;
 		tp_aux.tv_nsec = tp_end.tv_nsec-tp_begin.tv_nsec;
 	}
-	double msec = tp_aux.tv_nsec/1000000. + tp_aux.tv_sec * 1000. ;
+	double msec = tp_aux.tv_nsec/1e6 + tp_aux.tv_sec * 1e3 ;
 	return msec;
+}
+
+double nsec_diff(const rt_time_t& begin, const rt_time_t& end){
+
+	timespec tp_aux;
+	const timespec& tp_end = end.tp;
+	const timespec& tp_begin = begin.tp;
+	if ((tp_end.tv_nsec - tp_begin.tv_nsec) < 0) {
+		tp_aux.tv_sec = tp_end.tv_sec-tp_begin.tv_sec-1;
+		tp_aux.tv_nsec = 1e9 + tp_end.tv_nsec-tp_begin.tv_nsec;
+	} else {
+		tp_aux.tv_sec = tp_end.tv_sec-tp_begin.tv_sec;
+		tp_aux.tv_nsec = tp_end.tv_nsec-tp_begin.tv_nsec;
+	}
+	double nsec = tp_aux.tv_nsec + tp_aux.tv_sec * 1e9 ;
+	return nsec;
 }
 
 

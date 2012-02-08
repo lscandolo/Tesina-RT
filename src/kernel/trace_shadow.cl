@@ -1,15 +1,3 @@
-#define NO_FLAGS 0x0
-
-#define HIT_FLAG 0x1
-#define SHADOW_FLAG 0x2
-
-#define HAS_HITP(x) ((x->flags) & HIT_FLAG)
-#define HAS_HIT(x) ((x.flags) & HIT_FLAG)
-
-#define REFLECTION_FLAG 0x1
-#define REFRACTION_FLAG 0x2
-#define INTERIOR_HIT    0x4
-
 typedef struct
 {
 	float3 ori;
@@ -35,20 +23,6 @@ typedef struct
         float2 texCoord;
 } Vertex;
 
-typedef struct 
-{
-	float3 rgb;
-} Color;
-
-typedef struct 
-{
-	Color diffuse;
-	float shininess;
-	float reflectiveness;
-	float refractive_index;
-
-} Material;
-
 typedef unsigned int tri_id;
 
 typedef struct {
@@ -69,7 +43,10 @@ typedef struct {
 
 typedef struct {
 
-	int flags;
+	bool hit;
+	bool shadow_hit;
+	bool inverse_n;
+	bool reserved;
 	float t;
 	int id;
 	float2 uv;
@@ -87,24 +64,6 @@ typedef struct {
 	bool   inv_n;
 
 } RayReflectInfo;
-
- 
-typedef struct 
-{
-	float3 hit_point;
-	float3 dir;
-	float3 normal;
-	int flags;
-	float refractive_index;
-} bounce;
-
-typedef struct {
-
-	int    flags;
-	int    mat_id;
-	Color  color1;
-	Color  color2;
-} ray_level;
 
 bool __attribute__((always_inline))
 bbox_hit(BBox bbox,
@@ -348,8 +307,6 @@ trace_shadow(global RayHitInfo* trace_info,
 	     global Vertex* vertex_buffer,
 	     global int* index_buffer,
 	     global BVHNode* bvh_nodes,
-	     global Material* material_list,
-	     global unsigned int* material_map,
 	     read_only int div)
 {
 	int index = get_global_id(0);
@@ -357,10 +314,8 @@ trace_shadow(global RayHitInfo* trace_info,
 	Ray original_ray = rays[index].ray;
 
 	RayHitInfo info  = trace_info[index];
-	int material_index = material_map[info.id];
-	Material mat = material_list[material_index];
 
-	if (!HAS_HIT(info)){
+	if (!info.hit){
 		return;
 	}
 
@@ -377,7 +332,7 @@ trace_shadow(global RayHitInfo* trace_info,
 	bool hit = trace_shadow_ray(ray, vertex_buffer, index_buffer, bvh_nodes);
 
 	if (hit)
-		trace_info[index].flags |= SHADOW_FLAG;
+		trace_info[index].shadow_hit = true;
 
 }
 

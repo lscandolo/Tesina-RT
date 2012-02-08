@@ -22,7 +22,7 @@ Camera                camera;
 
 GLuint gl_tex;
 rt_time_t rt_time;
-uint32_t window_size[] = {400, 400};
+uint32_t window_size[] = {512, 512};
 
 int32_t pixel_count = window_size[0] * window_size[1];
 int32_t best_tile_size;
@@ -82,13 +82,23 @@ void gl_loop()
 	int tile_ray_max = 0;
 
 	// std::cerr << "Tiles in screen: " << ((float)pixel_count)/tile_size << std::endl;
+	rt_time_t timer;
+	double prim_gen_time = 0;
+	double sec_gen_time = 0;
+	double trace_time = 0;
+	double shadow_trace_time = 0;
+	double shader_time = 0;
+	double fb_clear_time = 0;
+	double fb_copy_time = 0;
 
 	glClear(GL_COLOR_BUFFER_BIT);
 
+	timer.snap_time();
 	if (!framebuffer.clear()) {
 		std::cerr << "Failed to clear framebuffer." << std::endl;
 		exit(1);
 	}
+	fb_clear_time = timer.msec_since_snap();
 
 	cl_int arg = i%STEPS;
 
@@ -103,29 +113,40 @@ void gl_loop()
 		if (pixel_count - offset < tile_size)
 			tile_size = pixel_count - offset;
 
-
+		timer.snap_time(); 
 		if (prim_ray_gen.set_rays(camera, ray_bundle_1, window_size,
 					  tile_size, offset)) {
 			std::cerr << "Error seting primary ray bundle" << std::endl;
 			exit(1);
 		}
-
+		prim_gen_time += timer.msec_since_snap();
 
 		cl_time.snap_time();
 
 		tile_ray_count = tile_size;
 		ray_count += tile_size;
-		tracer.trace(scene_info, tile_size, *ray_in, cl_hit_mem);
-		tracer.shadow_trace(scene_info, tile_size, *ray_in, cl_hit_mem, arg);
 
+		timer.snap_time(); 
+		tracer.trace(scene_info, tile_size, *ray_in, cl_hit_mem);
+		trace_time += timer.msec_since_snap();
+
+		timer.snap_time();
+		tracer.shadow_trace(scene_info, tile_size, *ray_in, cl_hit_mem, arg);
+		shadow_trace_time += timer.msec_since_snap();
+
+		timer.snap_time();
 		if (!ray_shader.shade(*ray_in, cubemap, tile_size, arg)){
 			std::cerr << "Failed to update framebuffer." << std::endl;
 			exit(1);
 		}
+		shader_time += timer.msec_since_snap();
+		
 
 		int32_t secondary_ray_count;
+		timer.snap_time();
 		sec_ray_gen.generate(scene_info, *ray_in, tile_size,
 				     cl_hit_mem, *ray_out, &secondary_ray_count);
+		sec_gen_time += timer.msec_since_snap();
 
 		for (uint32_t i = 0; i < MAX_BOUNCE; ++i) {
 
@@ -136,20 +157,31 @@ void gl_loop()
 
 			tile_ray_count += secondary_ray_count;
 			ray_count += secondary_ray_count;
+
+			timer.snap_time();
 			tracer.trace(scene_info, secondary_ray_count, 
 				     *ray_in, cl_hit_mem);
+			trace_time += timer.msec_since_snap();
+
+
+			timer.snap_time();
 			tracer.shadow_trace(scene_info, secondary_ray_count, 
 					    *ray_in, cl_hit_mem, arg);
+			shadow_trace_time += timer.msec_since_snap();
 
+			timer.snap_time();
 			if (!ray_shader.shade(*ray_in, cubemap, 
 						secondary_ray_count, arg)){
 				std::cerr << "Ray shader failed execution." << std::endl;
 				exit(1);
 			}
+			shader_time += timer.msec_since_snap();
 
+			timer.snap_time();
 			sec_ray_gen.generate(scene_info, *ray_in, secondary_ray_count,
 					     cl_hit_mem, *ray_out,&secondary_ray_count);
 
+			sec_gen_time += timer.msec_since_snap();
 		}
 
 		tile_ray_aggregate += tile_ray_count;
@@ -157,10 +189,12 @@ void gl_loop()
 
 	}
 
+	timer.snap_time();
 	if (!framebuffer.copy(cl_tex_mem)){
 		std::cerr << "Failed to copy framebuffer." << std::endl;
 		exit(1);
 	}
+	fb_copy_time = timer.msec_since_snap();
 
 	// std::cerr << "Max Tile ray count: " << tile_ray_max << std::endl;
 	// std::cerr << "Mean Tile ray count: " 
@@ -206,6 +240,16 @@ void gl_loop()
 		rt_time.snap_time();
 		ray_count = 0;
 	}		
+
+	std::cout << "\nPrim Gen time: \t" << prim_gen_time  << std::endl;
+	std::cout << "Sec Gen time: \t" << sec_gen_time << std::endl;
+	std::cout << "Tracer time: \t" << trace_time << std::endl;
+	std::cout << "Shadow time: \t" << shadow_trace_time << std::endl;
+	std::cout << "Shader time: \t " << shader_time << std::endl;
+	std::cout << "Fb clear time: \t" << fb_clear_time << std::endl;
+	std::cout << "Fb copy time: \t" << fb_copy_time << std::endl;
+	std::cout << std::endl;
+
 	glutSwapBuffers();
 }
 
@@ -286,7 +330,6 @@ int main (int argc, char** argv)
 	// boat_obj.mat.shininess = 1.f;
 	// boat_obj.mat.reflectiveness = 0.0f;
 
-
 	scene.create_aggregate();
 	Mesh& scene_mesh = scene.get_aggregate_mesh();
 	std::cout << "Created scene aggregate succesfully." << std::endl;
@@ -313,7 +356,7 @@ int main (int argc, char** argv)
 
 	/*---------------------------- Set tile size ------------------------------*/
 	best_tile_size = clinfo.max_compute_units * clinfo.max_work_item_sizes[0];
-	best_tile_size *= 32;
+	best_tile_size *= 64;
 
 	/*---------------------- Initialize ray bundles -----------------------------*/
 	int32_t ray_bundle_size = best_tile_size * 4;
@@ -333,8 +376,6 @@ int main (int argc, char** argv)
 
 	/*------------- Initialize device memory for primary hit info ----------------*/
 	uint32_t hit_mem_size = sizeof(RayHitInfo) * ray_bundle_size;
-	hit_mem_size *= 4; /* To reuse in order to compute reflection/refraction */
-
 
 	if (create_empty_cl_mem(clinfo, 
 				CL_MEM_READ_WRITE,
@@ -343,12 +384,12 @@ int main (int argc, char** argv)
 		exit(1);
 	/*----------------------- Initialize cubemap ---------------------------*/
 	
-	if (!cubemap.initialize("textures/cubemap/Path/posx.jpg",
-				"textures/cubemap/Path/negx.jpg",
-				"textures/cubemap/Path/posy.jpg",
-				"textures/cubemap/Path/negy.jpg",
-				"textures/cubemap/Path/posz.jpg",
-				"textures/cubemap/Path/negz.jpg",
+	if (!cubemap.initialize("textures/cubemap/Skansen2/posx.jpg",
+				"textures/cubemap/Skansen2/negx.jpg",
+				"textures/cubemap/Skansen2/posy.jpg",
+				"textures/cubemap/Skansen2/negy.jpg",
+				"textures/cubemap/Skansen2/posz.jpg",
+				"textures/cubemap/Skansen2/negz.jpg",
 				clinfo)) {
 		std::cerr << "Failed to initialize cubemap." << std::endl;
 		exit(1);
@@ -389,7 +430,8 @@ int main (int argc, char** argv)
 	std::cout << "Initialized secondary ray generator succesfully." << std::endl;
 
 	/*------------------------ Initialize RayShader ---------------------------*/
-	if (!ray_shader.initialize(clinfo, scene_info, framebuffer, cl_hit_mem)) {
+	if (!ray_shader.initialize(clinfo, scene_info, framebuffer, 
+				   ray_bundle_1, cl_hit_mem)) {
 		std::cerr << "Error initializing ray shader." << std::endl;
 		exit(1);
 	}
@@ -408,6 +450,7 @@ int main (int argc, char** argv)
 	total_cl_mem += cl_mem_size(cl_hit_mem);
 	total_cl_mem += cl_mem_size(cubemap.positive_x_mem()) * 6;
 	total_cl_mem += cl_mem_size(framebuffer.image_mem());
+	total_cl_mem += ray_shader.buffer_size();
 
 	std::cout << "\nMemory stats: " << std::endl;
 	std::cout << "\tTotal opencl mem usage: " 
@@ -418,9 +461,14 @@ int main (int argc, char** argv)
 		  << " bytes."<< std::endl;
 	std::cout << "\tCubemap mem usage: " << cl_mem_size(cubemap.positive_x_mem()) * 6 
 		  << " bytes."<< std::endl;
-	std::cout << "\tRay info mem usage: " 
-		  << cl_mem_size(ray_bundle_1.mem())*2 + cl_mem_size(cl_hit_mem)
+	std::cout << "\tRay mem usage: " 
+		  << cl_mem_size(ray_bundle_1.mem())*2
 		  << " bytes."<< std::endl;
+	std::cout << "\tRay hit info mem usage: " 
+		  << cl_mem_size(cl_hit_mem)
+		  << " bytes."<< std::endl;
+	std::cout << "\tRay shader buffer mem usage: " 
+		  << ray_shader.buffer_size() << std::endl;
 
 
         /* !! ---------------------- Test area ---------------- */
@@ -438,6 +486,9 @@ int main (int argc, char** argv)
 		  << std::endl;
 	std::cerr << "ray_plus_cl size: "
 		  << sizeof(ray_plus_cl)
+		  << std::endl;
+	std::cerr << "ray_hit_info_cl size: "
+		  << sizeof(RayHitInfo)
 		  << std::endl;
 
 	/*------------------------ Set GLUT and misc functions -----------------------*/
