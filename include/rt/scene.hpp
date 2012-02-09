@@ -67,7 +67,7 @@ public:
 
 private:
 	std::vector<Mesh> mesh_atlas;
-	std::vector<Light> lights;
+	// std::vector<Light> lights;
 
 	Mesh geometry_aggregate;
 	BVH bvh;
@@ -79,24 +79,29 @@ private:
 class SceneInfo {
 
 public:
-	bool initialize(Scene& scene, const CLInfo& clinfo);
+	bool initialize(Scene& scene, const CLInfo& cli);
 
 	cl_mem& vertex_mem(){return vert_m;}
 	cl_mem& index_mem(){return index_m;}
 	cl_mem& mat_map_mem(){return mat_map_m;}
 	cl_mem& mat_list_mem(){return mat_list_m;}
 	cl_mem& bvh_mem(){return bvh_m;}
+	cl_mem& light_mem(){return lights_m;}
 
 	size_t size(); /* Size in bytes of the combined memory buffers */
+	bool set_dir_light(const directional_light_cl& dl);
+	bool set_ambient_light(const color_cl& color);
 
 private:
 
-	cl_mem vert_m;
-	cl_mem index_m;
-	cl_mem mat_map_m;
-	cl_mem mat_list_m;
-	cl_mem bvh_m;
-
+	cl_mem  vert_m;
+	cl_mem  index_m;
+	cl_mem  mat_map_m;
+	cl_mem  mat_list_m;
+	cl_mem  bvh_m;
+	cl_mem  lights_m;
+	CLInfo  clinfo;
+	lights_cl lights;
 };
 
 #endif /* RT_SCENE_HPP */

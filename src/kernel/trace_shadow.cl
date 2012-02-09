@@ -65,6 +65,21 @@ typedef struct {
 
 } RayReflectInfo;
 
+typedef float3 Color;
+
+typedef struct {
+
+	float3 dir;
+	Color  color;
+} DirectionalLight;
+
+typedef struct {
+	
+	Color ambient;
+	DirectionalLight directional;
+
+} Lights;
+
 bool __attribute__((always_inline))
 bbox_hit(BBox bbox,
 	 Ray ray)
@@ -307,7 +322,7 @@ trace_shadow(global RayHitInfo* trace_info,
 	     global Vertex* vertex_buffer,
 	     global int* index_buffer,
 	     global BVHNode* bvh_nodes,
-	     read_only int div)
+	     global Lights* lights)
 {
 	int index = get_global_id(0);
 
@@ -319,12 +334,8 @@ trace_shadow(global RayHitInfo* trace_info,
 		return;
 	}
 
-	float3 L = normalize((float3)(0.1f  * (div-8.f) + 0.1f,
-				      0.1f  * (div-8.f),
-				      0.2f));
-
 	Ray ray;
-	ray.dir = -L;
+	ray.dir = -lights->directional.dir;
 	ray.invDir = 1.f/ray.dir;
 	ray.ori = original_ray.ori + original_ray.dir * info.t;
   	ray.tMin = 0.0001f; ray.tMax = 1e37f;
@@ -335,7 +346,3 @@ trace_shadow(global RayHitInfo* trace_info,
 		trace_info[index].shadow_hit = true;
 
 }
-
-
-
-

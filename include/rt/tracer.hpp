@@ -15,7 +15,7 @@ public:
 		   RayBundle& rays, cl_mem& hit_mem);
 
 	bool shadow_trace(SceneInfo& scene_info, int32_t ray_count, 
-			  RayBundle& rays, cl_mem& hit_mem, cl_int arg);
+			  RayBundle& rays, cl_mem& hit_mem);
 
 private:
 

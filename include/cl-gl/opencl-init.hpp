@@ -44,11 +44,12 @@ struct CLInfo
 	bool initialized;	
 
 	CLInfo(){initialized = false;}
-	~CLInfo(){
-		if (!initialized) return;
-		clReleaseCommandQueue(command_queue);
-		clReleaseContext(context);
-	}
+	void release_resources()
+		{
+			if (!initialized) return;
+			clReleaseCommandQueue(command_queue);
+			clReleaseContext(context);
+		}
 
 };
 

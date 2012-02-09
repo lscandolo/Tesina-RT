@@ -59,7 +59,7 @@ Tracer::trace(SceneInfo& scene_info, int32_t ray_count,
 
 bool 
 Tracer::shadow_trace(SceneInfo& si, int32_t ray_count, 
-		     RayBundle& rays, cl_mem& hit_mem, cl_int arg)
+		     RayBundle& rays, cl_mem& hit_mem)
 {
 	cl_int err;
 
@@ -83,7 +83,7 @@ Tracer::shadow_trace(SceneInfo& si, int32_t ray_count,
 	if (error_cl(err, "clSetKernelArg 4"))
 		return false;
 
-	err = clSetKernelArg(shadow_clk.kernel,5,sizeof(cl_int),&arg);
+	err = clSetKernelArg(shadow_clk.kernel,5,sizeof(cl_mem),&si.light_mem());
 	if (error_cl(err, "clSetKernelArg 5"))
 		return false;
 

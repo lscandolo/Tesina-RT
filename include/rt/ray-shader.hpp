@@ -14,7 +14,7 @@ public:
 	bool initialize(CLInfo& clinfo, SceneInfo& scene_info, 
 			FrameBuffer& fb, RayBundle& bundle,
 			cl_mem& cl_hit_mem);
-	bool shade(RayBundle& rays, Cubemap& cm, int32_t size, cl_int arg);
+	bool shade(RayBundle& rays, Cubemap& cm, int32_t size);
 
 private:
 

@@ -120,8 +120,12 @@ Scene::create_bvh(){
 /*---------------------------- Scene Info methods ---------------------------*/
 
 bool 
-SceneInfo::initialize(Scene& scene, const CLInfo& clinfo)
+SceneInfo::initialize(Scene& scene, const CLInfo& cli)
 {
+
+	if (!cli.initialized)
+		return false;
+	clinfo = cli;
 
 	/*---------------------- Move model data to OpenCL device -----------------*/
 
@@ -174,6 +178,14 @@ SceneInfo::initialize(Scene& scene, const CLInfo& clinfo)
 				 &bvh_m))
 		return false;
 
+	/*-------------- Move initial light info to device memory---------------*/
+	
+	if (create_empty_cl_mem(clinfo,CL_MEM_READ_ONLY,
+				 sizeof(lights_cl),
+				 &lights_m))
+		return false;
+
+
 	return true;
 
 }
@@ -186,7 +198,46 @@ SceneInfo::size()
 	       cl_mem_size(bvh_m);
 }
 
+bool 
+SceneInfo::set_dir_light(const directional_light_cl& dl)
+{
+	cl_int err;
+	lights.directional = dl;
+	err =  clEnqueueWriteBuffer(clinfo.command_queue,
+				    lights_m, 
+				    true, 
+				    0,
+				    sizeof(lights_cl),
+				    &lights,
+				    0,
+				    NULL,
+				    NULL);
+	if (error_cl(err, "Directional light set"))
+		return false;
 
+	return true;
+}
+
+bool 
+SceneInfo::set_ambient_light(const color_cl& c)
+{
+	cl_int err;
+	lights.ambient = c;
+	err =  clEnqueueWriteBuffer(clinfo.command_queue,
+				    lights_m, 
+				    true, 
+				    0,
+				    sizeof(lights_cl),
+				    &lights,
+				    0,
+				    NULL,
+				    NULL);
+	if (error_cl(err, "Ambient light set"))
+		return false;
+	
+
+	return true;
+}
 
 /*---------------------------- Misc functions ---------------------------*/
 

@@ -2,8 +2,6 @@
 #include <rt/math.hpp>
 #include <rt/cl_aux.hpp>
 
-#include <iostream> //!!
-
 void 
 GeometricProperties::setPos(const vec3& new_pos)
 {

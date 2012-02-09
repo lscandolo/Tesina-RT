@@ -34,11 +34,15 @@ RayShader::initialize(CLInfo& clinfo, SceneInfo& scene_info,
 	if (error_cl(err, "clSetKernelArg 4"))
 		return false;
 
+	err = clSetKernelArg(shade_clk.kernel,11,sizeof(cl_mem),&scene_info.light_mem());
+	if (error_cl(err, "clSetKernelArg 11"))
+		return false;
+
 	return true;
 }
 
 bool 
-RayShader::shade(RayBundle& rays, Cubemap& cm, int32_t work_size, cl_int arg)
+RayShader::shade(RayBundle& rays, Cubemap& cm, int32_t work_size)
 {
 	cl_int err;
 
@@ -68,10 +72,6 @@ RayShader::shade(RayBundle& rays, Cubemap& cm, int32_t work_size, cl_int arg)
 
 	err = clSetKernelArg(shade_clk.kernel,10,sizeof(cl_mem),&cm.negative_z_mem());
 	if (error_cl(err, "clSetKernelArg 10"))
-		return false;
-
-	err = clSetKernelArg(shade_clk.kernel,11,sizeof(cl_int),&arg);
-	if (error_cl(err, "clSetKernelArg 11"))
 		return false;
 
 	shade_clk.global_work_size[0] = work_size;
