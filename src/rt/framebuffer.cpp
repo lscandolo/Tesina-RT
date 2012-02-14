@@ -3,7 +3,6 @@
 
 bool 
 FrameBuffer::initialize(CLInfo& clinfo, uint32_t sz[2])
-		
 {
 	cl_int err;
 
@@ -54,13 +53,22 @@ FrameBuffer::initialize(CLInfo& clinfo, uint32_t sz[2])
 	if (error_cl(err, "clSetKernelArg 0"))
 		return false;
 
+	timing = false;
 	return true;
 }
 
 bool 
 FrameBuffer::clear()
 {
-	return !execute_cl(init_clk);
+	if (timing)
+		clear_timer.snap_time();
+
+	bool ret = !execute_cl(init_clk);
+
+	if (timing)
+		clear_time_ms= clear_timer.msec_since_snap();
+
+	return ret;
 }
 
 
@@ -69,9 +77,34 @@ FrameBuffer::copy(cl_mem& tex_mem)
 {
 	cl_int err;
 
+	if (timing)
+		copy_timer.snap_time();
+
 	err = clSetKernelArg(copy_clk.kernel,1,sizeof(cl_mem),&tex_mem);
 	if (error_cl(err, "clSetKernelArg 1"))
 		return false;
 
-	return !execute_cl(copy_clk);
+	bool ret = !execute_cl(copy_clk);
+	
+	if (timing)
+		copy_time_ms= copy_timer.msec_since_snap();
+
+	return ret;
+}
+
+void 
+FrameBuffer::enable_timing(bool b)
+{
+	timing = b;
+}
+
+double
+FrameBuffer::get_clear_exec_time()
+{
+	return clear_time_ms;
+}
+double
+FrameBuffer::get_copy_exec_time()
+{
+	return copy_time_ms;
 }

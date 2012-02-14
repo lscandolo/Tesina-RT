@@ -22,7 +22,7 @@ Camera                camera;
 
 GLuint gl_tex;
 rt_time_t rt_time;
-uint32_t window_size[] = {800, 600};
+uint32_t window_size[] = {512, 512};
 
 int32_t pixel_count = window_size[0] * window_size[1];
 int32_t best_tile_size;
@@ -73,38 +73,32 @@ void gl_key(unsigned char key, int x, int y)
 
 void gl_loop()
 {
-	rt_time_t cl_time;
 	static int i = 0;
 	static int dir = 1;
-	static int ray_count = 0;
-	int tile_ray_count = 0;
-	int tile_ray_aggregate = 0;
-	int tile_ray_max = 0;
+	static int total_ray_count = 0;
 
-	// std::cerr << "Tiles in screen: " << ((float)pixel_count)/tile_size << std::endl;
-	rt_time_t timer;
 	double prim_gen_time = 0;
 	double sec_gen_time = 0;
-	double trace_time = 0;
-	double shadow_trace_time = 0;
+	double prim_trace_time = 0;
+	double sec_trace_time = 0;
+	double prim_shadow_trace_time = 0;
+	double sec_shadow_trace_time = 0;
 	double shader_time = 0;
 	double fb_clear_time = 0;
 	double fb_copy_time = 0;
 
 	glClear(GL_COLOR_BUFFER_BIT);
 
-	timer.snap_time();
 	if (!framebuffer.clear()) {
 		std::cerr << "Failed to clear framebuffer." << std::endl;
 		exit(1);
 	}
-	fb_clear_time = timer.msec_since_snap();
+	fb_clear_time = framebuffer.get_clear_exec_time();
 
 	cl_int arg = i%STEPS;
 	int32_t tile_size = best_tile_size;
 
 	directional_light_cl light;
-	// light.set_dir(0.05f * (arg - 8.f) , -0.2f * (arg) - 0.2f, 0.2f);
 	light.set_dir(0.05f * (arg - 8.f) , -0.6f, 0.2f);
 	light.set_color(0.05f * (fabs(arg)) + 0.1f, 0.2f, 0.05f * fabs(arg+4.f));
 	scene_info.set_dir_light(light);
@@ -121,43 +115,35 @@ void gl_loop()
 		if (pixel_count - offset < tile_size)
 			tile_size = pixel_count - offset;
 
-		timer.snap_time(); 
-		if (prim_ray_gen.set_rays(camera, ray_bundle_1, window_size,
-					  tile_size, offset)) {
+		if (!prim_ray_gen.set_rays(camera, ray_bundle_1, window_size,
+					   tile_size, offset)) {
 			std::cerr << "Error seting primary ray bundle" << std::endl;
 			exit(1);
 		}
-		prim_gen_time += timer.msec_since_snap();
+		prim_gen_time += prim_ray_gen.get_exec_time();
 
-		cl_time.snap_time();
+		total_ray_count += tile_size;
 
-		tile_ray_count = tile_size;
-		ray_count += tile_size;
-
-		timer.snap_time(); 
 		tracer.trace(scene_info, tile_size, *ray_in, hit_bundle);
-		trace_time += timer.msec_since_snap();
+		prim_trace_time += tracer.get_trace_exec_time();
 
-		timer.snap_time();
 		tracer.shadow_trace(scene_info, tile_size, *ray_in, hit_bundle);
-		shadow_trace_time += timer.msec_since_snap();
+		prim_shadow_trace_time += tracer.get_shadow_exec_time();
 
-		timer.snap_time();
 		if (!ray_shader.shade(*ray_in, hit_bundle, scene_info,
 				      cubemap, framebuffer, tile_size)){
 			std::cerr << "Failed to update framebuffer." << std::endl;
 			exit(1);
 		}
-		shader_time += timer.msec_since_snap();
+		shader_time += ray_shader.get_exec_time();
 		
 
-		int32_t sec_ray_count;
-		timer.snap_time();
-		sec_ray_gen.generate(scene_info, *ray_in, tile_size, 
-				     hit_bundle, *ray_out, &sec_ray_count);
-		sec_gen_time += timer.msec_since_snap();
-
+		int32_t sec_ray_count = tile_size;
 		for (uint32_t i = 0; i < MAX_BOUNCE; ++i) {
+
+			sec_ray_gen.generate(scene_info, *ray_in, sec_ray_count, 
+					     hit_bundle, *ray_out, &sec_ray_count);
+			sec_gen_time += sec_ray_gen.get_exec_time();
 
 			std::swap(ray_in,ray_out);
 
@@ -166,54 +152,34 @@ void gl_loop()
 			if (sec_ray_count == ray_bundle_1.count())
 				std::cerr << "Max sec rays reached!\n";
 
-			tile_ray_count += sec_ray_count;
-			ray_count += sec_ray_count;
+			total_ray_count += sec_ray_count;
 
-			timer.snap_time();
 			tracer.trace(scene_info, sec_ray_count, 
 				     *ray_in, hit_bundle);
-			trace_time += timer.msec_since_snap();
+			sec_trace_time += tracer.get_trace_exec_time();
 
 
-			timer.snap_time();
 			tracer.shadow_trace(scene_info, sec_ray_count, 
 					    *ray_in, hit_bundle);
-			shadow_trace_time += timer.msec_since_snap();
+			sec_shadow_trace_time += tracer.get_shadow_exec_time();
 
-			timer.snap_time();
 			if (!ray_shader.shade(*ray_in, hit_bundle, scene_info,
 					      cubemap, framebuffer, sec_ray_count)){
 				std::cerr << "Ray shader failed execution." << std::endl;
 				exit(1);
 			}
-			shader_time += timer.msec_since_snap();
-
-			timer.snap_time();
-			sec_ray_gen.generate(scene_info, *ray_in, sec_ray_count,
-					     hit_bundle, *ray_out,&sec_ray_count);
-
-			sec_gen_time += timer.msec_since_snap();
+			shader_time += ray_shader.get_exec_time();
 		}
-
-		tile_ray_aggregate += tile_ray_count;
-		tile_ray_max = std::max(tile_ray_max,tile_ray_count);
 
 	}
 
-	timer.snap_time();
 	if (!framebuffer.copy(cl_tex_mem)){
 		std::cerr << "Failed to copy framebuffer." << std::endl;
 		exit(1);
 	}
-	fb_copy_time = timer.msec_since_snap();
+	fb_copy_time = framebuffer.get_copy_exec_time();
+	double total_msec = rt_time.msec_since_snap();
 
-	// std::cerr << "Max Tile ray count: " << tile_ray_max << std::endl;
-	// std::cerr << "Mean Tile ray count: " 
-	// 	  << tile_ray_aggregate/(pixel_count/tile_size + 1)
-	// 	  << std::endl;
-	// double cl_msec = cl_time.msec_since_snap();
-	// std::cout << "Time spent on opencl: " << cl_msec << " msec." << std::endl;
-	
 	////////////////// Immediate mode textured quad
 	glBindTexture(GL_TEXTURE_2D, gl_tex);
 
@@ -238,24 +204,29 @@ void gl_loop()
 	if (!(i % (STEPS-1))){
 		dir *= -1;
 	}		
-	double msec = rt_time.msec_since_snap();
 	std::cout << "Time elapsed: " 
-		  << msec << " milliseconds " 
+		  << total_msec << " milliseconds " 
 		  << "\t" 
-		  << (1000.f / msec)
+		  << (1000.f / total_msec)
 		  << " FPS"
 		  << "\t"
-		  << int(ray_count / STEPS)
-		  << " rays casted (average)"
+		  << total_ray_count
+		  << " rays casted "
+		  << "\t(" << pixel_count << " primary, " 
+		  << total_ray_count-pixel_count << " secondary)"
 		  << "               \r" ;
 	std::flush(std::cout);
 	rt_time.snap_time();
-	ray_count = 0;
+	total_ray_count = 0;
 
 	std::cout << "\nPrim Gen time: \t" << prim_gen_time  << std::endl;
 	std::cout << "Sec Gen time: \t" << sec_gen_time << std::endl;
-	std::cout << "Tracer time: \t" << trace_time << std::endl;
-	std::cout << "Shadow time: \t" << shadow_trace_time << std::endl;
+	std::cout << "Tracer time: \t" << prim_trace_time + sec_trace_time  
+		  << " (" <<  prim_trace_time << " - " << sec_trace_time 
+		  << ")" << std::endl;
+	std::cout << "Shadow time: \t" << prim_shadow_trace_time + sec_shadow_trace_time 
+		  << " (" <<  prim_shadow_trace_time 
+		  << " - " << sec_shadow_trace_time << ")" << std::endl;
 	std::cout << "Shader time: \t " << shader_time << std::endl;
 	std::cout << "Fb clear time: \t" << fb_clear_time << std::endl;
 	std::cout << "Fb copy time: \t" << fb_copy_time << std::endl;
@@ -458,6 +429,13 @@ int main (int argc, char** argv)
 		exit(1);
 	}
 	std::cout << "Initialized ray shader succesfully." << std::endl;
+
+	/*----------------------- Enable timing in all clases -------------------*/
+	framebuffer.enable_timing(true);
+	prim_ray_gen.enable_timing(true);
+	sec_ray_gen.enable_timing(true);
+	tracer.enable_timing(true);
+	ray_shader.enable_timing(true);
 
 	/*---------------------- Print scene data ----------------------*/
 	std::cerr << "\nScene stats: " << std::endl;

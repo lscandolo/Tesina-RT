@@ -22,6 +22,8 @@ bool Tracer::initialize(CLInfo& clinfo)
 	shadow_clk.work_dim = 1;
 	shadow_clk.arg_count = 6;
 
+	timing = false;
+
 	return true;
 }
 
@@ -31,6 +33,9 @@ Tracer::trace(SceneInfo& scene_info, int32_t ray_count,
 	      RayBundle& rays, HitBundle& hits)
 {
 	cl_int err;
+
+	if (timing)
+		tracer_timer.snap_time();
 
 	err = clSetKernelArg(tracer_clk.kernel,0,sizeof(cl_mem),&hits.mem());
 	if (error_cl(err, "clSetKernelArg 0"))
@@ -54,7 +59,12 @@ Tracer::trace(SceneInfo& scene_info, int32_t ray_count,
 
 	tracer_clk.global_work_size[0] = ray_count;
 
-	return !execute_cl(tracer_clk);
+	bool ret = !execute_cl(tracer_clk);
+
+	if (timing)
+		tracer_time_ms = tracer_timer.msec_since_snap();
+
+	return ret;
 }
 
 bool 
@@ -62,6 +72,9 @@ Tracer::shadow_trace(SceneInfo& si, int32_t ray_count,
 		     RayBundle& rays, HitBundle& hits)
 {
 	cl_int err;
+
+	if (timing)
+		shadow_timer.snap_time();
 
 	err = clSetKernelArg(shadow_clk.kernel,0,sizeof(cl_mem),&hits.mem());
 	if (error_cl(err, "clSetKernelArg 0"))
@@ -89,7 +102,29 @@ Tracer::shadow_trace(SceneInfo& si, int32_t ray_count,
 
 	shadow_clk.global_work_size[0] = ray_count;
 
-	return !execute_cl(shadow_clk);
+	bool ret = !execute_cl(shadow_clk);
+
+	if (timing)
+		shadow_time_ms = shadow_timer.msec_since_snap();
+
+	return ret;
+
 }
 
+void
+Tracer::enable_timing(bool b)
+{
+	timing = b;
+}
 
+double 
+Tracer::get_trace_exec_time()
+{
+	return tracer_time_ms;
+}
+
+double 
+Tracer::get_shadow_exec_time()
+{
+	return shadow_time_ms;
+}

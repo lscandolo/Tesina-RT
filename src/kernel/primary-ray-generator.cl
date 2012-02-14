@@ -51,6 +51,7 @@ generate_primary_rays(global RayPlus* ray_buffer,
 		      read_only float4 up,
 		      read_only int width,
 		      read_only int height)
+
 {
 	int x = get_global_id(0);
 	int offset_x = get_global_offset(0);

@@ -12,6 +12,7 @@ RayShader::initialize(CLInfo& clinfo)
 
 	shade_clk.work_dim = 1;
 	shade_clk.arg_count = 12;
+	timing = false;
 	
 	return true;
 }
@@ -21,6 +22,9 @@ RayShader::shade(RayBundle& rays, HitBundle& hb, SceneInfo& scene_info,
 		 Cubemap& cm, FrameBuffer& fb, int32_t size)
 {
 	cl_int err;
+
+	if (timing)
+		timer.snap_time();
 
 	err = clSetKernelArg(shade_clk.kernel,0,sizeof(cl_mem), &fb.image_mem());
 	if (error_cl(err, "clSetKernelArg 0"))
@@ -75,5 +79,20 @@ RayShader::shade(RayBundle& rays, HitBundle& hb, SceneInfo& scene_info,
 	if (execute_cl(shade_clk))
 		return false;
 
+	if (timing)
+		time_ms = timer.msec_since_snap();
+
 	return true;
+}
+
+void
+RayShader::enable_timing(bool b)
+{
+	timing = b;
+}
+
+double 
+RayShader::get_exec_time()
+{
+	return time_ms;
 }

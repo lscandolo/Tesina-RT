@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #include <cl-gl/opencl-init.hpp>
+#include <rt/timing.hpp>
 #include <rt/ray.hpp>
 #include <rt/scene.hpp>
 #include <rt/cubemap.hpp>
@@ -21,6 +22,10 @@ public:
 	bool clear();
 	bool copy(cl_mem& tex_mem);
 
+	void enable_timing(bool b);
+	double get_clear_exec_time();
+	double get_copy_exec_time();
+
 private:
 
 	uint32_t size[2];
@@ -29,6 +34,12 @@ private:
 	CLKernelInfo copy_clk;
 
 	cl_mem img_mem;
+
+	bool         timing;
+	rt_time_t    clear_timer;
+	double       clear_time_ms;
+	rt_time_t    copy_timer;
+	double       copy_time_ms;
 };
 
 #endif /* RT_FRAMEBUFFER_HPP */
