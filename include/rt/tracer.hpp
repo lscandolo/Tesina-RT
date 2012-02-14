@@ -12,10 +12,10 @@ public:
 	bool initialize(CLInfo& clinfo);
 
 	bool trace(SceneInfo& scene_info, int32_t ray_count, 
-		   RayBundle& rays, cl_mem& hit_mem);
+		   RayBundle& rays, HitBundle& hits);
 
 	bool shadow_trace(SceneInfo& scene_info, int32_t ray_count, 
-			  RayBundle& rays, cl_mem& hit_mem);
+			  RayBundle& rays, HitBundle& hits);
 
 private:
 

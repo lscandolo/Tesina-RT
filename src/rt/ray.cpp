@@ -77,3 +77,35 @@ RayBundle::mem()
 {
 	return ray_mem;
 }
+
+// HitBundle methods 
+
+ 
+HitBundle::HitBundle()
+{
+	size = 0;
+	initialized = false;
+}
+
+bool 
+HitBundle::initialize(const int32_t sz, const CLInfo& clinfo)
+{
+	if (sz <= 0 || initialized == true)
+		return false;
+
+	if (create_empty_cl_mem(clinfo, 
+				CL_MEM_READ_WRITE,
+				sz * sizeof(ray_hit_info_cl),
+				&hit_mem))
+		return false;
+
+	initialized = true;
+	size = sz;
+	return true;
+}
+
+cl_mem& 
+HitBundle::mem()
+{
+	return hit_mem;
+}

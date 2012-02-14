@@ -8,10 +8,9 @@
 #define MAX_BOUNCE 5
 
 cl_mem cl_tex_mem;
-cl_mem cl_hit_mem;
-cl_mem cl_light_mem;
 
 RayBundle             ray_bundle_1,ray_bundle_2;
+HitBundle             hit_bundle;
 PrimaryRayGenerator   prim_ray_gen;
 SecondaryRayGenerator sec_ray_gen;
 RayShader             ray_shader;
@@ -23,7 +22,7 @@ Camera                camera;
 
 GLuint gl_tex;
 rt_time_t rt_time;
-uint32_t window_size[] = {400, 400};
+uint32_t window_size[] = {800, 600};
 
 int32_t pixel_count = window_size[0] * window_size[1];
 int32_t best_tile_size;
@@ -105,8 +104,9 @@ void gl_loop()
 	int32_t tile_size = best_tile_size;
 
 	directional_light_cl light;
-	light.set_dir(0.1f * (arg - 8.f) + 0.1f, 0.1f * (arg-8.f), 0.2f);
-	light.set_color(0.05f * (fabs(arg)) + 0.1f, 0.2f, 0.1f * fabs(arg-8.f));
+	// light.set_dir(0.05f * (arg - 8.f) , -0.2f * (arg) - 0.2f, 0.2f);
+	light.set_dir(0.05f * (arg - 8.f) , -0.6f, 0.2f);
+	light.set_color(0.05f * (fabs(arg)) + 0.1f, 0.2f, 0.05f * fabs(arg+4.f));
 	scene_info.set_dir_light(light);
 	color_cl ambient;
 	ambient[0] = ambient[1] = ambient[2] = 0.1f;
@@ -135,60 +135,62 @@ void gl_loop()
 		ray_count += tile_size;
 
 		timer.snap_time(); 
-		tracer.trace(scene_info, tile_size, *ray_in, cl_hit_mem);
+		tracer.trace(scene_info, tile_size, *ray_in, hit_bundle);
 		trace_time += timer.msec_since_snap();
 
 		timer.snap_time();
-		tracer.shadow_trace(scene_info, tile_size, *ray_in, cl_hit_mem);
+		tracer.shadow_trace(scene_info, tile_size, *ray_in, hit_bundle);
 		shadow_trace_time += timer.msec_since_snap();
 
 		timer.snap_time();
-		if (!ray_shader.shade(*ray_in, cubemap, tile_size)){
+		if (!ray_shader.shade(*ray_in, hit_bundle, scene_info,
+				      cubemap, framebuffer, tile_size)){
 			std::cerr << "Failed to update framebuffer." << std::endl;
 			exit(1);
 		}
 		shader_time += timer.msec_since_snap();
 		
 
-		int32_t secondary_ray_count;
+		int32_t sec_ray_count;
 		timer.snap_time();
-		sec_ray_gen.generate(scene_info, *ray_in, tile_size,
-				     cl_hit_mem, *ray_out, &secondary_ray_count);
+		sec_ray_gen.generate(scene_info, *ray_in, tile_size, 
+				     hit_bundle, *ray_out, &sec_ray_count);
 		sec_gen_time += timer.msec_since_snap();
 
 		for (uint32_t i = 0; i < MAX_BOUNCE; ++i) {
 
 			std::swap(ray_in,ray_out);
 
-			if (!secondary_ray_count)
+			if (!sec_ray_count)
 				break;
-			if (secondary_ray_count == ray_bundle_1.count())
+			if (sec_ray_count == ray_bundle_1.count())
 				std::cerr << "Max sec rays reached!\n";
 
-			tile_ray_count += secondary_ray_count;
-			ray_count += secondary_ray_count;
+			tile_ray_count += sec_ray_count;
+			ray_count += sec_ray_count;
 
 			timer.snap_time();
-			tracer.trace(scene_info, secondary_ray_count, 
-				     *ray_in, cl_hit_mem);
+			tracer.trace(scene_info, sec_ray_count, 
+				     *ray_in, hit_bundle);
 			trace_time += timer.msec_since_snap();
 
 
 			timer.snap_time();
-			tracer.shadow_trace(scene_info, secondary_ray_count, 
-					    *ray_in, cl_hit_mem);
+			tracer.shadow_trace(scene_info, sec_ray_count, 
+					    *ray_in, hit_bundle);
 			shadow_trace_time += timer.msec_since_snap();
 
 			timer.snap_time();
-			if (!ray_shader.shade(*ray_in, cubemap, secondary_ray_count)){
+			if (!ray_shader.shade(*ray_in, hit_bundle, scene_info,
+					      cubemap, framebuffer, sec_ray_count)){
 				std::cerr << "Ray shader failed execution." << std::endl;
 				exit(1);
 			}
 			shader_time += timer.msec_since_snap();
 
 			timer.snap_time();
-			sec_ray_gen.generate(scene_info, *ray_in, secondary_ray_count,
-					     cl_hit_mem, *ray_out,&secondary_ray_count);
+			sec_ray_gen.generate(scene_info, *ray_in, sec_ray_count,
+					     hit_bundle, *ray_out,&sec_ray_count);
 
 			sec_gen_time += timer.msec_since_snap();
 		}
@@ -235,29 +237,29 @@ void gl_loop()
 	i += dir;
 	if (!(i % (STEPS-1))){
 		dir *= -1;
-		double msec = rt_time.msec_since_snap();
-		std::cout << "Time elapsed: " 
-			  << msec << " milliseconds " 
-			  << "\t" 
-			  << int(STEPS / (msec/1000))
-			  << " FPS"
-			  << "\t"
-			  << int(ray_count / STEPS)
-			  << " rays casted (average)"
-			  << "               \r" ;
-		std::flush(std::cout);
-		rt_time.snap_time();
-		ray_count = 0;
 	}		
+	double msec = rt_time.msec_since_snap();
+	std::cout << "Time elapsed: " 
+		  << msec << " milliseconds " 
+		  << "\t" 
+		  << (1000.f / msec)
+		  << " FPS"
+		  << "\t"
+		  << int(ray_count / STEPS)
+		  << " rays casted (average)"
+		  << "               \r" ;
+	std::flush(std::cout);
+	rt_time.snap_time();
+	ray_count = 0;
 
-	// std::cout << "\nPrim Gen time: \t" << prim_gen_time  << std::endl;
-	// std::cout << "Sec Gen time: \t" << sec_gen_time << std::endl;
-	// std::cout << "Tracer time: \t" << trace_time << std::endl;
-	// std::cout << "Shadow time: \t" << shadow_trace_time << std::endl;
-	// std::cout << "Shader time: \t " << shader_time << std::endl;
-	// std::cout << "Fb clear time: \t" << fb_clear_time << std::endl;
-	// std::cout << "Fb copy time: \t" << fb_copy_time << std::endl;
-	// std::cout << std::endl;
+	std::cout << "\nPrim Gen time: \t" << prim_gen_time  << std::endl;
+	std::cout << "Sec Gen time: \t" << sec_gen_time << std::endl;
+	std::cout << "Tracer time: \t" << trace_time << std::endl;
+	std::cout << "Shadow time: \t" << shadow_trace_time << std::endl;
+	std::cout << "Shader time: \t " << shader_time << std::endl;
+	std::cout << "Fb clear time: \t" << fb_clear_time << std::endl;
+	std::cout << "Fb copy time: \t" << fb_copy_time << std::endl;
+	std::cout << std::endl;
 
 	glutSwapBuffers();
 }
@@ -313,31 +315,40 @@ int main (int argc, char** argv)
 	floor_obj.mat.reflectiveness = 0.9f;
 	floor_obj.mat.refractive_index = 1.333f;
 
-	mesh_id teapot_mesh_id = scene.load_obj_file("models/obj/teapot2.obj");
-	// mesh_id teapot_mesh_id = scene.load_obj_file("models/obj/teapot-low_res.obj");
-	object_id teapot_obj_id = scene.geometry.add_object(teapot_mesh_id);
-	Object& teapot_obj = scene.geometry.object(teapot_obj_id);
-	teapot_obj.geom.setPos(makeVector(-8.f,-5.f,0.f));
-	teapot_obj.mat.diffuse = Green;
-	teapot_obj.mat.shininess = 1.f;
-	teapot_obj.mat.reflectiveness = 0.3f;
+	// mesh_id teapot_mesh_id = scene.load_obj_file("models/obj/teapot2.obj");
+	// // mesh_id teapot_mesh_id = scene.load_obj_file("models/obj/teapot-low_res.obj");
+	// object_id teapot_obj_id = scene.geometry.add_object(teapot_mesh_id);
+	// Object& teapot_obj = scene.geometry.object(teapot_obj_id);
+	// teapot_obj.geom.setPos(makeVector(-8.f,-5.f,0.f));
+	// teapot_obj.mat.diffuse = Green;
+	// teapot_obj.mat.shininess = 1.f;
+	// teapot_obj.mat.reflectiveness = 0.3f;
 
-	object_id teapot_obj_id_2 = scene.geometry.add_object(teapot_mesh_id);
-	Object& teapot_obj_2 = scene.geometry.object(teapot_obj_id_2);
-	teapot_obj_2.mat.diffuse = Red;
-	teapot_obj_2.mat.shininess = 1.f;
-	teapot_obj_2.geom.setPos(makeVector(8.f,5.f,0.f));
-	teapot_obj_2.geom.setRpy(makeVector(0.2f,0.1f,0.3f));
-	teapot_obj_2.geom.setScale(0.3f);
-	teapot_obj_2.mat.reflectiveness = 0.3f;
+	// object_id teapot_obj_id_2 = scene.geometry.add_object(teapot_mesh_id);
+	// Object& teapot_obj_2 = scene.geometry.object(teapot_obj_id_2);
+	// teapot_obj_2.mat.diffuse = Red;
+	// teapot_obj_2.mat.shininess = 1.f;
+	// teapot_obj_2.geom.setPos(makeVector(8.f,5.f,0.f));
+	// teapot_obj_2.geom.setRpy(makeVector(0.2f,0.1f,0.3f));
+	// teapot_obj_2.geom.setScale(0.3f);
+	// teapot_obj_2.mat.reflectiveness = 0.3f;
 
-	// mesh_id boat_mesh_id = scene.load_obj_file("models/obj/frame_boat1.obj");
-	// object_id boat_obj_id = scene.geometry.add_object(boat_mesh_id);
-	// Object& boat_obj = scene.geometry.object(boat_obj_id);
-	// boat_obj.geom.setPos(makeVector(0.f,-18.f,0.f));
-	// boat_obj.mat.diffuse = Red;
-	// boat_obj.mat.shininess = 1.f;
-	// boat_obj.mat.reflectiveness = 0.0f;
+	mesh_id boat_mesh_id = scene.load_obj_file("models/obj/frame_boat1.obj");
+	object_id boat_obj_id = scene.geometry.add_object(boat_mesh_id);
+	Object& boat_obj = scene.geometry.object(boat_obj_id);
+	boat_obj.geom.setPos(makeVector(0.f,-18.f,0.f));
+	boat_obj.mat.diffuse = Red;
+	boat_obj.mat.shininess = 1.f;
+	boat_obj.mat.reflectiveness = 0.0f;
+
+	// mesh_id bunny_mesh_id = scene.load_obj_file("models/obj/bunny.obj");
+	// object_id bunny_obj_id = scene.geometry.add_object(bunny_mesh_id);
+	// Object& bunny_obj = scene.geometry.object(bunny_obj_id);
+	// bunny_obj.geom.setPos(makeVector(0.f,0.f,-3.f));
+	// bunny_obj.geom.setRpy(makeVector(0.f,0.f,M_PI));
+	// bunny_obj.mat.diffuse = White;
+	// bunny_obj.mat.shininess = 0.8;
+	// bunny_obj.mat.reflectiveness = 0.f;
 
 	scene.create_aggregate();
 	Mesh& scene_mesh = scene.get_aggregate_mesh();
@@ -384,14 +395,16 @@ int main (int argc, char** argv)
 	}
 	std::cout << "Initialized ray bundles succesfully" << std::endl;
 
-	/*------------- Initialize device memory for primary hit info ----------------*/
-	uint32_t hit_mem_size = sizeof(RayHitInfo) * ray_bundle_size;
+	/*---------------------- Initialize hit bundle -----------------------------*/
+	int32_t hit_bundle_size = ray_bundle_size;
 
-	if (create_empty_cl_mem(clinfo, 
-				CL_MEM_READ_WRITE,
-				hit_mem_size,
-				&cl_hit_mem))
+	if (!hit_bundle.initialize(hit_bundle_size, clinfo)) {
+		std::cerr << "Error initializing hit bundle" << std::endl;
+		std::cerr.flush();
 		exit(1);
+	}
+	std::cout << "Initialized hit bundle succesfully" << std::endl;
+
 	/*----------------------- Initialize cubemap ---------------------------*/
 	
 	if (!cubemap.initialize("textures/cubemap/Skansen2/posx.jpg",
@@ -440,8 +453,7 @@ int main (int argc, char** argv)
 	std::cout << "Initialized secondary ray generator succesfully." << std::endl;
 
 	/*------------------------ Initialize RayShader ---------------------------*/
-	if (!ray_shader.initialize(clinfo, scene_info, framebuffer, 
-				   ray_bundle_1, cl_hit_mem)) {
+	if (!ray_shader.initialize(clinfo)) {
 		std::cerr << "Error initializing ray shader." << std::endl;
 		exit(1);
 	}
@@ -457,7 +469,7 @@ int main (int argc, char** argv)
 	total_cl_mem += pixel_count * 4; /* 4bpp texture */
 	total_cl_mem += scene_info.size();
 	total_cl_mem += cl_mem_size(ray_bundle_1.mem()) + cl_mem_size(ray_bundle_2.mem());
-	total_cl_mem += cl_mem_size(cl_hit_mem);
+	total_cl_mem += cl_mem_size(hit_bundle.mem());
 	total_cl_mem += cl_mem_size(cubemap.positive_x_mem()) * 6;
 	total_cl_mem += cl_mem_size(framebuffer.image_mem());
 
@@ -475,7 +487,7 @@ int main (int argc, char** argv)
 		  << (cl_mem_size(ray_bundle_1.mem())*2)/1e6
 		  << " MB."<< std::endl;
 	std::cout << "\tRay hit info mem usage: " 
-		  << cl_mem_size(cl_hit_mem)/1e6
+		  << cl_mem_size(hit_bundle.mem())/1e6
 		  << " MB."<< std::endl;
 
         /* !! ---------------------- Test area ---------------- */
@@ -498,7 +510,7 @@ int main (int argc, char** argv)
 		  << sizeof(ray_plus_cl)
 		  << std::endl;
 	std::cerr << "ray_hit_info_cl size: "
-		  << sizeof(RayHitInfo)
+		  << sizeof(ray_hit_info_cl)
 		  << std::endl;
 
 	/*------------------------ Set GLUT and misc functions -----------------------*/

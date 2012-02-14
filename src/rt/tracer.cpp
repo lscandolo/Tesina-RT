@@ -14,8 +14,8 @@ bool Tracer::initialize(CLInfo& clinfo)
 
 
 	if (init_cl_kernel(&clinfo,
-			   "src/kernel/trace_shadow.cl", 
-			   "trace_shadow", 
+			   "src/kernel/shadow-trace.cl", 
+			   "shadow_trace", 
 			   &shadow_clk))
 		return false;
 
@@ -28,11 +28,11 @@ bool Tracer::initialize(CLInfo& clinfo)
 
 bool 
 Tracer::trace(SceneInfo& scene_info, int32_t ray_count, 
-	      RayBundle& rays, cl_mem& hit_mem)
+	      RayBundle& rays, HitBundle& hits)
 {
 	cl_int err;
 
-	err = clSetKernelArg(tracer_clk.kernel,0,sizeof(cl_mem),&hit_mem);
+	err = clSetKernelArg(tracer_clk.kernel,0,sizeof(cl_mem),&hits.mem());
 	if (error_cl(err, "clSetKernelArg 0"))
 		return false;
 
@@ -59,11 +59,11 @@ Tracer::trace(SceneInfo& scene_info, int32_t ray_count,
 
 bool 
 Tracer::shadow_trace(SceneInfo& si, int32_t ray_count, 
-		     RayBundle& rays, cl_mem& hit_mem)
+		     RayBundle& rays, HitBundle& hits)
 {
 	cl_int err;
 
-	err = clSetKernelArg(shadow_clk.kernel,0,sizeof(cl_mem),&hit_mem);
+	err = clSetKernelArg(shadow_clk.kernel,0,sizeof(cl_mem),&hits.mem());
 	if (error_cl(err, "clSetKernelArg 0"))
 		return false;
 

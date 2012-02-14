@@ -8,7 +8,8 @@ bool
 PrimaryRayGenerator::initialize(CLInfo& clinfo)
 {
 
-	if (init_cl_kernel(&clinfo,"src/kernel/ray.cl", "create_ray", &ray_clk))
+	if (init_cl_kernel(&clinfo,"src/kernel/primary-ray-generator.cl", 
+			   "generate_primary_rays", &ray_clk))
 		return false;
 
 	ray_clk.work_dim = 1;

@@ -39,13 +39,13 @@ typedef struct {
 } RayHitInfo;
 
 kernel void 
-split(global RayHitInfo* ray_hit_info,
-      global RayPlus* ray_in,
-      global Material* material_list,
-      global unsigned int* material_map,
-      global RayPlus* ray_out,
-      global int* ray_count,
-      const int max_rays)
+generate_secondary_rays(global RayHitInfo* ray_hit_info,
+			global RayPlus* ray_in,
+			global Material* material_list,
+			global unsigned int* material_map,
+			global RayPlus* ray_out,
+			global int* ray_count,
+			const int max_rays)
 {
 	int index = get_global_id(0);
 	RayHitInfo info  = ray_hit_info[index];

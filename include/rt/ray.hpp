@@ -40,7 +40,7 @@ public:
 	cl_float   contribution;
 };
 
-class RayHitInfo {
+class ray_hit_info_cl {
 
 	cl_bool hit;
 	cl_bool shadow_hit;
@@ -50,15 +50,6 @@ class RayHitInfo {
 	cl_int id;
 	cl_float2 uv;
 	cl_float3 n;
-};
-
-class RayReflectInfo {
-
-	cl_float3 n;
-	cl_float3 r;
-	float  cosL;
-	float  spec;
-
 };
 
 class RayBundle {
@@ -82,6 +73,20 @@ private:
 
 };
 
+class HitBundle {
+
+public:
+
+	HitBundle();
+	bool initialize(const int32_t sz, const CLInfo& clinfo);
+	cl_mem& mem();
+
+private:
+	
+	cl_mem hit_mem;
+	int32_t size;
+	bool initialized;
+};
 
 #endif /* RT_RAY_HPP */
 

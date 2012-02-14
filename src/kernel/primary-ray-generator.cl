@@ -44,13 +44,13 @@ int get_morton_y(int val)
 }
 
 kernel void
-create_ray(global RayPlus* ray_buffer,
-	   read_only float4 pos,
-	   read_only float4 dir,
-	   read_only float4 right,
-	   read_only float4 up,
-	   read_only int width,
-	   read_only int height)
+generate_primary_rays(global RayPlus* ray_buffer,
+		      read_only float4 pos,
+		      read_only float4 dir,
+		      read_only float4 right,
+		      read_only float4 up,
+		      read_only int width,
+		      read_only int height)
 {
 	int x = get_global_id(0);
 	int offset_x = get_global_offset(0);

@@ -1,5 +1,7 @@
 
 #include <rt/scene.hpp>
+#include <rt/vector.hpp>
+#include <rt/cl_aux.hpp>
 
 static mesh_id invalid_mesh_id();
 // static object_id invalid_object_id();
@@ -203,6 +205,10 @@ SceneInfo::set_dir_light(const directional_light_cl& dl)
 {
 	cl_int err;
 	lights.directional = dl;
+	vec3 vdl = float3_to_vec3(dl.dir);
+	vdl.normalize();
+	lights.directional.dir = vec3_to_float3(vdl);
+
 	err =  clEnqueueWriteBuffer(clinfo.command_queue,
 				    lights_m, 
 				    true, 

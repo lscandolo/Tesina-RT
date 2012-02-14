@@ -9,13 +9,19 @@ typedef struct
 
 typedef struct 
 {
+	Ray   ray;
+	int2   pixel;
+	float contribution;
+} RayPlus;
+
+typedef struct 
+{
         float3 position;
         float3 normal;
         float4 tangent;
         float3 bitangent;
         float2 texCoord;
 } Vertex;
-
 
 typedef unsigned int tri_id;
 
@@ -38,11 +44,16 @@ typedef struct {
 typedef struct {
 
 	bool hit;
+	bool shadow_hit;
+	bool inverse_n;
+	bool reserved;
 	float t;
-	unsigned int id;
+	int id;
 	float2 uv;
- 
-} hit_info;
+	float3 n;
+  
+} RayHitInfo;
+
 
 typedef struct {
 
@@ -50,27 +61,29 @@ typedef struct {
 	float3 r;
 	float  cosL;
 	float  spec;
+	bool   inv_n;
 
-} reflect_info;
+} RayReflectInfo;
 
-void __attribute__((always_inline))
-merge_hit_info(hit_info* best_info, hit_info* new_info){
-	if ((*new_info).hit) {
-		(*best_info).hit = true;
-		if ((*new_info).t < (*best_info).t){
-			(*best_info).t = (*new_info).t;
-			(*best_info).id = (*new_info).id;
-			(*best_info).uv = (*new_info).uv;
-		}
-	}
-}
+typedef float3 Color;
 
-hit_info __attribute__((always_inline))
+typedef struct {
+
+	float3 dir;
+	Color  color;
+} DirectionalLight;
+
+typedef struct {
+	
+	Color ambient;
+	DirectionalLight directional;
+
+} Lights;
+
+bool __attribute__((always_inline))
 bbox_hit(BBox bbox,
 	 Ray ray)
 {
-	hit_info info;
-	info.hit = false;
 	float tMin = ray.tMin;
 	float tMax = ray.tMax;
 
@@ -85,19 +98,14 @@ bbox_hit(BBox bbox,
 	if (fabs(ray.invDir.x) > 0.0001f) {
 		tMin = max(tMin, axis_t_min.x); tMax = min(tMax, axis_t_max.x); 
 	}
-	if (fabs(ray.invDir).y > 0.0001f) {
+	if (fabs(ray.invDir.y) > 0.0001f) {
 		tMin = max(tMin, axis_t_min.y); tMax = min(tMax, axis_t_max.y);
 	}
 	if (fabs(ray.invDir.z) > 0.0001f) {
 	    tMin = max(tMin, axis_t_min.z); tMax = min(tMax, axis_t_max.z);
 	}
 
-	if (tMin < tMax && tMin > ray.tMin && tMin < ray.tMax) {
-		info.hit = true;
-		info.t   = tMin;
-	}
-
-	return info;
+	return (tMin <= tMax);
 }
 
 bool 
@@ -145,11 +153,10 @@ bool
 leaf_hit_any(BVHNode node,
 	     global Vertex* vertex_buffer,
 	     global int* index_buffer,
-	     global tri_id* ordered_triangles,
 	     Ray ray){
 
 	for (int i = node.start_index; i < node.end_index; ++i) {
-		int triangle = ordered_triangles[i];
+		int triangle = i;
 		if (triangle_hit(vertex_buffer,index_buffer,triangle,ray))
 			return true;
 	}
@@ -157,43 +164,64 @@ leaf_hit_any(BVHNode node,
 
 }
 
-kernel void 
-trace(write_only image2d_t img,
-      global Ray* ray_buffer,
-      global Vertex* vertex_buffer,
-      global int* index_buffer,
-      global BVHNode* bvh_nodes,
-      global tri_id* ordered_triangles,
-      read_only int div)
+RayReflectInfo 
+triangle_reflect(global Vertex* vertex_buffer,
+		 global int* index_buffer,
+		 float3 L,
+		 RayHitInfo info,
+		 Ray ray){
 
+	RayReflectInfo ref;
+
+	global Vertex* vx0 = &vertex_buffer[index_buffer[3*info.id]];
+	global Vertex* vx1 = &vertex_buffer[index_buffer[3*info.id+1]];
+	global Vertex* vx2 = &vertex_buffer[index_buffer[3*info.id+2]];
+
+	float3 n0 = normalize(vx0->normal);
+	float3 n1 = normalize(vx1->normal);
+	float3 n2 = normalize(vx2->normal);
+
+	float3 d = ray.dir.xyz;
+
+	float u = info.uv.s0;
+ 	float v = info.uv.s1;
+	float w = 1.f - (u+v);
+	
+	ref.n = (w * n0 + v * n2 + u * n1);
+
+	/* If the normal points out, we need to invert it (and day we did) */
+	if (dot(ref.n,d) > 0) { 
+		ref.inv_n = true;
+		ref.n = -ref.n;
+	} else {
+		ref.inv_n = false;
+	}
+	
+
+	ref.r = d - 2.f * ref.n * (dot(d,ref.n));
+
+	ref.cosL = clamp(dot(ref.n,-L),0.f,1.f);
+	ref.cosL = pow(ref.cosL,2);
+
+	ref.spec = clamp(dot(ref.r,-L),0.f,1.f);
+	ref.spec = pow(ref.spec,8);
+	ref.spec *= ref.cosL;
+		
+	return ref;
+}
+
+bool trace_shadow_ray(Ray ray,
+		      global Vertex* vertex_buffer,
+		      global int* index_buffer,
+		      global BVHNode* bvh_nodes)
 {
-	int x = get_global_id(0);
-	int y = get_global_id(1);
-	int width = get_global_size(0)-1;
-	int height = get_global_size(1)-1;
-
-	int group_x = get_local_size(0);
-	int group_y = get_local_size(1);
-
-	int index = x + y * (width+1);
-
-	private Ray ray = ray_buffer[index];
-
-	bool ray_hit = false;
-
+	bool shadow_ray_hit = false;
 
 	bool going_up = false;
 	unsigned int last = 0;
 	unsigned int curr = 0;
-	hit_info best_hit_info;
-	best_hit_info.hit = false;
-	best_hit_info.t = ray.tMax;
 
 	private BVHNode current_node;
-	private BBox test_bbox;
-
-	bool red_flag = false;
-	
 
 	unsigned int first_child, second_child;
 	bool childrenOrder = true;
@@ -203,7 +231,7 @@ trace(write_only image2d_t img,
 	float max_dir_val = max(adir.x, max(adir.y,adir.z)) - 0.00001f;
 	adir = fdim(adir, (float3)(max_dir_val,max_dir_val,max_dir_val));
 
-	while (true) {
+	while (true) { 
 		current_node = bvh_nodes[curr];
 
 		/* Compute node children traversal order */
@@ -231,15 +259,15 @@ trace(write_only image2d_t img,
 			// I'm going up from the root, so break
 			if (last == 0) {
 				break;
-
-				// I'm going up from my left child, do the right one
+				
+			// I'm going up from my first child, do the right one
 			} else if (last == first_child) {
 				last = curr;
 				curr = second_child;
 				going_up = false;
 				continue;
 
-			// I'm going up from my right child, go up one more level
+			// I'm going up from my second child, go up one more level
 			} else if (last == second_child) {
 				last = curr;
 				curr = current_node.parent;
@@ -247,41 +275,27 @@ trace(write_only image2d_t img,
 				continue;
 			}
 
-			/* This means the node structure is broken */
-			else {
-				red_flag = true;
-				break;
-			}
-				
 		}
 			
-		test_bbox = current_node.bbox;
-		hit_info info = bbox_hit(test_bbox, ray);
-
 		// If it hit, and closer to the closest hit up to now, check it
-		if (info.hit && info.t < ray.tMax && info.t > ray.tMin) {
+ 		if (bbox_hit(current_node.bbox,ray)) {
 			// If it's a leaf, check all primitives in the leaf, then go up
 			if (current_node.leaf) {
  				// Check all primitives in leaf
-				/* test_nodes[test_idx++] = curr; */
 				if(leaf_hit_any(current_node,
 						vertex_buffer,
 						index_buffer,
-						ordered_triangles,
 						ray)) {
-					ray_hit = true;
+					shadow_ray_hit = true;
 					break;
 				}
 
-				/* merge_hit_info(&best_hit_info, &leaf_info); */
-				/* if (best_hit_info.hit) */
-				/* 	ray.tMax = best_hit_info.t; */
 				last = curr;
 				curr = current_node.parent;
 				going_up = true;
 				continue;
 
-			// If it hit and it isn't a leaf, go to the left child
+			// If it hit and it isn't a leaf, go to the first child
 			} else {
 				last = curr;
 				curr = first_child;
@@ -298,32 +312,37 @@ trace(write_only image2d_t img,
 		}
 	}
 
-	/* Image writing computations */
-	int2 image_size = (int2)(get_image_width(img), get_image_height(img));
-
-	/* float x_part = (float)x/(float)width;  */
-	/* float y_part = (float)y/(float)height;  */
-
-	int2 coords = (int2)( ( (image_size.x-1) * x ) / width,
-			      ( (image_size.y-1) * y ) / height);
+	return shadow_ray_hit;
+}
 
 
-	float4 valf;
+kernel void 
+shadow_trace(global RayHitInfo* trace_info,
+	     global RayPlus* rays,
+	     global Vertex* vertex_buffer,
+	     global int* index_buffer,
+	     global BVHNode* bvh_nodes,
+	     global Lights* lights)
+{
+	int index = get_global_id(0);
 
-	/* If it hit compute the reflection information */
-	if (ray_hit) {
-		valf = (float4)(1.f,1.f,1.f,1.f);
+	Ray original_ray = rays[index].ray;
 
-	/* Else just paint it black */
-	} else {
-		valf = (float4)(0.f,0.f,0.f,1.f);
+	RayHitInfo info  = trace_info[index];
+
+	if (!info.hit){
+		return;
 	}
 
-	if (red_flag)
-		valf = (float4)(1.f,
-				0.f,
-				0.f,
-				1.0f);
+	Ray ray;
+	ray.dir = -lights->directional.dir;
+	ray.invDir = 1.f/ray.dir;
+	ray.ori = original_ray.ori + original_ray.dir * info.t;
+  	ray.tMin = 0.0001f; ray.tMax = 1e37f;
 
-	write_imagef(img, coords, valf);
+	bool hit = trace_shadow_ray(ray, vertex_buffer, index_buffer, bvh_nodes);
+
+	if (hit)
+		trace_info[index].shadow_hit = true;
+
 }

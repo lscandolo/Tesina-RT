@@ -90,7 +90,7 @@ GLuint create_tex_gl_from_jpeg(uint32_t& width, uint32_t& height, const char* fi
 
 	width = img.getWidth();
 	height = img.getHeight();
-
+	
 	// if (!img.convertTo24Bits())
 	// 	return -1;
 
