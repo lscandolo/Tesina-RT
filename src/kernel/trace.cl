@@ -195,14 +195,15 @@ RayHitInfo trace_ray(Ray ray,
 		     global int* index_buffer,
 		     global BVHNode* bvh_nodes)
 {
-	bool going_up = false;
-
-	unsigned int last = 0;
-	unsigned int curr = 0;
 	RayHitInfo best_hit_info;
 	best_hit_info.hit = false;
 	best_hit_info.shadow_hit = false;
 	best_hit_info.inverse_n = false;
+
+	bool going_up = false;
+
+	unsigned int last = 0;
+	unsigned int curr = 0;
 	
 	best_hit_info.t = ray.tMax;
 

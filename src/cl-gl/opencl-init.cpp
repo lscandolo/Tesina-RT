@@ -304,6 +304,22 @@ int32_t create_filled_cl_mem(const CLInfo& clinfo, cl_mem_flags flags, uint32_t 
 
 }
 
+int32_t create_host_cl_mem(const CLInfo& clinfo, cl_mem_flags flags, uint32_t size, 
+			   void* ptr, cl_mem* mem)
+{
+	cl_int err;
+	*mem = clCreateBuffer(clinfo.context,
+			      flags | CL_MEM_USE_HOST_PTR,
+			      size,
+			      ptr, //This is ugly but necessary
+			      // Kronos, why u not have a const variant ?!?!
+			      &err);
+	if (error_cl(err, "clCreateBuffer"))
+		return 1;
+	return 0;
+
+}
+
 int32_t copy_to_cl_mem(const CLInfo& clinfo, uint32_t size,
 		       const void* values, cl_mem& mem, uint32_t offset){
 	cl_int err;

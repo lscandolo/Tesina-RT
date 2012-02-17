@@ -56,7 +56,8 @@ private:
 	uint32_t chooseSplitLocation(const std::vector<BBox>& bboxes, 
 				     const std::vector<tri_id>& ordered_triangles)const;
 	uint32_t chooseSplitLocationSAH(const std::vector<BBox>& bboxes, 
-					const std::vector<tri_id>& ordered_triangles) const;
+					const std::vector<tri_id>& ordered_triangles)const;
+
 };
 
 class BVH {

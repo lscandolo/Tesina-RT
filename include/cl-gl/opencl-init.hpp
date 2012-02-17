@@ -84,6 +84,8 @@ int32_t create_empty_cl_mem(const CLInfo& clinfo, cl_mem_flags flags,
 			uint32_t size, cl_mem* mem);
 int32_t create_filled_cl_mem(const CLInfo& clinfo, cl_mem_flags flags, 
 			 uint32_t size, const void* values, cl_mem* mem);
+int32_t create_host_cl_mem(const CLInfo& clinfo, cl_mem_flags flags, 
+			   uint32_t size, void* ptr, cl_mem* mem);
 int32_t copy_to_cl_mem(const CLInfo& clinfo, uint32_t size,
 		       const void* values, cl_mem& mem, uint32_t offset = 0);
 int32_t copy_from_cl_mem(const CLInfo& clinfo, uint32_t size,

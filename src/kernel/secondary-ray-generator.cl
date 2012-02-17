@@ -47,6 +47,7 @@ generate_secondary_rays(global RayHitInfo* ray_hit_info,
 			global int* ray_count,
 			const int max_rays)
 {
+
 	int index = get_global_id(0);
 	RayHitInfo info  = ray_hit_info[index];
 

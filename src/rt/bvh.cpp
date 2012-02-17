@@ -81,8 +81,7 @@ BVHNode::sort(const std::vector<BBox>& bboxes,
 		return;
 	}
 
-
-	/*------------------------ Choose split location ----------------------*/
+	/*------------------------ Choose split axis  ----------------------*/
 	m_split_axis = m_bbox.largestAxis();
 
 	/*------------------------- Reorder triangles by axis -------------------*/
