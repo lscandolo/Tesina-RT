@@ -221,26 +221,27 @@ RayHitInfo trace_ray(Ray ray,
 	while (true) {
 		current_node = bvh_nodes[curr];
 
-		/* Compute node children traversal order */
-		float3 lbbox_vals = bvh_nodes[current_node.l_child].bbox.lo;
-		float3 rbbox_vals = bvh_nodes[current_node.r_child].bbox.lo;
-		float3 choice_vec = dot(rdir,rbbox_vals - lbbox_vals);
-		if (adir.x > 0.f) {
-			childrenOrder = choice_vec.x > 0.f;
-		} else if (adir.y > 0.f) {
-			childrenOrder = choice_vec.y > 0.f;
-		} else {
-			childrenOrder = choice_vec.z > 0.f;
-		}
+		/* Compute node children traversal order if its an interior node*/
+		if (!current_node.leaf) {
+			float3 lbbox_vals = bvh_nodes[current_node.l_child].bbox.lo;
+			float3 rbbox_vals = bvh_nodes[current_node.r_child].bbox.lo;
+			float3 choice_vec = dot(rdir,rbbox_vals - lbbox_vals);
+			if (adir.x > 0.f) {
+				childrenOrder = choice_vec.x > 0.f;
+			} else if (adir.y > 0.f) {
+				childrenOrder = choice_vec.y > 0.f;
+			} else {
+				childrenOrder = choice_vec.z > 0.f;
+			}
 		
-		if (childrenOrder) {
-			first_child = current_node.l_child;
-			second_child = current_node.r_child;
-		} else {
-			first_child = current_node.r_child;
-			second_child = current_node.l_child;
+			if (childrenOrder) {
+				first_child = current_node.l_child;
+				second_child = current_node.r_child;
+			} else {
+				first_child = current_node.r_child;
+				second_child = current_node.l_child;
+			}
 		}
-		
 
 		if (going_up) {
 			// I'm going up from the root, so break

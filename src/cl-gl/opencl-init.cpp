@@ -542,11 +542,23 @@ int create_cl_mem_from_gl_tex(const CLInfo& clinfo, const GLuint gl_tex, cl_mem*
 				       CL_MEM_READ_WRITE,
 				       GL_TEXTURE_2D,0,
 				       gl_tex,&err);
-	if (err != CL_SUCCESS){
-		std::cerr << "Error: could not create OpenCL "
-			  << "memory object from texture.\n";
+	
+	if (error_cl(err, "clCreateFromGLTexture2D"))
 		return 1;
-	}
+
+	err = clEnqueueAcquireGLObjects(clinfo.command_queue,
+					1,
+					mem,
+					0,0,0);
+
+	if (error_cl(err, "clEnqueueAcquireGLObjects"))
+		return 1;
+
+	err = clFinish(clinfo.command_queue);
+
+	if (error_cl(err, "clFinish"))
+		return 1;
+
 	return 0;
 }
 
