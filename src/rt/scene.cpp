@@ -34,10 +34,10 @@ Object::clone()
 /*------------------------- SceneGeometry Methods ---------------------*/
 
 object_id 
-SceneGeometry::add_object(Object mi)
+SceneGeometry::add_object(mesh_id mid)
 {
 	uint32_t id = objects.size();
-	objects.push_back(mi);
+	objects.push_back(Object(mid));
 	return id;
 }
 	

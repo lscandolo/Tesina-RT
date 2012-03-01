@@ -286,31 +286,31 @@ int main (int argc, char** argv)
 	floor_obj.mat.reflectiveness = 0.9f;
 	floor_obj.mat.refractive_index = 1.333f;
 
-	// mesh_id teapot_mesh_id = scene.load_obj_file("models/obj/teapot2.obj");
-	// // mesh_id teapot_mesh_id = scene.load_obj_file("models/obj/teapot-low_res.obj");
-	// object_id teapot_obj_id = scene.geometry.add_object(teapot_mesh_id);
-	// Object& teapot_obj = scene.geometry.object(teapot_obj_id);
-	// teapot_obj.geom.setPos(makeVector(-8.f,-5.f,0.f));
-	// teapot_obj.mat.diffuse = Green;
-	// teapot_obj.mat.shininess = 1.f;
-	// teapot_obj.mat.reflectiveness = 0.3f;
+	mesh_id teapot_mesh_id = scene.load_obj_file("models/obj/teapot2.obj");
+	// mesh_id teapot_mesh_id = scene.load_obj_file("models/obj/teapot-low_res.obj");
+	object_id teapot_obj_id = scene.geometry.add_object(teapot_mesh_id);
+	Object& teapot_obj = scene.geometry.object(teapot_obj_id);
+	teapot_obj.geom.setPos(makeVector(-8.f,-5.f,0.f));
+	teapot_obj.mat.diffuse = Green;
+	teapot_obj.mat.shininess = 1.f;
+	teapot_obj.mat.reflectiveness = 0.3f;
 
-	// object_id teapot_obj_id_2 = scene.geometry.add_object(teapot_mesh_id);
-	// Object& teapot_obj_2 = scene.geometry.object(teapot_obj_id_2);
-	// teapot_obj_2.mat.diffuse = Red;
-	// teapot_obj_2.mat.shininess = 1.f;
-	// teapot_obj_2.geom.setPos(makeVector(8.f,5.f,0.f));
-	// teapot_obj_2.geom.setRpy(makeVector(0.2f,0.1f,0.3f));
-	// teapot_obj_2.geom.setScale(0.3f);
-	// teapot_obj_2.mat.reflectiveness = 0.3f;
+	object_id teapot_obj_id_2 = scene.geometry.add_object(teapot_mesh_id);
+	Object& teapot_obj_2 = scene.geometry.object(teapot_obj_id_2);
+	teapot_obj_2.mat.diffuse = Red;
+	teapot_obj_2.mat.shininess = 1.f;
+	teapot_obj_2.geom.setPos(makeVector(8.f,5.f,0.f));
+	teapot_obj_2.geom.setRpy(makeVector(0.2f,0.1f,0.3f));
+	teapot_obj_2.geom.setScale(0.3f);
+	teapot_obj_2.mat.reflectiveness = 0.3f;
 
-	mesh_id boat_mesh_id = scene.load_obj_file("models/obj/frame_boat1.obj");
-	object_id boat_obj_id = scene.geometry.add_object(boat_mesh_id);
-	Object& boat_obj = scene.geometry.object(boat_obj_id);
-	boat_obj.geom.setPos(makeVector(0.f,-18.f,0.f));
-	boat_obj.mat.diffuse = Red;
-	boat_obj.mat.shininess = 1.f;
-	boat_obj.mat.reflectiveness = 0.0f;
+	// mesh_id boat_mesh_id = scene.load_obj_file("models/obj/frame_boat1.obj");
+	// object_id boat_obj_id = scene.geometry.add_object(boat_mesh_id);
+	// Object& boat_obj = scene.geometry.object(boat_obj_id);
+	// boat_obj.geom.setPos(makeVector(0.f,-18.f,0.f));
+	// boat_obj.mat.diffuse = Red;
+	// boat_obj.mat.shininess = 1.f;
+	// boat_obj.mat.reflectiveness = 0.0f;
 
 	// mesh_id bunny_mesh_id = scene.load_obj_file("models/obj/bunny.obj");
 	// object_id bunny_obj_id = scene.geometry.add_object(bunny_mesh_id);

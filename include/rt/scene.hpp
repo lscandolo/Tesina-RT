@@ -42,7 +42,7 @@ struct Object {
 
 struct SceneGeometry {
 
-	object_id add_object(Object mi);
+	object_id add_object(mesh_id mid);
 	void remove_object(object_id id);
 	Object& object(object_id id);
 
