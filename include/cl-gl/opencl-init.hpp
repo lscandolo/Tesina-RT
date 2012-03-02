@@ -6,12 +6,12 @@
 #ifdef _WIN32
   #include <Windows.h>
   #include <GL/GL.h>
-  #include <CL/cl.hpp>
+  #include <CL/cl.h>
   #include <CL/cl_gl.h>
 
 #elif defined __linux__
   #include <GL/gl.h>
-  #include <CL/cl.hpp>
+  #include <CL/cl.h>
   #include <CL/cl_gl.h>
 
 #else

@@ -2,6 +2,7 @@
 
 #include <fstream>
 #include <iostream>
+#include <cstring>
 
 int32_t
 init_cl(const GLInfo& glinfo, CLInfo* clinfo)
@@ -171,7 +172,7 @@ init_cl_kernel(CLInfo* clinfo, const char* kernel_file,
 	file_size = kernel_source_file.tellg() - file_size;
 
 	char *kernel_source = new char[(int)file_size+1];
-	memset(kernel_source,0,file_size);
+	std::memset(kernel_source,0,file_size);
 
 	kernel_source_file.seekg (0, std::ios::beg);
 	kernel_source_file.read(kernel_source,file_size);

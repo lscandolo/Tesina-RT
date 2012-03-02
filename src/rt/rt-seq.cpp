@@ -371,7 +371,7 @@ int main (int argc, char** argv)
 
 	/*---------------------- Set up scene ---------------------------*/
 	frames = 15;
-	const int32_t parts = 5;
+	// const int32_t parts = 5;
 	const std::string pack = "pack1OBJ";
 	// const std::string pack = "pack2OBJ";
 
