@@ -19,6 +19,13 @@ GeometricProperties::setRpy(const vec3& new_rpy)
 void 
 GeometricProperties::setScale(float new_scale)
 {
+	scale = makeVector(new_scale,new_scale,new_scale);
+	updateTransform();
+}
+
+void 
+GeometricProperties::setScale(const vec3& new_scale)
+{
 	scale = new_scale;
 	updateTransform();
 }

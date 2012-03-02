@@ -6,6 +6,10 @@
 #include <rt/rt.hpp>
 
 #define MAX_BOUNCE 5
+#define WAVE_HEIGHT 0.2
+
+CLKernelInfo mangler_clk;
+
 
 cl_mem cl_tex_mem;
 
@@ -35,8 +39,10 @@ void gl_mouse(int x, int y)
 	float d_inc = delta * (window_size[1]*0.5f - y);/* y axis points downwards */
 	float d_yaw = delta * (x - window_size[0]*0.5f);
 
-	d_inc = std::min(std::max(d_inc, -0.01f), 0.01f);
-	d_yaw = std::min(std::max(d_yaw, -0.01f), 0.01f);
+	float max_motion = 0.05f;
+
+	d_inc = std::min(std::max(d_inc, -max_motion), max_motion);
+	d_yaw = std::min(std::max(d_yaw, -max_motion), max_motion);
 
 	if (d_inc == 0.f && d_yaw == 0.f)
 		return;
@@ -74,6 +80,8 @@ void gl_key(unsigned char key, int x, int y)
 void gl_loop()
 {
 	static int i = 0;
+	static cl_float mangler_arg = 0;
+	static cl_float last_mangler_arg = -1000;
 	static int dir = 1;
 	static int total_ray_count = 0;
 
@@ -97,6 +105,26 @@ void gl_loop()
 
 	cl_int arg = i%STEPS;
 	int32_t tile_size = best_tile_size;
+
+	/*-------------- Mangle verts ---------------------*/
+	cl_int err;
+	// cl_float mangler_arg = 2*(arg - STEPS/2.f) / STEPS;
+	mangler_arg += 1.f;
+	std::cerr << mangler_arg << std::endl;
+	err = clSetKernelArg(mangler_clk.kernel,1,sizeof(cl_float),&mangler_arg);
+	if (error_cl(err, "clSetKernelArg 1"))
+		exit(1);
+	err = clSetKernelArg(mangler_clk.kernel,2,sizeof(cl_float),&last_mangler_arg);
+	if (error_cl(err, "clSetKernelArg 2"))
+		exit(1);
+	if (execute_cl(mangler_clk)) {
+		std::cerr << "Error executing mangler." << std::endl;
+		exit(1);
+	}
+	last_mangler_arg = mangler_arg;
+
+	/*--------------------------------------*/
+
 
 	directional_light_cl light;
 	light.set_dir(0.05f * (arg - 8.f) , -0.6f, 0.2f);
@@ -124,10 +152,17 @@ void gl_loop()
 
 		total_ray_count += tile_size;
 
-		tracer.trace(scene_info, tile_size, *ray_in, hit_bundle);
+		if (!tracer.trace(scene_info, tile_size, *ray_in, hit_bundle)){
+			std::cerr << "Failed to trace." << std::endl;
+			exit(1);
+		}
 		prim_trace_time += tracer.get_trace_exec_time();
 
-		tracer.shadow_trace(scene_info, tile_size, *ray_in, hit_bundle);
+		if (!tracer.shadow_trace(scene_info, tile_size, *ray_in, hit_bundle)){
+			std::cerr << "Failed to shadow trace." << std::endl;
+			exit(1);
+		}
+
 		prim_shadow_trace_time += tracer.get_shadow_exec_time();
 
 		if (!ray_shader.shade(*ray_in, hit_bundle, scene_info,
@@ -266,67 +301,22 @@ int main (int argc, char** argv)
 	/*---------------------- Set up scene ---------------------------*/
 	Scene scene;
 
-	/* Other models 
-	models/obj/floor.obj
-	models/obj/teapot-low_res.obj
-	models/obj/teapot.obj
-	models/obj/teapot2.obj
-	models/obj/frame_boat1.obj
-	models/obj/frame_others1.obj
-	models/obj/frame_water1.obj
-	*/
-
-	// mesh_id floor_mesh_id = scene.load_obj_file("models/obj/floor.obj");
-	mesh_id floor_mesh_id = scene.load_obj_file("models/obj/frame_water1.obj");
+	mesh_id floor_mesh_id = scene.load_obj_file("models/obj/grid100.obj");
 	object_id floor_obj_id  = scene.geometry.add_object(floor_mesh_id);
 	Object& floor_obj = scene.geometry.object(floor_obj_id);
- 	floor_obj.geom.setScale(2.f);
-	floor_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
-	floor_obj.mat.diffuse = Blue;
-	floor_obj.mat.reflectiveness = 0.9f;
-	floor_obj.mat.refractive_index = 1.333f;
+ 	floor_obj.geom.setScale(10.f);
+	// floor_obj.geom.setPos(makeVector(0.f,0.f,0.f));
+	floor_obj.mat.diffuse = White;
+	floor_obj.mat.reflectiveness = 0.95f;
+	floor_obj.mat.refractive_index = 1.5f;
 
-	mesh_id teapot_mesh_id = scene.load_obj_file("models/obj/teapot2.obj");
-	// mesh_id teapot_mesh_id = scene.load_obj_file("models/obj/teapot-low_res.obj");
-	object_id teapot_obj_id = scene.geometry.add_object(teapot_mesh_id);
-	Object& teapot_obj = scene.geometry.object(teapot_obj_id);
-	teapot_obj.geom.setPos(makeVector(-8.f,-5.f,0.f));
-	teapot_obj.mat.diffuse = Green;
-	teapot_obj.mat.shininess = 1.f;
-	teapot_obj.mat.reflectiveness = 0.3f;
-
-	object_id teapot_obj_id_2 = scene.geometry.add_object(teapot_mesh_id);
-	Object& teapot_obj_2 = scene.geometry.object(teapot_obj_id_2);
-	teapot_obj_2.mat.diffuse = Red;
-	teapot_obj_2.mat.shininess = 1.f;
-	teapot_obj_2.geom.setPos(makeVector(8.f,5.f,0.f));
-	teapot_obj_2.geom.setRpy(makeVector(0.2f,0.1f,0.3f));
-	teapot_obj_2.geom.setScale(0.3f);
-	teapot_obj_2.mat.reflectiveness = 0.3f;
-
-	// mesh_id boat_mesh_id = scene.load_obj_file("models/obj/frame_boat1.obj");
-	// object_id boat_obj_id = scene.geometry.add_object(boat_mesh_id);
-	// Object& boat_obj = scene.geometry.object(boat_obj_id);
-	// boat_obj.geom.setPos(makeVector(0.f,-18.f,0.f));
-	// boat_obj.mat.diffuse = Red;
-	// boat_obj.mat.shininess = 1.f;
-	// boat_obj.mat.reflectiveness = 0.0f;
-
-	// mesh_id bunny_mesh_id = scene.load_obj_file("models/obj/bunny.obj");
-	// object_id bunny_obj_id = scene.geometry.add_object(bunny_mesh_id);
-	// Object& bunny_obj = scene.geometry.object(bunny_obj_id);
-	// bunny_obj.geom.setPos(makeVector(0.f,0.f,-3.f));
-	// bunny_obj.geom.setRpy(makeVector(0.f,0.f,M_PI));
-	// bunny_obj.mat.diffuse = White;
-	// bunny_obj.mat.shininess = 0.8;
-	// bunny_obj.mat.reflectiveness = 0.f;
 
 	scene.create_aggregate();
 	Mesh& scene_mesh = scene.get_aggregate_mesh();
 	std::cout << "Created scene aggregate succesfully." << std::endl;
 
 	rt_time.snap_time();
-	scene.create_bvh();
+	scene.create_bvh_with_slack(makeVector(0.f,WAVE_HEIGHT,0.f));
 	BVH& scene_bvh   = scene.get_aggregate_bvh ();
 	double bvh_build_time = rt_time.msec_since_snap();
 	std::cout << "Created BVH succesfully (build time: " 
@@ -378,12 +368,12 @@ int main (int argc, char** argv)
 
 	/*----------------------- Initialize cubemap ---------------------------*/
 	
-	if (!cubemap.initialize("textures/cubemap/Skansen2/posx.jpg",
-				"textures/cubemap/Skansen2/negx.jpg",
-				"textures/cubemap/Skansen2/posy.jpg",
-				"textures/cubemap/Skansen2/negy.jpg",
-				"textures/cubemap/Skansen2/posz.jpg",
-				"textures/cubemap/Skansen2/negz.jpg",
+	if (!cubemap.initialize("textures/cubemap/Path/posx.jpg",
+				"textures/cubemap/Path/negx.jpg",
+				"textures/cubemap/Path/posy.jpg",
+				"textures/cubemap/Path/negy.jpg",
+				"textures/cubemap/Path/posz.jpg",
+				"textures/cubemap/Path/negz.jpg",
 				clinfo)) {
 		std::cerr << "Failed to initialize cubemap." << std::endl;
 		exit(1);
@@ -436,6 +426,24 @@ int main (int argc, char** argv)
 	sec_ray_gen.enable_timing(true);
 	tracer.enable_timing(true);
 	ray_shader.enable_timing(true);
+
+	/* ------------------------- Create vertex mangler -----------------------*/
+	cl_int err;
+	mangler_clk.work_dim = 1;
+	mangler_clk.arg_count = 4;
+	mangler_clk.global_work_size[0] = scene_mesh.vertexCount();
+	if (init_cl_kernel(&clinfo,"src/kernel/mangler.cl", "mangle", 
+			   &mangler_clk)) {
+		std::cerr << "Error initializing mangler kernel." << std::endl;
+		exit(1);
+	}
+	err = clSetKernelArg(mangler_clk.kernel,0,sizeof(cl_mem), &scene_info.vertex_mem());
+	if (error_cl(err, "clSetKernelArg 0"))
+		return false;
+	cl_float h = WAVE_HEIGHT;
+	err = clSetKernelArg(mangler_clk.kernel,3,sizeof(cl_float), &h);
+	if (error_cl(err, "clSetKernelArg 3"))
+		return false;
 
 	/*---------------------- Print scene data ----------------------*/
 	std::cerr << "\nScene stats: " << std::endl;

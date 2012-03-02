@@ -32,6 +32,18 @@ BBox::merge(const BBox& b)
 	lo = min(lo, b.lo);
 }
 
+void 
+BBox::add_slack(const vec3& sl)
+{
+	hi.x += sl[0];
+	hi.y += sl[1];
+	hi.z += sl[2];
+
+	lo.x -= sl[0];
+	lo.y -= sl[1];
+	lo.z -= sl[2];
+}
+
 uint8_t 
 BBox::largestAxis() const
 {
@@ -121,7 +133,7 @@ BVHNode::sort(const std::vector<BBox>& bboxes,
 }
 
 bool 
-BVH::construct(Mesh& m_mesh) 
+BVH::construct(Mesh& m_mesh, vec3 slack) 
 {
 
 	/*------------------- Initialize members ----------------------------------*/
@@ -139,6 +151,7 @@ BVH::construct(Mesh& m_mesh)
 		bboxes[i].set(m_mesh.vertex(t.v[0]),
 			      m_mesh.vertex(t.v[1]),
 			      m_mesh.vertex(t.v[2]));
+		bboxes[i].add_slack(slack);
 	}
 
 	/*------------------------ Initialize root and sort it ----------------------*/
@@ -156,8 +169,9 @@ BVH::construct(Mesh& m_mesh)
 	return true;
 }
 
+
 bool 
-BVH::construct_and_map(Mesh& m_mesh, std::vector<cl_int>& map)
+BVH::construct_and_map(Mesh& m_mesh, std::vector<cl_int>& map, vec3 slack)
 {
 	/*------------------- Initialize members ----------------------------------*/
 	uint32_t tris = m_mesh.triangleCount();
@@ -174,6 +188,7 @@ BVH::construct_and_map(Mesh& m_mesh, std::vector<cl_int>& map)
 		bboxes[i].set(m_mesh.vertex(t.v[0]),
 			      m_mesh.vertex(t.v[1]),
 			      m_mesh.vertex(t.v[2]));
+		bboxes[i].add_slack(slack);
 	}
 
 	/*------------------------ Initialize root and sort it ----------------------*/

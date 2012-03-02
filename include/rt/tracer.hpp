@@ -13,10 +13,15 @@ public:
 	bool initialize(CLInfo& clinfo);
 
 	bool trace(SceneInfo& scene_info, int32_t ray_count, 
-		   RayBundle& rays, HitBundle& hits);
+		   RayBundle& rays, HitBundle& hits, bool secondary = false);
+	bool trace(SceneInfo& scene_info, cl_mem& bvh_mem, int32_t ray_count, 
+		   RayBundle& rays, HitBundle& hits, bool secondary = false);
 
 	bool shadow_trace(SceneInfo& scene_info, int32_t ray_count, 
-			  RayBundle& rays, HitBundle& hits);
+			  RayBundle& rays, HitBundle& hits, bool secondary = false);
+	bool shadow_trace(SceneInfo& scene_info, cl_mem& bvh_mem, int32_t ray_count, 
+			  RayBundle& rays, HitBundle& hits, bool secondary = false);
+
 
 	void enable_timing(bool b);
 	double get_trace_exec_time();

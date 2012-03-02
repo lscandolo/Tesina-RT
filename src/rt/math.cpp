@@ -123,11 +123,21 @@ mat4x4 rotationMatrix4x4(vec3 rpy)
 	M.val(3,3) = 1.f;
 	return M;
 }
+
 mat4x4 scaleMatrix4x4(float scale)
 {
 	mat4x4 M(0.f);
 	for (uint32_t i = 0; i < 3; ++i)
 		M.val(i,i) = scale;
+	M.val(3,3) = 1.f;
+	return M;
+}
+
+mat4x4 scaleMatrix4x4(const vec3& scale)
+{
+	mat4x4 M(0.f);
+	for (uint32_t i = 0; i < 3; ++i)
+		M.val(i,i) = scale[i];
 	M.val(3,3) = 1.f;
 	return M;
 }

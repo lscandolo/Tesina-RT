@@ -56,3 +56,13 @@ rt = env.Program('bin/rt' ,
                  'src/rt/rt.cpp' ,
                  LIBS= base_libs + clgl_lib + rt_primitives_lib
                  )   
+
+rt_seq = env.Program('bin/rt-seq' ,
+                     'src/rt/rt-seq.cpp' ,
+                     LIBS= base_libs + clgl_lib + rt_primitives_lib
+                     )   
+
+rt_wave = env.Program('bin/rt-wave' ,
+                      'src/rt/rt-wave.cpp' ,
+                      LIBS= base_libs + clgl_lib + rt_primitives_lib
+                      )   

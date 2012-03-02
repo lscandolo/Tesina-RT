@@ -1,27 +1,35 @@
 #include <algorithm>
 #include <iostream>
+#include <string>
+#include <sstream>
 
 #include <cl-gl/opengl-init.hpp>
 #include <cl-gl/opencl-init.hpp>
 #include <rt/rt.hpp>
 
-#define MAX_BOUNCE 5
+uint32_t MAX_BOUNCE = 5;
+
+uint32_t frames = 0;
+uint32_t current_frame = 0;
+uint32_t motion_rate = 1;
 
 cl_mem cl_tex_mem;
+cl_mem bvh_mem;
 
-RayBundle             ray_bundle_1,ray_bundle_2;
-HitBundle             hit_bundle;
-PrimaryRayGenerator   prim_ray_gen;
-SecondaryRayGenerator sec_ray_gen;
-RayShader             ray_shader;
-SceneInfo             scene_info;
-Cubemap               cubemap;
-FrameBuffer           framebuffer;
-Tracer                tracer;
-Camera                camera;
+RayBundle                ray_bundle_1,ray_bundle_2;
+HitBundle                hit_bundle;
+PrimaryRayGenerator     prim_ray_gen;
+SecondaryRayGenerator   sec_ray_gen;
+RayShader                ray_shader;
+std::vector<SceneInfo>  scene_info;
+Cubemap                  cubemap;
+FrameBuffer              framebuffer;
+Tracer                   tracer;
+Camera                   camera;
 
 GLuint gl_tex;
 rt_time_t rt_time;
+rt_time_t seq_time;
 uint32_t window_size[] = {512, 512};
 
 int32_t pixel_count = window_size[0] * window_size[1];
@@ -35,8 +43,10 @@ void gl_mouse(int x, int y)
 	float d_inc = delta * (window_size[1]*0.5f - y);/* y axis points downwards */
 	float d_yaw = delta * (x - window_size[0]*0.5f);
 
-	d_inc = std::min(std::max(d_inc, -0.01f), 0.01f);
-	d_yaw = std::min(std::max(d_yaw, -0.01f), 0.01f);
+	float max_motion = 0.05f;
+
+	d_inc = std::min(std::max(d_inc, -max_motion), max_motion);
+	d_yaw = std::min(std::max(d_yaw, -max_motion), max_motion);
 
 	if (d_inc == 0.f && d_yaw == 0.f)
 		return;
@@ -67,6 +77,55 @@ void gl_key(unsigned char key, int x, int y)
 		std::cout << std::endl << "Exiting..." << std::endl;
 		exit(1);
 		break;
+	case '1':
+		MAX_BOUNCE = 1;
+		break;
+	case '0':
+		MAX_BOUNCE = 0;
+		break;
+	case '2':
+		MAX_BOUNCE = 2;
+		break;
+	case '3':
+		MAX_BOUNCE = 3;
+		break;
+	case '4':
+		MAX_BOUNCE = 4;
+		break;
+	case '5':
+		MAX_BOUNCE = 5;
+		break;
+	case '6':
+		MAX_BOUNCE = 6;
+		break;
+	case '7':
+		MAX_BOUNCE = 7;
+		break;
+	case '8':
+		MAX_BOUNCE = 8;
+		break;
+	case '9':
+		MAX_BOUNCE = 9;
+		break;
+	case 'p':
+		motion_rate = 1-motion_rate;
+		break;
+	case 'o':
+		camera.set(makeVector(0,3,-30), makeVector(0,0,1), makeVector(0,1,0), M_PI/4.,
+			   window_size[0] / (float)window_size[1]);
+		break;
+	case 'i':
+		camera.set(makeVector(0,5,-30), makeVector(0,-0.5,1), makeVector(0,1,0), M_PI/4.,
+			   window_size[0] / (float)window_size[1]);
+		break;
+	case 'k':
+		camera.set(makeVector(0,25,-60), makeVector(0,-0.5,1), makeVector(0,1,0), M_PI/4.,
+			   window_size[0] / (float)window_size[1]);
+		break;
+	case 'l':
+		camera.set(makeVector(0,120,0), makeVector(0,-1,0.01), makeVector(0,1,0), M_PI/4.,
+			   window_size[0] / (float)window_size[1]);
+		break;
 	}
 }
 
@@ -76,6 +135,8 @@ void gl_loop()
 	static int i = 0;
 	static int dir = 1;
 	static int total_ray_count = 0;
+	static double min_time=-1;
+	static double max_time=-1;
 
 	double prim_gen_time = 0;
 	double sec_gen_time = 0;
@@ -101,10 +162,13 @@ void gl_loop()
 	directional_light_cl light;
 	light.set_dir(0.05f * (arg - 8.f) , -0.6f, 0.2f);
 	light.set_color(0.05f * (fabs(arg)) + 0.1f, 0.2f, 0.05f * fabs(arg+4.f));
-	scene_info.set_dir_light(light);
+
+	SceneInfo &si = scene_info[current_frame];
+
+	si.set_dir_light(light);
 	color_cl ambient;
 	ambient[0] = ambient[1] = ambient[2] = 0.1f;
-	scene_info.set_ambient_light(ambient);
+	si.set_ambient_light(ambient);
 
 	for (int32_t offset = 0; offset < pixel_count; offset+= tile_size) {
 
@@ -124,13 +188,22 @@ void gl_loop()
 
 		total_ray_count += tile_size;
 
-		tracer.trace(scene_info, tile_size, *ray_in, hit_bundle);
+		// if (!tracer.trace(si, tile_size, *ray_in, hit_bundle)){
+		if (!tracer.trace(si, bvh_mem, tile_size, *ray_in, hit_bundle)){
+			std::cerr << "Failed to trace." << std::endl;
+			exit(1);
+		}
 		prim_trace_time += tracer.get_trace_exec_time();
 
-		tracer.shadow_trace(scene_info, tile_size, *ray_in, hit_bundle);
+		// if (!tracer.shadow_trace(si, tile_size, *ray_in, hit_bundle)){
+		if (!tracer.shadow_trace(si, bvh_mem, tile_size, *ray_in, hit_bundle)){
+			std::cerr << "Failed to shadow trace." << std::endl;
+			exit(1);
+		}
+
 		prim_shadow_trace_time += tracer.get_shadow_exec_time();
 
-		if (!ray_shader.shade(*ray_in, hit_bundle, scene_info,
+		if (!ray_shader.shade(*ray_in, hit_bundle, si,
 				      cubemap, framebuffer, tile_size)){
 			std::cerr << "Failed to update framebuffer." << std::endl;
 			exit(1);
@@ -141,7 +214,7 @@ void gl_loop()
 		int32_t sec_ray_count = tile_size;
 		for (uint32_t i = 0; i < MAX_BOUNCE; ++i) {
 
-			sec_ray_gen.generate(scene_info, *ray_in, sec_ray_count, 
+			sec_ray_gen.generate(si, *ray_in, sec_ray_count, 
 					     hit_bundle, *ray_out, &sec_ray_count);
 			sec_gen_time += sec_ray_gen.get_exec_time();
 
@@ -154,16 +227,20 @@ void gl_loop()
 
 			total_ray_count += sec_ray_count;
 
-			tracer.trace(scene_info, sec_ray_count, 
+			// tracer.trace(si, sec_ray_count, 
+			// 	     *ray_in, hit_bundle);
+			tracer.trace(si, bvh_mem, sec_ray_count, 
 				     *ray_in, hit_bundle, true);
 			sec_trace_time += tracer.get_trace_exec_time();
 
 
-			tracer.shadow_trace(scene_info, sec_ray_count, 
+			// tracer.shadow_trace(si, sec_ray_count, 
+			// 		    *ray_in, hit_bundle);
+			tracer.shadow_trace(si, bvh_mem, sec_ray_count, 
 					    *ray_in, hit_bundle, true);
 			sec_shadow_trace_time += tracer.get_shadow_exec_time();
 
-			if (!ray_shader.shade(*ray_in, hit_bundle, scene_info,
+			if (!ray_shader.shade(*ray_in, hit_bundle, si,
 					      cubemap, framebuffer, sec_ray_count)){
 				std::cerr << "Ray shader failed execution." << std::endl;
 				exit(1);
@@ -179,6 +256,16 @@ void gl_loop()
 	}
 	fb_copy_time = framebuffer.get_copy_exec_time();
 	double total_msec = rt_time.msec_since_snap();
+
+	if (min_time < 0)
+		min_time = total_msec;
+	else
+		min_time = std::min(min_time,total_msec);
+
+	if (max_time < 0)
+		max_time = total_msec;
+	else
+		max_time = std::max(max_time,total_msec);
 
 	////////////////// Immediate mode textured quad
 	glBindTexture(GL_TEXTURE_2D, gl_tex);
@@ -233,6 +320,25 @@ void gl_loop()
 	std::cout << std::endl;
 
 	glutSwapBuffers();
+	current_frame = (current_frame+motion_rate)%frames;
+	if (current_frame == 0) {
+		double t = seq_time.msec_since_snap();
+		     
+		std::cout << "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=" << std::endl;
+		std::cout << "Sequence stats:" << std::endl << std::endl;
+		std::cout << "Frames: " << frames << std::endl;
+		std::cout << "Sequence render time: " << t << "msec\t(" 
+			  << frames*1000.f/t << " FPS)" <<   std::endl;
+		std::cout << "Mean / Min / Max render time: " 
+			  <<  t/frames << " / " 
+			  <<  min_time << " / " 
+			  <<  max_time << " msec" << std::endl;
+		std::cout << "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=" << std::endl;
+		max_time = -1;
+		min_time = -1;
+		seq_time.snap_time();
+	}
+
 }
 
 int main (int argc, char** argv)
@@ -264,86 +370,74 @@ int main (int argc, char** argv)
 		exit(1);
 
 	/*---------------------- Set up scene ---------------------------*/
-	Scene scene;
+	frames = 15;
+	const int32_t parts = 5;
+	const std::string pack = "pack1OBJ";
+	// const std::string pack = "pack2OBJ";
 
-	/* Other models 
-	models/obj/floor.obj
-	models/obj/teapot-low_res.obj
-	models/obj/teapot.obj
-	models/obj/teapot2.obj
-	models/obj/frame_boat1.obj
-	models/obj/frame_others1.obj
-	models/obj/frame_water1.obj
-	*/
+	std::vector<Scene> scene(frames);
+	scene_info = std::vector<SceneInfo>(frames);
 
-	// mesh_id floor_mesh_id = scene.load_obj_file("models/obj/floor.obj");
-	mesh_id floor_mesh_id = scene.load_obj_file("models/obj/frame_water1.obj");
-	object_id floor_obj_id  = scene.geometry.add_object(floor_mesh_id);
-	Object& floor_obj = scene.geometry.object(floor_obj_id);
- 	floor_obj.geom.setScale(2.f);
-	floor_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
-	floor_obj.mat.diffuse = Blue;
-	floor_obj.mat.reflectiveness = 0.9f;
-	floor_obj.mat.refractive_index = 1.333f;
-
-	mesh_id teapot_mesh_id = scene.load_obj_file("models/obj/teapot2.obj");
-	// mesh_id teapot_mesh_id = scene.load_obj_file("models/obj/teapot-low_res.obj");
-	object_id teapot_obj_id = scene.geometry.add_object(teapot_mesh_id);
-	Object& teapot_obj = scene.geometry.object(teapot_obj_id);
-	teapot_obj.geom.setPos(makeVector(-8.f,-5.f,0.f));
-	teapot_obj.mat.diffuse = Green;
-	teapot_obj.mat.shininess = 1.f;
-	teapot_obj.mat.reflectiveness = 0.3f;
-
-	object_id teapot_obj_id_2 = scene.geometry.add_object(teapot_mesh_id);
-	Object& teapot_obj_2 = scene.geometry.object(teapot_obj_id_2);
-	teapot_obj_2.mat.diffuse = Red;
-	teapot_obj_2.mat.shininess = 1.f;
-	teapot_obj_2.geom.setPos(makeVector(8.f,5.f,0.f));
-	teapot_obj_2.geom.setRpy(makeVector(0.2f,0.1f,0.3f));
-	teapot_obj_2.geom.setScale(0.3f);
-	teapot_obj_2.mat.reflectiveness = 0.3f;
-
-	// mesh_id boat_mesh_id = scene.load_obj_file("models/obj/frame_boat1.obj");
-	// object_id boat_obj_id = scene.geometry.add_object(boat_mesh_id);
-	// Object& boat_obj = scene.geometry.object(boat_obj_id);
-	// boat_obj.geom.setPos(makeVector(0.f,-18.f,0.f));
-	// boat_obj.mat.diffuse = Red;
-	// boat_obj.mat.shininess = 1.f;
-	// boat_obj.mat.reflectiveness = 0.0f;
-
-	// mesh_id bunny_mesh_id = scene.load_obj_file("models/obj/bunny.obj");
-	// object_id bunny_obj_id = scene.geometry.add_object(bunny_mesh_id);
-	// Object& bunny_obj = scene.geometry.object(bunny_obj_id);
-	// bunny_obj.geom.setPos(makeVector(0.f,0.f,-3.f));
-	// bunny_obj.geom.setRpy(makeVector(0.f,0.f,M_PI));
-	// bunny_obj.mat.diffuse = White;
-	// bunny_obj.mat.shininess = 0.8;
-	// bunny_obj.mat.reflectiveness = 0.f;
-
-	scene.create_aggregate();
-	Mesh& scene_mesh = scene.get_aggregate_mesh();
-	std::cout << "Created scene aggregate succesfully." << std::endl;
-
+	/* -=-=-=-=-=-=-=- Flat grid bvh construction -=-=-=-=-=-=- */
+	Scene flat_scene;
+	SceneInfo flat_scene_info;
+	std::stringstream flat_grid_path;
+	flat_grid_path << "models/obj/" << pack << "/gridFluid" << 1 << ".obj";
+	mesh_id flat_grid_mid = flat_scene.load_obj_file(flat_grid_path.str());
+	object_id flat_grid_oid = flat_scene.geometry.add_object(flat_grid_mid);
+	Object& flat_grid = flat_scene.geometry.object(flat_grid_oid);
+	flat_grid.geom.setScale(makeVector(1.f,0.f,1.f));
+	flat_scene.create_aggregate();
 	rt_time.snap_time();
-	scene.create_bvh();
-	BVH& scene_bvh   = scene.get_aggregate_bvh ();
+	flat_scene.create_bvh_with_slack(makeVector(0.f,.55f,0.f));
+	BVH& flat_scene_bvh   = flat_scene.get_aggregate_bvh();
 	double bvh_build_time = rt_time.msec_since_snap();
 	std::cout << "Created BVH succesfully (build time: " 
 		  << bvh_build_time << " msec, " 
-		  << scene_bvh.nodeArraySize() << " nodes)." << std::endl;
-
-	/*---------------------- Initialize SceneInfo ----------------------------*/
-	if (!scene_info.initialize(scene,clinfo)) {
-		std::cerr << "Failed to initialize scene info." << std::endl;
+		  << flat_scene_bvh.nodeArraySize() << " nodes)." << std::endl;
+	if (!flat_scene_info.initialize(flat_scene,clinfo)) {
+		std::cerr << "Failed to initialize flat scene info." << std::endl;
 		exit(1);
 	}
-	std::cout << "Initialized scene info succesfully." << std::endl;
+	bvh_mem = flat_scene_info.bvh_mem();
+	/* -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- */
+
+
+	for (uint32_t i = 0; i < frames ; ++i) {
+
+		std::stringstream grid_path,visual_path;
+		grid_path << "models/obj/" << pack << "/gridFluid" << i+1 << ".obj";
+		mesh_id grid_mid = scene[i].load_obj_file(grid_path.str());
+		object_id grid_oid = scene[i].geometry.add_object(grid_mid);
+		Object& grid = scene[i].geometry.object(grid_oid);
+		grid.mat.diffuse = White;
+		grid.mat.diffuse = White;
+		grid.mat.reflectiveness = 0.95f;
+		grid.mat.refractive_index = 1.5f;
+		
+		scene[i].create_aggregate();
+		Mesh& scene_mesh = scene[i].get_aggregate_mesh();
+
+		scene_mesh.reorderTriangles(flat_scene_bvh.m_ordered_triangles);
+
+		/*---------------------- Initialize SceneInfo ----------------------------*/
+		if (!scene_info[i].initialize(scene[i],clinfo)) {
+			std::cerr << "Failed to initialize scene info." << std::endl;
+			exit(1);
+		}
+		std::cout << "Initialized scene info succesfully." << std::endl;
+
+		/*---------------------- Print scene data ----------------------*/
+		std::cerr << "Scene " << i << " stats: " << std::endl;
+		std::cerr << "\tTriangle count: " << scene_mesh.triangleCount() << std::endl;
+		std::cerr << "\tVertex count: " << scene_mesh.vertexCount() << std::endl;
+		std::cerr << std::endl;
+	}
+
 
 	/*---------------------- Set initial Camera paramaters -----------------------*/
 	camera.set(makeVector(0,3,-30), makeVector(0,0,1), makeVector(0,1,0), M_PI/4.,
 		   window_size[0] / (float)window_size[1]);
-
 
 	/*---------------------------- Set tile size ------------------------------*/
 	best_tile_size = clinfo.max_compute_units * clinfo.max_work_item_sizes[0];
@@ -377,13 +471,12 @@ int main (int argc, char** argv)
 	std::cout << "Initialized hit bundle succesfully" << std::endl;
 
 	/*----------------------- Initialize cubemap ---------------------------*/
-	
-	if (!cubemap.initialize("textures/cubemap/Skansen2/posx.jpg",
-				"textures/cubemap/Skansen2/negx.jpg",
-				"textures/cubemap/Skansen2/posy.jpg",
-				"textures/cubemap/Skansen2/negy.jpg",
-				"textures/cubemap/Skansen2/posz.jpg",
-				"textures/cubemap/Skansen2/negz.jpg",
+	if (!cubemap.initialize("textures/cubemap/Sky/posx.jpg",
+				"textures/cubemap/Sky/negx.jpg",
+				"textures/cubemap/Sky/posy.jpg",
+				"textures/cubemap/Sky/negy.jpg",
+				"textures/cubemap/Sky/posz.jpg",
+				"textures/cubemap/Sky/negz.jpg",
 				clinfo)) {
 		std::cerr << "Failed to initialize cubemap." << std::endl;
 		exit(1);
@@ -398,7 +491,6 @@ int main (int argc, char** argv)
 	std::cout << "Initialized framebuffer succesfully." << std::endl;
 
 	/* ------------------ Initialize ray tracer kernel ----------------------*/
-
 	if (!tracer.initialize(clinfo)){
 		std::cerr << "Failed to initialize tracer." << std::endl;
 		return 0;
@@ -407,7 +499,6 @@ int main (int argc, char** argv)
 
 
 	/* ------------------ Initialize Primary Ray Generator ----------------------*/
-
 	if (!prim_ray_gen.initialize(clinfo)) {
 		std::cerr << "Error initializing primary ray generator." << std::endl;
 		exit(1);
@@ -437,15 +528,11 @@ int main (int argc, char** argv)
 	tracer.enable_timing(true);
 	ray_shader.enable_timing(true);
 
-	/*---------------------- Print scene data ----------------------*/
-	std::cerr << "\nScene stats: " << std::endl;
-	std::cerr << "\tTriangle count: " << scene_mesh.triangleCount() << std::endl;
-	std::cerr << "\tVertex count: " << scene_mesh.vertexCount() << std::endl;
-
 	/*------------------------- Count mem usage -----------------------------------*/
 	int32_t total_cl_mem = 0;
 	total_cl_mem += pixel_count * 4; /* 4bpp texture */
-	total_cl_mem += scene_info.size();
+	// for (uint32_t i = 0; i < frames; ++i)  
+	// 	total_cl_mem += scene_info[i].size();
 	total_cl_mem += cl_mem_size(ray_bundle_1.mem()) + cl_mem_size(ray_bundle_2.mem());
 	total_cl_mem += cl_mem_size(hit_bundle.mem());
 	total_cl_mem += cl_mem_size(cubemap.positive_x_mem()) * 6;
@@ -454,7 +541,9 @@ int main (int argc, char** argv)
 	std::cout << "\nMemory stats: " << std::endl;
 	std::cout << "\tTotal opencl mem usage: " 
 		  << total_cl_mem/1e6 << " MB." << std::endl;
-	std::cout << "\tScene mem usage: " << scene_info.size()/1e6 << " MB." << std::endl;
+	// for (uint32_t i = 0; i < frames; ++i)  
+	// 	std::cout << "\tScene " << i << " mem usage: " << scene_info[i].size()/1e6 << " MB." << std::endl;
+
 	std::cout << "\tFramebuffer+Tex mem usage: " 
 		  << (cl_mem_size(framebuffer.image_mem()) + pixel_count * 4)/1e6
 		  << " MB."<< std::endl;
@@ -493,6 +582,7 @@ int main (int argc, char** argv)
 
 	/*------------------------ Set GLUT and misc functions -----------------------*/
 	rt_time.snap_time();
+	seq_time.snap_time();
 
 	glutKeyboardFunc(gl_key);
 	glutMotionFunc(gl_mouse);

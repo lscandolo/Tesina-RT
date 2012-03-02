@@ -17,6 +17,7 @@ struct BBox {
 	BBox(const Vertex& a, const Vertex& b, const Vertex& c);
 	void set(const Vertex& a, const Vertex& b, const Vertex& c);
 	void merge(const BBox& b);
+	void add_slack(const vec3& slack);
 	uint8_t largestAxis() const;
 	vec3 centroid() const;
 	float surfaceArea() const;
@@ -64,10 +65,10 @@ class BVH {
 
 public:
 
-	bool construct(Mesh& m_mesh);
-	bool construct_and_map(Mesh& m_mesh, std::vector<cl_int>& map);
+	bool construct(Mesh& m_mesh, vec3 slack = vec3_zero);
+	bool construct_and_map(Mesh& m_mesh, std::vector<cl_int>& map, vec3 slack = vec3_zero);
 
-	const BVHNode* nodeArray()
+        BVHNode* nodeArray() 
 		{return &(m_nodes[0]);}
 
 	uint32_t nodeArraySize()
@@ -82,9 +83,9 @@ public:
 	static const uint32_t MIN_PRIMS_PER_NODE = 4;
 	static const uint32_t SAH_BUCKETS = 32;
 
-private:
+// private:
 
-	std::vector<BVHNode> m_nodes;
+        std::vector<BVHNode> m_nodes;
 	std::vector<tri_id> m_ordered_triangles;
 };
 

@@ -75,6 +75,7 @@ bool Refract(const vec3& i, /*Incident vector*/
 mat4x4 translationMatrix4x4(vec3 pos);
 mat4x4 rotationMatrix4x4(vec3 rpy);
 mat4x4 scaleMatrix4x4(float scale);
+mat4x4 scaleMatrix4x4(const vec3& scale);
 
 
 #endif /* RT_MATH_HPP */

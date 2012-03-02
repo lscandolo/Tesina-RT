@@ -12,13 +12,14 @@ public:
 		{
 			pos = makeVector(0.f,0.f,0.f);
 			rpy = makeVector(0.f,0.f,0.f);
-			scale = 1.f;
+			scale = makeVector(1.f,1.f,1.f);
 			updateTransform();
 		}
 
 	void setPos(const vec3& new_pos);
 	void setRpy(const vec3& new_rpy);
 	void setScale(float new_scale);
+	void setScale(const vec3& new_scale);
 
 	void transform(Vertex& v);
 
@@ -28,7 +29,7 @@ private:
 
 	vec3 pos;
 	vec3 rpy; /* Would be cleaner with a quaternion here...*/
-	float scale;
+	vec3 scale;
 
 	mat4x4 M;
 };

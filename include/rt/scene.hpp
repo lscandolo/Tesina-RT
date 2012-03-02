@@ -57,6 +57,7 @@ public:
 
 	uint32_t create_aggregate();
 	uint32_t create_bvh();
+	uint32_t create_bvh_with_slack(const vec3& sl);
 
 	Mesh& get_aggregate_mesh(){return geometry_aggregate;}
 	BVH&  get_aggregate_bvh (){return bvh;}

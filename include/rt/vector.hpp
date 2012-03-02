@@ -229,4 +229,7 @@ vec2 makeVector(const float& v0, const float& v1);
 vec3 makeVector(const float& v0, const float& v1, const float& v2);
 vec4 makeVector(const float& v0, const float& v1, const float& v2, const float& v3);
 
+const vec3 vec3_zero = makeVector(0.f,0.f,0.f);
+
+
 #endif /* RT_VECTOR_HPP */

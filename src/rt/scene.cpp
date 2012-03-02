@@ -1,3 +1,5 @@
+#include <iostream> //!!
+
 
 #include <rt/scene.hpp>
 #include <rt/vector.hpp>
@@ -36,9 +38,9 @@ Object::clone()
 object_id 
 SceneGeometry::add_object(mesh_id mid)
 {
-	uint32_t id = objects.size();
+	uint32_t oid = objects.size();
 	objects.push_back(Object(mid));
-	return id;
+	return oid;
 }
 	
 void 
@@ -79,21 +81,23 @@ Scene::create_aggregate()
 	material_map.clear();
 
 	for (uint32_t i = 0; i < geometry.objects.size(); ++i) {
-		Object obj = geometry.objects[i];
+		Object& obj = geometry.objects[i];
+
 		if (!obj.is_valid())
 			continue;
 
 		mesh_id m_id = obj.get_mesh_id();
+
+		ASSERT(m_id >= 0 && m_id < mesh_atlas.size());
+
 		uint32_t base_vertex = geometry_aggregate.vertexCount();
 		Mesh& mesh = mesh_atlas[m_id];
 		GeometricProperties g = obj.geom;
 
-		ASSERT(m_id < mesh_atlas.size());
-
 		material_list.push_back(obj.mat);
 		cl_int map_index = material_list.size() - 1;
 		material_map.resize(base_triangle + mesh.triangleCount(), map_index);
-
+		
 		for (uint32_t v = 0; v < mesh.vertexCount(); ++v) {
 			Vertex vertex = mesh.vertex(v);
 			g.transform(vertex);
@@ -115,6 +119,13 @@ Scene::create_aggregate()
 uint32_t 
 Scene::create_bvh(){
 	if (!bvh.construct_and_map(geometry_aggregate, material_map))
+		return 1;
+	return 0;
+}
+
+uint32_t 
+Scene::create_bvh_with_slack(const vec3& sl){
+	if (!bvh.construct_and_map(geometry_aggregate, material_map, sl))
 		return 1;
 	return 0;
 }
@@ -173,20 +184,20 @@ SceneInfo::initialize(Scene& scene, const CLInfo& cli)
 				 &mat_map_m))
 		return false;
 
-	/*--------------------- Move bvh to device memory ---------------------*/
-	if (create_filled_cl_mem(clinfo,CL_MEM_READ_ONLY,
-				 scene_bvh.nodeArraySize() * sizeof(BVHNode),
-				 scene_bvh.nodeArray(),
-				 &bvh_m))
-		return false;
-
+	/*--------------------- move bvh to device memory ---------------------*/
+	if (scene_bvh.nodeArraySize()) {
+		if (create_filled_cl_mem(clinfo,CL_MEM_READ_ONLY,
+					 scene_bvh.nodeArraySize() * sizeof(BVHNode),
+					 scene_bvh.nodeArray(),
+					 &bvh_m))
+			return false;
+	}
 	/*-------------- Move initial light info to device memory---------------*/
 	
 	if (create_empty_cl_mem(clinfo,CL_MEM_READ_ONLY,
 				 sizeof(lights_cl),
 				 &lights_m))
 		return false;
-
 
 	return true;
 
