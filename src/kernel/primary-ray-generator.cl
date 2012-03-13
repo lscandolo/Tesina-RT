@@ -139,6 +139,15 @@ generate_primary_rays(global RayPlus* ray_buffer,
 	float xPosNDC = (0.5f + (float)x) / (float)width;
 	float yPosNDC = (0.5f + (float)y) / (float)height;
 	
+	/* float xPosOffset = (i%2)*2 - 1; */
+	/* float yPosOffset = (i%4)<2? 1:-1; */
+	/* xPosOffset *= 0.25; */
+	/* yPosOffset *= 0.25; */
+	/* xPosNDC += xPosOffset / (float)width; */
+	/* yPosNDC += xPosOffset / (float)height; */
+	/* x /= 2; */
+	/* y /= 2; */
+
 	ray->ori = pos.xyz;
 	ray->dir = (dir + right * (xPosNDC * 2.f - 1.f) + up * (yPosNDC * 2.f - 1.f)).xyz;
 

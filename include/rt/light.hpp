@@ -10,9 +10,9 @@ struct directional_light_cl {
 
 	void set_dir(float x, float y, float z) 
 		{
-			dir.x = x;
-			dir.y = y;
-			dir.z = z;
+			dir.s[0] = x;
+			dir.s[1] = y;
+			dir.s[2] = z;
 		}
 
 	void set_color(float r, float g, float b) 

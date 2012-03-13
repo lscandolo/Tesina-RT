@@ -9,6 +9,9 @@
 #define WAVE_HEIGHT 0.2
 
 CLKernelInfo mangler_clk;
+Scene scene;
+
+bool gpu_mangling = true;
 
 
 cl_mem cl_tex_mem;
@@ -73,6 +76,12 @@ void gl_key(unsigned char key, int x, int y)
 		std::cout << std::endl << "Exiting..." << std::endl;
 		exit(1);
 		break;
+	case 'g':
+		gpu_mangling = true;
+		break;
+	case 'c':
+		gpu_mangling = false;
+		break;
 	}
 }
 
@@ -106,29 +115,56 @@ void gl_loop()
 	cl_int arg = i%STEPS;
 	int32_t tile_size = best_tile_size;
 
-	/*-------------- Mangle verts ---------------------*/
 	cl_int err;
-	// cl_float mangler_arg = 2*(arg - STEPS/2.f) / STEPS;
 	mangler_arg += 1.f;
-	std::cerr << mangler_arg << std::endl;
-	err = clSetKernelArg(mangler_clk.kernel,1,sizeof(cl_float),&mangler_arg);
-	if (error_cl(err, "clSetKernelArg 1"))
-		exit(1);
-	err = clSetKernelArg(mangler_clk.kernel,2,sizeof(cl_float),&last_mangler_arg);
-	if (error_cl(err, "clSetKernelArg 2"))
-		exit(1);
-	if (execute_cl(mangler_clk)) {
-		std::cerr << "Error executing mangler." << std::endl;
-		exit(1);
+	rt_time_t mangle_timer;
+
+	/*-------------- Mangle verts in OpenCL---------------------*/
+	if (gpu_mangling) {
+		std::cerr << "Using GPU..." << std::endl;
+		mangle_timer.snap_time();
+		err = clSetKernelArg(mangler_clk.kernel,1,sizeof(cl_float),&mangler_arg);
+		if (error_cl(err, "clSetKernelArg 1"))
+			exit(1);
+		err = clSetKernelArg(mangler_clk.kernel,2,sizeof(cl_float),&last_mangler_arg);
+		if (error_cl(err, "clSetKernelArg 2"))
+			exit(1);
+		if (execute_cl(mangler_clk)) {
+			std::cerr << "Error executing mangler." << std::endl;
+			exit(1);
+		}
+		
+	} else {
+		/*-------------- Mangle verts in CPU ---------------------*/
+		std::cerr << "Using CPU..." << std::endl;
+		mangle_timer.snap_time();
+		Mesh& mesh = scene.get_aggregate_mesh();
+		for (uint32_t v = 0; v < mesh.vertexCount(); ++ v) {
+			Vertex& vert = mesh.vertex(v);
+			vert.position.s[1] = WAVE_HEIGHT * sin(0.33*mangler_arg+vert.position.s[0]);
+			vert.position.s[1] *= cos(0.57*mangler_arg+vert.position.s[2]);
+			vert.normal.s[0] = cos(0.33*mangler_arg+vert.position.s[0]);
+			vert.normal.s[2] = -sin(0.57*mangler_arg+vert.position.s[2]);
+		}
+		cl_mem vert_mem = scene_info.vertex_mem();
+		clEnqueueWriteBuffer(mangler_clk.clinfo->command_queue, 
+				     vert_mem,
+				     true,
+				     0,
+				     mesh.vertexCount() * sizeof(Vertex),
+				     mesh.vertexArray(),
+				     0,NULL,NULL);
+		clFinish(mangler_clk.clinfo->command_queue);
 	}
-	last_mangler_arg = mangler_arg;
-
 	/*--------------------------------------*/
-
+	double mangle_time = mangle_timer.msec_since_snap();
+	std::cerr << "Mangle time: "  << mangle_time << " msec." << std::endl;
+	last_mangler_arg = mangler_arg;
+	
 
 	directional_light_cl light;
 	light.set_dir(0.05f * (arg - 8.f) , -0.6f, 0.2f);
-	light.set_color(0.05f * (fabs(arg)) + 0.1f, 0.2f, 0.05f * fabs(arg+4.f));
+	light.set_color(0.05f * (fabsf(arg)) + 0.1f, 0.2f, 0.05f * fabsf(arg+4.f));
 	scene_info.set_dir_light(light);
 	color_cl ambient;
 	ambient[0] = ambient[1] = ambient[2] = 0.1f;
@@ -299,7 +335,6 @@ int main (int argc, char** argv)
 		exit(1);
 
 	/*---------------------- Set up scene ---------------------------*/
-	Scene scene;
 
 	mesh_id floor_mesh_id = scene.load_obj_file("models/obj/grid100.obj");
 	object_id floor_obj_id  = scene.geometry.add_object(floor_mesh_id);
@@ -309,14 +344,15 @@ int main (int argc, char** argv)
 	floor_obj.mat.diffuse = White;
 	floor_obj.mat.reflectiveness = 0.95f;
 	floor_obj.mat.refractive_index = 1.5f;
-
+	floor_obj.slack = makeVector(0.f,WAVE_HEIGHT,0.f);
 
 	scene.create_aggregate();
 	Mesh& scene_mesh = scene.get_aggregate_mesh();
 	std::cout << "Created scene aggregate succesfully." << std::endl;
 
 	rt_time.snap_time();
-	scene.create_bvh_with_slack(makeVector(0.f,WAVE_HEIGHT,0.f));
+	// scene.create_bvh_with_slack(makeVector(0.f,WAVE_HEIGHT,0.f));
+	scene.create_bvh();
 	BVH& scene_bvh   = scene.get_aggregate_bvh ();
 	double bvh_build_time = rt_time.msec_since_snap();
 	std::cout << "Created BVH succesfully (build time: " 

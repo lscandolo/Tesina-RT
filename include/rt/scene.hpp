@@ -38,6 +38,7 @@ struct Object {
 	mesh_id id;
 	GeometricProperties geom;
 	material_cl mat;
+	vec3 slack;
 };
 
 struct SceneGeometry {
@@ -63,6 +64,8 @@ public:
 	BVH&  get_aggregate_bvh (){return bvh;}
 	std::vector<material_cl>& get_material_list (){return material_list;}
 	std::vector<cl_int>& get_material_map (){return material_map;}
+
+	bool reorderTriangles(const std::vector<uint32_t>& new_order);
 
 	SceneGeometry geometry;
 

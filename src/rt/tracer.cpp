@@ -1,6 +1,5 @@
+#include <iostream>//!!
 #include <rt/tracer.hpp>
-
-#DEFINE MAX_SEC_GROUP_SIZE 64
 
 bool Tracer::initialize(CLInfo& clinfo)
 {
@@ -59,9 +58,9 @@ Tracer::trace(SceneInfo& scene_info, cl_mem& bvh_mem, int32_t ray_count,
 	if (error_cl(err, "clSetKernelArg 4"))
 		return false;
 
-	bool ret;
+	bool ret = true;
 
-	const int32_t  sec_size = MAX_SEC_GROUP_SIZE;
+	const int32_t  sec_size = 64;
 	int32_t leftover = ray_count%sec_size;
 
 	if (secondary) {
@@ -124,9 +123,11 @@ Tracer::trace(SceneInfo& scene_info, int32_t ray_count,
 	if (error_cl(err, "clSetKernelArg 4"))
 		return false;
 
-	bool ret;
+	// tracer_clk.global_work_size[0] = ray_count;
+	
+	bool ret = true;
 
-	const int32_t  sec_size = MAX_SEC_GROUP_SIZE;
+	const int32_t  sec_size = 64;
 	int32_t leftover = ray_count%sec_size;
 
 	if (secondary) {
@@ -193,9 +194,9 @@ Tracer::shadow_trace(SceneInfo& si, int32_t ray_count,
 	if (error_cl(err, "clSetKernelArg 5"))
 		return false;
 
-	bool ret;
+	bool ret = true;
 
-	const int32_t  sec_size = MAX_SEC_GROUP_SIZE;
+	const int32_t  sec_size = 64;
 	int32_t leftover = ray_count%sec_size;
 
 	if (secondary) {
@@ -263,32 +264,32 @@ Tracer::shadow_trace(SceneInfo& si, cl_mem& bvh_mem, int32_t ray_count,
 	if (error_cl(err, "clSetKernelArg 5"))
 		return false;
 
-	bool ret;
+	bool ret = true;
 
-	const int32_t  sec_size = MAX_SEC_GROUP_SIZE;
+	const int32_t  sec_size = 64;
 	int32_t leftover = ray_count%sec_size;
 
 	if (secondary) {
 		if (ray_count >= sec_size) {
 			shadow_clk.global_work_size[0] = ray_count - leftover;
-			shadow_clk.global_work_offset[0] = 0;
 			shadow_clk.local_work_size[0] = sec_size; 
+			shadow_clk.global_work_offset[0] = 0;
 			ret = !execute_cl(shadow_clk);
 			if (leftover) {
 				shadow_clk.global_work_size[0] = leftover;
-				shadow_clk.global_work_offset[0] = ray_count - leftover;
 				shadow_clk.local_work_size[0] = leftover; 
+				shadow_clk.global_work_offset[0] = ray_count - leftover;
 				ret = ret && !execute_cl(shadow_clk);
 			}
 		} else {
 				shadow_clk.global_work_size[0] = ray_count;
-				shadow_clk.global_work_offset[0] = 0;
 				shadow_clk.local_work_size[0] = ray_count; 
+				shadow_clk.global_work_offset[0] = 0;
 				ret = ret && !execute_cl(shadow_clk);
 		}
 	} else {
-		shadow_clk.global_work_size[0] = ray_count;
 		shadow_clk.global_work_offset[0] = 0;
+		shadow_clk.global_work_size[0] = ray_count;
 		shadow_clk.local_work_size[0] = 0;
 		ret = !execute_cl(shadow_clk);
 	}

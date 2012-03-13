@@ -10,7 +10,7 @@ static mesh_id invalid_mesh_id();
 
 /*-------------------- Object Methods -------------------------------*/
 
-Object::Object(mesh_id _id) : id(_id){}
+Object::Object(mesh_id _id) : id(_id){slack = vec3_zero;}
 
 const mesh_id 
 Object::get_mesh_id()
@@ -38,7 +38,7 @@ Object::clone()
 object_id 
 SceneGeometry::add_object(mesh_id mid)
 {
-	uint32_t oid = objects.size();
+	uint32_t oid = uint32_t(objects.size());
 	objects.push_back(Object(mid));
 	return oid;
 }
@@ -70,7 +70,7 @@ Scene::load_obj_file(std::string filename)
 	Mesh mesh;
 	obj.toMesh(&mesh);
 	mesh_atlas.push_back(mesh);
-	return mesh_atlas.size() - 1;
+	return uint32_t(mesh_atlas.size() - 1);
 }
 
 uint32_t 
@@ -90,12 +90,12 @@ Scene::create_aggregate()
 
 		ASSERT(m_id >= 0 && m_id < mesh_atlas.size());
 
-		uint32_t base_vertex = geometry_aggregate.vertexCount();
+		size_t base_vertex = geometry_aggregate.vertexCount();
 		Mesh& mesh = mesh_atlas[m_id];
 		GeometricProperties g = obj.geom;
 
 		material_list.push_back(obj.mat);
-		cl_int map_index = material_list.size() - 1;
+		cl_int map_index = cl_int(material_list.size() - 1);
 		material_map.resize(base_triangle + mesh.triangleCount(), map_index);
 		
 		for (uint32_t v = 0; v < mesh.vertexCount(); ++v) {
@@ -105,12 +105,13 @@ Scene::create_aggregate()
 		}
 		for (uint32_t t = 0; t < mesh.triangleCount(); ++t) {
 			Triangle tri = mesh.triangle(t);
-			tri.v[0] += base_vertex;
-			tri.v[1] += base_vertex;
-			tri.v[2] += base_vertex;
+			tri.v[0] += index_t(base_vertex);
+			tri.v[1] += index_t(base_vertex);
+			tri.v[2] += index_t(base_vertex);
 			geometry_aggregate.triangles.push_back(tri);
+			geometry_aggregate.slacks.push_back(obj.slack);
 		}
-		base_triangle += mesh.triangleCount();
+		base_triangle += uint32_t(mesh.triangleCount());
 		
 	}
 	return 0;
@@ -130,6 +131,27 @@ Scene::create_bvh_with_slack(const vec3& sl){
 	return 0;
 }
 
+bool 
+Scene::reorderTriangles(const std::vector<uint32_t>& new_order) {
+	ASSERT(new_order.size() == geometry_aggregate.triangles.size());
+	ASSERT(new_order.size() == material_map.size());
+
+	geometry_aggregate.reorderTriangles(new_order);
+
+	std::vector<cl_int> old_order = material_map;
+	for (uint32_t i = 0; i < material_map.size(); ++i) {
+		material_map[i] = old_order[new_order[i]];
+	}
+
+	std::vector<vec3>& slacks = geometry_aggregate.slacks;
+	std::vector<vec3> old_slacks = slacks;
+	for (uint32_t i = 0; i < slacks.size(); ++i) {
+		slacks[i] = old_slacks[new_order[i]];
+	}
+
+    return true;	
+}
+
 /*---------------------------- Scene Info methods ---------------------------*/
 
 bool 
@@ -145,8 +167,8 @@ SceneInfo::initialize(Scene& scene, const CLInfo& cli)
 	Mesh& scene_mesh = scene.get_aggregate_mesh();
 	BVH& scene_bvh   = scene.get_aggregate_bvh ();
 	
-	int triangles = scene_mesh.triangleCount();
-	int vertices = scene_mesh.vertexCount();
+	size_t triangles = scene_mesh.triangleCount();
+	size_t vertices = scene_mesh.vertexCount();
 
 	if (create_filled_cl_mem(clinfo,CL_MEM_READ_ONLY,
 				 vertices * sizeof(Vertex),

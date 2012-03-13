@@ -1,5 +1,6 @@
 #ifdef _WIN32
-n#include <Windows.h>
+#define NOMINMAX
+#include <Windows.h>
 #endif
 
 #include <stdio.h>
@@ -22,6 +23,9 @@ n#include <Windows.h>
 CLKernelInfo clkernelinfo;
 GLuint gl_tex, gl_buf;
 cl_mem cl_tex_mem, cl_buf_mem;
+
+
+#ifdef __linux__
 timespec tp;
 
 timespec compute_diff(timespec tp_begin, timespec tp_end)
@@ -36,6 +40,12 @@ timespec compute_diff(timespec tp_begin, timespec tp_end)
 	}
 	return tp_aux;
 }
+#elif defined _WIN32
+
+
+#endif
+
+
 
 void gl_key(unsigned char key, int x, int y)
 {
@@ -82,17 +92,23 @@ void gl_loop()
 	i += dir;
 	if (!(i % (STEPS-1))){
 		dir *= -1;
+#ifdef __linux__
 		timespec _tp, d;
 		clock_gettime(CLOCK_MONOTONIC, &_tp);
 		d = compute_diff(tp, _tp);
 		double msec = d.tv_nsec/1000000. + d.tv_sec * 1000. ;
+#elif defined _WIN32
+        double msec = 0;		
+#endif
 		std::cout << "Time elapsed: " 
 			  << msec << " milliseconds " 
 			  << "\t(" 
 			  << int(STEPS / (msec/1000))
 			  << " FPS)          \r" ;
 		std::flush(std::cout);
+#ifdef __linux__
 		tp = _tp;
+#endif
 	}		
 	glutSwapBuffers();
 }
@@ -159,7 +175,9 @@ int main(int argc, char** argv)
 	glutDisplayFunc(gl_loop);
 	glutIdleFunc(gl_loop);
 
+#ifdef __linux__
 	clock_gettime(CLOCK_MONOTONIC, &tp);
+#endif
 	std::cout << std::endl;
 	glutMainLoop();	
 

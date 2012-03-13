@@ -11,6 +11,7 @@
 
 /* RGB color will be represented as floats using  [0,1]  */
 /* No constructor, and no privates, so it's POD */
+RT_ALIGN
 struct color_cl {
 
 	float operator[](int32_t i) const;
@@ -21,6 +22,7 @@ struct color_cl {
 };
 
 /* Help color struct for synchronization purposes */
+RT_ALIGN
 struct color_int_cl {
 
 	float operator[](int32_t i) const;
@@ -38,6 +40,7 @@ const color_cl Blue  = {{{0.f,0.f,1.f}}};
 const color_cl White = {{{1.f,1.f,1.f}}};
 
 /* For now it'll be super simple */
+RT_ALIGN
 struct material_cl {
 
 	color_cl diffuse;
@@ -63,7 +66,7 @@ struct MaterialList {
 
 	std::vector<material_item_cl> mats; 
 
-	uint32_t size_in_bytes(){
+	size_t size_in_bytes(){
 		return mats.size() * sizeof(material_item_cl);
 	}
 

@@ -35,8 +35,8 @@ void gl_mouse(int x, int y)
 	float d_inc = delta * (window_size[1]*0.5f - y);/* y axis points downwards */
 	float d_yaw = delta * (x - window_size[0]*0.5f);
 
-	d_inc = std::min(std::max(d_inc, -0.01f), 0.01f);
-	d_yaw = std::min(std::max(d_yaw, -0.01f), 0.01f);
+	d_inc = std::min(std::max(d_inc, -0.1f), 0.1f);
+	d_yaw = std::min(std::max(d_yaw, -0.1f), 0.1f);
 
 	if (d_inc == 0.f && d_yaw == 0.f)
 		return;
@@ -100,7 +100,7 @@ void gl_loop()
 
 	directional_light_cl light;
 	light.set_dir(0.05f * (arg - 8.f) , -0.6f, 0.2f);
-	light.set_color(0.05f * (fabs(arg)) + 0.1f, 0.2f, 0.05f * fabs(arg+4.f));
+	light.set_color(0.05f * (fabsf(arg)) + 0.1f, 0.2f, 0.05f * fabsf(arg+4.f));
 	scene_info.set_dir_light(light);
 	color_cl ambient;
 	ambient[0] = ambient[1] = ambient[2] = 0.1f;
@@ -136,7 +136,6 @@ void gl_loop()
 			exit(1);
 		}
 		shader_time += ray_shader.get_exec_time();
-		
 
 		int32_t sec_ray_count = tile_size;
 		for (uint32_t i = 0; i < MAX_BOUNCE; ++i) {
@@ -157,7 +156,6 @@ void gl_loop()
 			tracer.trace(scene_info, sec_ray_count, 
 				     *ray_in, hit_bundle, true);
 			sec_trace_time += tracer.get_trace_exec_time();
-
 
 			tracer.shadow_trace(scene_info, sec_ray_count, 
 					    *ray_in, hit_bundle, true);
@@ -276,15 +274,15 @@ int main (int argc, char** argv)
 	models/obj/frame_water1.obj
 	*/
 
-	// mesh_id floor_mesh_id = scene.load_obj_file("models/obj/floor.obj");
-	mesh_id floor_mesh_id = scene.load_obj_file("models/obj/frame_water1.obj");
-	object_id floor_obj_id  = scene.geometry.add_object(floor_mesh_id);
-	Object& floor_obj = scene.geometry.object(floor_obj_id);
- 	floor_obj.geom.setScale(2.f);
-	floor_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
-	floor_obj.mat.diffuse = Blue;
-	floor_obj.mat.reflectiveness = 0.9f;
-	floor_obj.mat.refractive_index = 1.333f;
+	//// mesh_id floor_mesh_id = scene.load_obj_file("models/obj/floor.obj");
+	//mesh_id floor_mesh_id = scene.load_obj_file("models/obj/frame_water1.obj");
+	//object_id floor_obj_id  = scene.geometry.add_object(floor_mesh_id);
+	//Object& floor_obj = scene.geometry.object(floor_obj_id);
+ //	floor_obj.geom.setScale(2.f);
+	//floor_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
+	//floor_obj.mat.diffuse = Blue;
+	//floor_obj.mat.reflectiveness = 0.9f;
+	//floor_obj.mat.refractive_index = 1.333f;
 
 	mesh_id teapot_mesh_id = scene.load_obj_file("models/obj/teapot2.obj");
 	// mesh_id teapot_mesh_id = scene.load_obj_file("models/obj/teapot-low_res.obj");
@@ -312,14 +310,14 @@ int main (int argc, char** argv)
 	// boat_obj.mat.shininess = 1.f;
 	// boat_obj.mat.reflectiveness = 0.0f;
 
-	// mesh_id bunny_mesh_id = scene.load_obj_file("models/obj/bunny.obj");
-	// object_id bunny_obj_id = scene.geometry.add_object(bunny_mesh_id);
-	// Object& bunny_obj = scene.geometry.object(bunny_obj_id);
-	// bunny_obj.geom.setPos(makeVector(0.f,0.f,-3.f));
-	// bunny_obj.geom.setRpy(makeVector(0.f,0.f,M_PI));
-	// bunny_obj.mat.diffuse = White;
-	// bunny_obj.mat.shininess = 0.8;
-	// bunny_obj.mat.reflectiveness = 0.f;
+	 //mesh_id bunny_mesh_id = scene.load_obj_file("models/obj/bunny.obj");
+	 //object_id bunny_obj_id = scene.geometry.add_object(bunny_mesh_id);
+	 //Object& bunny_obj = scene.geometry.object(bunny_obj_id);
+	 //bunny_obj.geom.setPos(makeVector(0.f,0.f,-3.f));
+	 //bunny_obj.geom.setRpy(makeVector(0.f,0.f,M_PI));
+	 //bunny_obj.mat.diffuse = White;
+	 //bunny_obj.mat.shininess = 0.8;
+	 //bunny_obj.mat.reflectiveness = 0.f;
 
 	scene.create_aggregate();
 	Mesh& scene_mesh = scene.get_aggregate_mesh();

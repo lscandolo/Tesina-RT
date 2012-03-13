@@ -161,7 +161,7 @@ void gl_loop()
 
 	directional_light_cl light;
 	light.set_dir(0.05f * (arg - 8.f) , -0.6f, 0.2f);
-	light.set_color(0.05f * (fabs(arg)) + 0.1f, 0.2f, 0.05f * fabs(arg+4.f));
+	light.set_color(0.05f * (fabsf(arg)) + 0.1f, 0.2f, 0.05f * fabsf(arg+4.f));
 
 	SceneInfo &si = scene_info[current_frame];
 
@@ -371,9 +371,11 @@ int main (int argc, char** argv)
 
 	/*---------------------- Set up scene ---------------------------*/
 	frames = 15;
-	// const int32_t parts = 5;
+	const uint32_t bridge_parts = 5;
 	const std::string pack = "pack1OBJ";
+	const int32_t visual_frame = 9;
 	// const std::string pack = "pack2OBJ";
+	double wave_attenuation = 1.f;
 
 	std::vector<Scene> scene(frames);
 	scene_info = std::vector<SceneInfo>(frames);
@@ -387,9 +389,40 @@ int main (int argc, char** argv)
 	object_id flat_grid_oid = flat_scene.geometry.add_object(flat_grid_mid);
 	Object& flat_grid = flat_scene.geometry.object(flat_grid_oid);
 	flat_grid.geom.setScale(makeVector(1.f,0.f,1.f));
+	// flat_grid.slack = makeVector(0.f,0.9f,0.f);
+	flat_grid.slack = makeVector(0.f,wave_attenuation * 0.9f,0.f);
+
+	/* ---- Solids ------ */
+	// std::stringstream visual_path;
+	// visual_path << "models/obj/" << pack << "/visual" << visual_frame << ".obj";
+	// mesh_id visual_mid = flat_scene.load_obj_file(visual_path.str());
+	// object_id visual_oid = flat_scene.geometry.add_object(visual_mid);
+	// Object& visual = flat_scene.geometry.object(visual_oid);
+	// // visual.slack = makeVector(0.f,0.55f,0.f);
+
+	// for (uint32_t j = 0; j < bridge_parts ; ++j) {
+	// 	std::stringstream bridge_path;
+	// 	bridge_path << "models/obj/" << pack << "/bridge" << j << visual_frame << ".obj";
+	// 	mesh_id bridge_mid = flat_scene.load_obj_file(bridge_path.str());
+	// 	object_id bridge_oid = flat_scene.geometry.add_object(bridge_mid);
+	// 	Object& bridge = flat_scene.geometry.object(bridge_oid);
+	// 	// bridge.slack = makeVector(0.f,5.55f,0.f);
+	// }
+
+	// mesh_id teapot_mesh_id = flat_scene.load_obj_file("models/obj/teapot2.obj");
+	mesh_id teapot_mesh_id = flat_scene.load_obj_file("models/obj/teapot-low_res.obj");
+	object_id teapot_obj_id = flat_scene.geometry.add_object(teapot_mesh_id);
+	Object& teapot_obj = flat_scene.geometry.object(teapot_obj_id);
+	teapot_obj.geom.setPos(makeVector(-1.f,0.f,0.f));
+	teapot_obj.geom.setScale(makeVector(3.f,3.f,3.f));
+
+	/* ------------------*/
+
+	flat_grid.geom.setScale(makeVector(1.f,0.f,1.f));
 	flat_scene.create_aggregate();
 	rt_time.snap_time();
-	flat_scene.create_bvh_with_slack(makeVector(0.f,.55f,0.f));
+	// flat_scene.create_bvh_with_slack(makeVector(0.f,.55f,0.f));
+	flat_scene.create_bvh();
 	BVH& flat_scene_bvh   = flat_scene.get_aggregate_bvh();
 	double bvh_build_time = rt_time.msec_since_snap();
 	std::cout << "Created BVH succesfully (build time: " 
@@ -411,14 +444,43 @@ int main (int argc, char** argv)
 		object_id grid_oid = scene[i].geometry.add_object(grid_mid);
 		Object& grid = scene[i].geometry.object(grid_oid);
 		grid.mat.diffuse = White;
-		grid.mat.diffuse = White;
 		grid.mat.reflectiveness = 0.95f;
 		grid.mat.refractive_index = 1.5f;
+		grid.geom.setScale(makeVector(1.f,wave_attenuation,1.f));
+
+		/* ---- Solids ------ */
+		// visual_path << "models/obj/" << pack << "/visual" << visual_frame << ".obj";
+		// mesh_id visual_mid = scene[i].load_obj_file(visual_path.str());
+		// object_id visual_oid = scene[i].geometry.add_object(visual_mid);
+		// Object& visual = scene[i].geometry.object(visual_oid);
+		// visual.mat.diffuse = Red;
+
+		// for (uint32_t j = 0; j < bridge_parts ; ++j) {
+		// 	std::stringstream bridge_path;
+		// 	bridge_path << "models/obj/" << pack << "/bridge" << j << i+1 << ".obj";
+		// 	mesh_id bridge_mid = scene[i].load_obj_file(bridge_path.str());
+		// 	object_id bridge_oid = scene[i].geometry.add_object(bridge_mid);
+		// 	Object& bridge = scene[i].geometry.object(bridge_oid);
+		// 	bridge.mat.diffuse = Green;
+		// }
+
+		// mesh_id teapot_mesh_id = scene[i].load_obj_file("models/obj/teapot2.obj");
+		mesh_id teapot_mesh_id = scene[i].load_obj_file("models/obj/teapot-low_res.obj");
+		object_id teapot_obj_id = scene[i].geometry.add_object(teapot_mesh_id);
+		Object& teapot_obj = scene[i].geometry.object(teapot_obj_id);
+		teapot_obj.geom.setPos(makeVector(-1.f,0.f,0.f));
+		teapot_obj.geom.setScale(makeVector(3.f,3.f,3.f));
+		teapot_obj.mat.diffuse = Green;
+		teapot_obj.mat.shininess = 1.f;
+		// teapot_obj.mat.reflectiveness = 0.3f;
+
+		/* ------------------*/
+
 		
 		scene[i].create_aggregate();
 		Mesh& scene_mesh = scene[i].get_aggregate_mesh();
 
-		scene_mesh.reorderTriangles(flat_scene_bvh.m_ordered_triangles);
+		scene[i].reorderTriangles(flat_scene_bvh.m_ordered_triangles);
 
 		/*---------------------- Initialize SceneInfo ----------------------------*/
 		if (!scene_info[i].initialize(scene[i],clinfo)) {

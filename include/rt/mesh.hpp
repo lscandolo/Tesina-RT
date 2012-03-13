@@ -17,6 +17,7 @@ struct Triangle
 	index_t v[3];
 };
 
+RT_ALIGN
 struct Vertex
 {
         cl_float3 position;
@@ -32,15 +33,16 @@ class Mesh
 public:
 	std::vector<Vertex> vertices;
 	std::vector<Triangle> triangles;
+	std::vector<vec3> slacks;
 
 public:
 	Mesh();
 
         /* Returns the number of triangles in the mesh */
-        uint32_t triangleCount() const;
+       size_t triangleCount() const;
 	
         /* Returns the number of vertices in the mesh */
-	uint32_t vertexCount() const;
+	   size_t vertexCount() const;
 
         /* Accessor for the vertex array */
         Vertex& vertex(vtx_id i) ;
@@ -64,7 +66,7 @@ public:
 	const Vertex* vertexArray() const; 
 
         /* Reorder mesh triangles accorging to order array */
-	void reorderTriangles(const std::vector<uint32_t> order); 
+	void reorderTriangles(const std::vector<uint32_t>& order); 
 
 };
 

@@ -15,7 +15,15 @@ struct rt_time_t {
 };
 
 #elif defined _WIN32
-  #error "TIMING NOT DEFINED FOR WINDOWS"
+#define NOMINMAX
+#include <Windows.h>
+
+struct rt_time_t {
+	void snap_time();
+	double msec_since_snap() const;
+	double nsec_since_snap() const;
+	__int64 tp;
+};
 #else
   #error "UNKNOWN PLATFORM"
 #endif

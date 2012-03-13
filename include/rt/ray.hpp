@@ -11,6 +11,7 @@
 #include <cl-gl/opencl-init.hpp>
 #include <rt/cl_aux.hpp>
 
+RT_ALIGN
 class ray_cl
 {
 public:
@@ -32,6 +33,7 @@ public:
         bool validT(float t) const; 
 };
 
+RT_ALIGN
 struct ray_plus_cl
 {
 public:
@@ -40,6 +42,7 @@ public:
 	cl_float   contribution;
 };
 
+RT_ALIGN
 class ray_hit_info_cl {
 
 	cl_bool hit;

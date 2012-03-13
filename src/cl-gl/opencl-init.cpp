@@ -240,7 +240,7 @@ int32_t execute_cl(const CLKernelInfo& clkernelinfo){
 		}
 	}
 
-	bool local_size_set = True;
+	bool local_size_set = true;
 
 	for (int8_t i = 0; i < clkernelinfo.work_dim; ++i)
 		local_size_set = local_size_set && (clkernelinfo.local_work_size[i] > 0);

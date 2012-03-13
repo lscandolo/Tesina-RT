@@ -35,21 +35,21 @@ BBox::merge(const BBox& b)
 void 
 BBox::add_slack(const vec3& sl)
 {
-	hi.x += sl[0];
-	hi.y += sl[1];
-	hi.z += sl[2];
+	hi.s[0] += sl[0];
+	hi.s[1] += sl[1];
+	hi.s[2] += sl[2];
 
-	lo.x -= sl[0];
-	lo.y -= sl[1];
-	lo.z -= sl[2];
+	lo.s[0] -= sl[0];
+	lo.s[1] -= sl[1];
+	lo.s[2] -= sl[2];
 }
 
 uint8_t 
 BBox::largestAxis() const
 {
-	float dx = hi.x - lo.x;
-	float dy = hi.y - lo.y;
-	float dz = hi.z - lo.z;
+	float dx = hi.s[0] - lo.s[0];
+	float dy = hi.s[1] - lo.s[1];
+	float dz = hi.s[2] - lo.s[2];
 	if (dx > dy && dx > dz)
 		return 0;
 	else if (dy > dz)
@@ -92,7 +92,6 @@ BVHNode::sort(const std::vector<BBox>& bboxes,
 		m_leaf = true;
 		return;
 	}
-
 	/*------------------------ Choose split axis  ----------------------*/
 	m_split_axis = m_bbox.largestAxis();
 
@@ -113,8 +112,8 @@ BVHNode::sort(const std::vector<BBox>& bboxes,
 	BVHNode lnode,rnode;
 
 	nodes.resize(nodes.size()+2);
-	m_l_child = nodes.size()-2;
-	m_r_child = nodes.size()-1;
+	m_l_child = uint32_t(nodes.size()-2);
+	m_r_child = uint32_t(nodes.size()-1);
 	
 	/*---------------------- Left node creation -------------------*/
 	lnode.setBounds(m_start_index, split_location);
@@ -137,7 +136,7 @@ BVH::construct(Mesh& m_mesh, vec3 slack)
 {
 
 	/*------------------- Initialize members ----------------------------------*/
-	uint32_t tris = m_mesh.triangleCount();
+    size_t tris = m_mesh.triangleCount();
 	m_ordered_triangles.resize(tris);
 	for (uint32_t i = 0 ; i  < tris ; ++i)
 		m_ordered_triangles[i] = i;
@@ -151,14 +150,14 @@ BVH::construct(Mesh& m_mesh, vec3 slack)
 		bboxes[i].set(m_mesh.vertex(t.v[0]),
 			      m_mesh.vertex(t.v[1]),
 			      m_mesh.vertex(t.v[2]));
-		bboxes[i].add_slack(slack);
+		bboxes[i].add_slack(m_mesh.slacks[i]);
 	}
 
 	/*------------------------ Initialize root and sort it ----------------------*/
 	// m_nodes.reserve(2*m_mesh.triangleCount());
 	m_nodes.resize(1);
 	BVHNode root;
-	root.setBounds(0, m_mesh.triangleCount());
+	root.setBounds(0, uint32_t(m_mesh.triangleCount()));
 	root.sort(bboxes, m_ordered_triangles, m_nodes, 0);
 	m_nodes[0] = root;
 
@@ -174,10 +173,20 @@ bool
 BVH::construct_and_map(Mesh& m_mesh, std::vector<cl_int>& map, vec3 slack)
 {
 	/*------------------- Initialize members ----------------------------------*/
-	uint32_t tris = m_mesh.triangleCount();
+	size_t tris = m_mesh.triangleCount();
 	m_ordered_triangles.resize(tris);
 	for (uint32_t i = 0 ; i  < tris ; ++i)
 		m_ordered_triangles[i] = i;
+
+	if (tris == 0) {
+		m_nodes.resize(1);
+		BVHNode root;
+		root.m_leaf = true;
+		root.m_start_index = 0;
+		root.m_end_index = 0;
+		m_nodes[0] = root;
+		return true;
+	}
 
 
 	/*------------------------ Initialize bboxes ------------------------------*/
@@ -188,14 +197,15 @@ BVH::construct_and_map(Mesh& m_mesh, std::vector<cl_int>& map, vec3 slack)
 		bboxes[i].set(m_mesh.vertex(t.v[0]),
 			      m_mesh.vertex(t.v[1]),
 			      m_mesh.vertex(t.v[2]));
-		bboxes[i].add_slack(slack);
+		bboxes[i].add_slack(m_mesh.slacks[i]);
+		// bboxes[i].add_slack(slack);
 	}
 
 	/*------------------------ Initialize root and sort it ----------------------*/
 	// m_nodes.reserve(2*m_mesh.triangleCount());
 	m_nodes.resize(1);
 	BVHNode root;
-	root.setBounds(0, m_mesh.triangleCount());
+	root.setBounds(0, uint32_t(m_mesh.triangleCount()));
 	root.sort(bboxes, m_ordered_triangles, m_nodes, 0);
 	m_nodes[0] = root;
 
@@ -282,7 +292,7 @@ BVHNode::chooseSplitLocationSAH(const std::vector<BBox>& bboxes,
 	for (uint32_t i = m_start_index ; i < m_end_index ; ++i) {
 		tri_id t = ordered_triangles[i];
 		float  c = bboxes[t].centroid()[axis];
-		uint32_t slot = bucket_count * ((c - outer_bbox_min) / outer_bbox_length);
+		uint32_t slot = uint32_t(bucket_count * ((c - outer_bbox_min) / outer_bbox_length));
 		slot = std::min(slot, bucket_count-1);
 		buckets[slot].prims++;
 		buckets[slot].bbox.merge(bboxes[t]);

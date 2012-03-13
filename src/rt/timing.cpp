@@ -53,7 +53,30 @@ double nsec_diff(const rt_time_t& begin, const rt_time_t& end){
 
 
 #elif defined _WIN32
-  #error "TIMING NOT DEFINED FOR WINDOWS"
+void rt_time_t::snap_time(){
+ 	LARGE_INTEGER li;
+	QueryPerformanceCounter(&li);
+	tp = li.QuadPart;
+}
+
+double rt_time_t::msec_since_snap() const {
+	LARGE_INTEGER tli,fli;
+	QueryPerformanceCounter(&tli);
+	QueryPerformanceFrequency(&fli);
+	double freq = double(fli.QuadPart) / 1e3;
+
+	return (double)(tli.QuadPart - tp) / freq;
+}
+
+double rt_time_t::nsec_since_snap() const {
+	LARGE_INTEGER tli,fli;
+	QueryPerformanceCounter(&tli);
+	QueryPerformanceFrequency(&fli);
+	double freq = double(fli.QuadPart) / 1e9;
+
+	return (double)(tli.QuadPart - tp) / freq;
+}
+
 #else
   #error "UNKNOWN PLATFORM"
 #endif

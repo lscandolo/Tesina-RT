@@ -1,6 +1,7 @@
 #ifndef RT_MATH_HPP
 #define RT_MATH_HPP
 
+#define _USE_MATH_DEFINES
 #include <math.h>
 #include <algorithm>
 

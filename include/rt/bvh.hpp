@@ -25,6 +25,7 @@ struct BBox {
 	cl_float3 hi,lo;
 };
 
+RT_ALIGN
 class BVHNode {
 
 public:
@@ -36,18 +37,18 @@ public:
 	}
 
 	void sort(const std::vector<BBox>& bboxes,
-		  std::vector<tri_id>& ordered_triangles,
-		  std::vector<BVHNode>& nodes,
-		  uint32_t node_index);
+		std::vector<tri_id>& ordered_triangles,
+		std::vector<BVHNode>& nodes,
+		uint32_t node_index);
 
-private:
+//!!private:
 
 	BBox m_bbox;
-	uint32_t m_l_child, m_r_child;
-	uint32_t m_parent;
-	uint32_t m_start_index, m_end_index;
-	int8_t m_split_axis;
-	int8_t m_leaf; /* Leaf is not bool because of the inability of OpenCL to 
+	cl_uint m_l_child, m_r_child;
+	cl_uint m_parent;
+	cl_uint m_start_index, m_end_index;
+	cl_char m_split_axis;
+	cl_char m_leaf; /* Leaf is not bool because of the inability of OpenCL to 
 			   handle byte aligned structs (at least my work implementation)*/
 
 	BBox     computeBBox(const std::vector<BBox>& bboxes, 
@@ -68,16 +69,16 @@ public:
 	bool construct(Mesh& m_mesh, vec3 slack = vec3_zero);
 	bool construct_and_map(Mesh& m_mesh, std::vector<cl_int>& map, vec3 slack = vec3_zero);
 
-        BVHNode* nodeArray() 
+	BVHNode* nodeArray()
 		{return &(m_nodes[0]);}
 
-	uint32_t nodeArraySize()
+	size_t nodeArraySize()
 		{return m_nodes.size();}
 
 	const tri_id* orderedTrianglesArray()
 		{return &(m_ordered_triangles[0]);}
 
-	uint32_t orderedTrianglesArraySize()
+	size_t orderedTrianglesArraySize()
 		{return m_ordered_triangles.size();}
 
 	static const uint32_t MIN_PRIMS_PER_NODE = 4;
@@ -85,7 +86,7 @@ public:
 
 // private:
 
-        std::vector<BVHNode> m_nodes;
+    std::vector<BVHNode> m_nodes;
 	std::vector<tri_id> m_ordered_triangles;
 };
 

@@ -5,13 +5,14 @@ color_cl::operator[](int32_t i) const
 {
 	switch (i) {
 	case 0:
-		return rgb.x;
+		return rgb.s[0];
 	case 1:
-		return rgb.y;
+		return rgb.s[1];
 	case 2:
-		return rgb.z;
+		return rgb.s[2];
 	default:
 		ASSERT(false);
+        return 0.f;		
 	}
 
 }
@@ -21,13 +22,14 @@ color_cl::operator[](int32_t i)
 {
 	switch (i) {
 	case 0:
-		return rgb.x;
+		return rgb.s[0];
 	case 1:
-		return rgb.y;
+		return rgb.s[1];
 	case 2:
-		return rgb.z;
+		return rgb.s[2];
 	default:
 		ASSERT(false);
+        return rgb.s[0];		
 	}
 
 }

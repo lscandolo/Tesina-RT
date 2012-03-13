@@ -9,11 +9,11 @@ Mesh::Mesh()
 {}
 
 /* Returns the number of triangles in the mesh */
-uint32_t Mesh::triangleCount() const 
+size_t Mesh::triangleCount() const 
 {return triangles.size(); }
 
 /* Returns the number of vertices in the mesh */
-uint32_t Mesh::vertexCount() const 
+size_t Mesh::vertexCount() const 
 {return vertices.size(); }
 	
 /* Accessor for the vertex array */
@@ -45,7 +45,7 @@ const Vertex* Mesh::vertexArray() const
 {return &vertices[0];}
 
 /* Reorder mesh triangles accorging to order array */
-void Mesh::reorderTriangles(const std::vector<uint32_t> order){
+void Mesh::reorderTriangles(const std::vector<uint32_t>& order){
 	ASSERT(triangles.size() == order.size());
 	std::vector<Triangle> old_triangles = triangles;
 	for (uint32_t i = 0; i < triangles.size(); ++i) {

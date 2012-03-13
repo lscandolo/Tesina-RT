@@ -2,11 +2,12 @@
 #define OPENGL_INIT_HPP
 
 #ifdef _WIN32
+#define NOMINMAX
   #include <Windows.h>
+  #include <GL/glew.h>
   #include <gl/GL.h>
   #include <gl/GLU.h>
   #include <GL/glut.h>
-  #include <GL/glew.h>
 #elif defined __linux__
   #include <GL/glew.h>
   #include <GL/gl.h>
@@ -16,8 +17,8 @@
   #error "UNKNOWN PLATFORM"
 #endif
 
-#include <stdint.h>
 #include <string>
+#include <stdint.h>
 
 struct GLInfo
 {

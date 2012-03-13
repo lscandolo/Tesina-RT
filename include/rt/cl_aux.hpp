@@ -4,6 +4,12 @@
 #include <CL/opencl.h>
 #include <rt/vector.hpp>
 
+#ifdef _WIN32
+  #define RT_ALIGN _declspec(align(16))
+#else
+  #define RT_ALIGN
+#endif
+
 cl_float3 vec3_to_float3(const vec3& v);
 
 cl_float4 vec4_to_float4(const vec4& v);
