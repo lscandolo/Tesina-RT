@@ -2,6 +2,9 @@ import os
 
 extra_path = []
 
+VariantDir('build/rt', 'src/rt', duplicate=0)
+VariantDir('build/cl-gl', 'src/cl-gl', duplicate=0)
+
 env = Environment(ENV = os.environ)
 env.AppendENVPath('PATH', extra_path)
 
@@ -21,48 +24,48 @@ env['LIBPATH'] = libpath
 
 
 rt_primitives_lib = env.StaticLibrary('lib/rt-primitives' ,
-                                      ['src/rt/vector.cpp',
-                                       'src/rt/matrix.cpp',
-                                       'src/rt/math.cpp',
-                                       'src/rt/geom.cpp',
-                                       'src/rt/cl_aux.cpp',
-                                       'src/rt/timing.cpp',
-                                       'src/rt/ray.cpp',
-                                       'src/rt/primary-ray-generator.cpp',
-                                       'src/rt/secondary-ray-generator.cpp',
-                                       'src/rt/mesh.cpp',
-                                       'src/rt/material.cpp',
-                                       'src/rt/obj-loader.cpp',
-                                       'src/rt/camera.cpp',
-                                       'src/rt/obj-loader.cpp',
-                                       'src/rt/bvh.cpp',
-                                       'src/rt/scene.cpp',
-                                       'src/rt/cubemap.cpp',
-                                       'src/rt/framebuffer.cpp',
-                                       'src/rt/ray-shader.cpp',
-                                       'src/rt/tracer.cpp'
+                                      ['build/rt/vector.cpp',
+                                       'build/rt/matrix.cpp',
+                                       'build/rt/math.cpp',
+                                       'build/rt/geom.cpp',
+                                       'build/rt/cl_aux.cpp',
+                                       'build/rt/timing.cpp',
+                                       'build/rt/ray.cpp',
+                                       'build/rt/primary-ray-generator.cpp',
+                                       'build/rt/secondary-ray-generator.cpp',
+                                       'build/rt/mesh.cpp',
+                                       'build/rt/material.cpp',
+                                       'build/rt/obj-loader.cpp',
+                                       'build/rt/camera.cpp',
+                                       'build/rt/obj-loader.cpp',
+                                       'build/rt/bvh.cpp',
+                                       'build/rt/scene.cpp',
+                                       'build/rt/cubemap.cpp',
+                                       'build/rt/framebuffer.cpp',
+                                       'build/rt/ray-shader.cpp',
+                                       'build/rt/tracer.cpp'
                                        ])
 
 clgl_lib = env.StaticLibrary('lib/clgl' ,
-                             Glob('src/cl-gl/open[cg]l-init.cpp')
+                             Glob('build/cl-gl/open[cg]l-init.cpp')
                              )
 
 clgl_test = env.Program('bin/cl-gl-test' ,
-                        'src/cl-gl/clgl-test.cpp' ,
+                        'build/cl-gl/clgl-test.cpp' ,
                         LIBS = base_libs + clgl_lib
                         )   
 
 rt = env.Program('bin/rt' ,
-                 'src/rt/rt.cpp' ,
+                 'build/rt/rt.cpp' ,
                  LIBS= base_libs + clgl_lib + rt_primitives_lib
                  )   
 
 rt_seq = env.Program('bin/rt-seq' ,
-                     'src/rt/rt-seq.cpp' ,
+                     'build/rt/rt-seq.cpp' ,
                      LIBS= base_libs + clgl_lib + rt_primitives_lib
                      )   
 
 rt_wave = env.Program('bin/rt-wave' ,
-                      'src/rt/rt-wave.cpp' ,
+                      'build/rt/rt-wave.cpp' ,
                       LIBS= base_libs + clgl_lib + rt_primitives_lib
                       )   
