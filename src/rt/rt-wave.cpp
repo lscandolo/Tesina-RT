@@ -59,20 +59,20 @@ void gl_key(unsigned char key, int x, int y)
 {
 	float delta = 2.f;
 
-	sample_cl samples1[] = {{ 0.f , 0.f, 1.f}};
-	sample_cl samples4[] = {{ 0.25f , 0.25f, 0.25f},
-				{ 0.25f ,-0.25f, 0.25f},
-				{-0.25f , 0.25f, 0.25f},
-				{-0.25f ,-0.25f, 0.25f}};
-	sample_cl samples9[] = {{-0.33f , 0.33f, 0.11111f},
-				{ 0.f   , 0.33f, 0.11111f},
-				{ 0.33f , 0.33f, 0.11111f},
-				{-0.33f , 0.f, 0.11111f},
-				{ 0.f   , 0.f, 0.11111f},
-				{ 0.33f , 0.f, 0.11111f},
-				{-0.33f , 0.33f, 0.11111f},
-				{ 0.f   , 0.33f, 0.11111f},
-				{ 0.33f , 0.33f, 0.11111f}};
+	const sample_cl samples1[] = {{ 0.f , 0.f, 1.f}};
+	const sample_cl samples4[] = {{ 0.25f , 0.25f, 0.25f},
+				      { 0.25f ,-0.25f, 0.25f},
+				      {-0.25f , 0.25f, 0.25f},
+				      {-0.25f ,-0.25f, 0.25f}};
+	const sample_cl samples9[] = {{-0.33f , 0.33f, 0.11111f},
+				      { 0.f   , 0.33f, 0.11111f},
+				      { 0.33f , 0.33f, 0.11111f},
+				      {-0.33f , 0.f, 0.11111f},
+				      { 0.f   , 0.f, 0.11111f},
+				      { 0.33f , 0.f, 0.11111f},
+				      {-0.33f , 0.33f, 0.11111f},
+				      { 0.f   , 0.33f, 0.11111f},
+				      { 0.33f , 0.33f, 0.11111f}};
 	switch (key){
 	case 'a':
 		camera.panRight(-delta);

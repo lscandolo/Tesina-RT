@@ -1,5 +1,14 @@
+#define CINT_MAX 1e6
+
 typedef float3 Color;
-typedef int    ColorInt;
+/* typedef int    ColorInt; */
+typedef struct {
+	unsigned int r;
+	unsigned int g;
+	unsigned int b;
+
+}    ColorInt;
+
 
 typedef struct {
 
@@ -52,16 +61,26 @@ typedef struct
 
 } Material;
 
-int __attribute__((always_inline))
-to_int_color(float3 f_rgb)
+/* int __attribute__((always_inline)) */
+/* to_int_color(float3 f_rgb) */
+/* { */
+/* 	int rgb = 0; */
+/* 	rgb += floor(f_rgb.s0 * 255); */
+/* 	rgb <<= 8; */
+/* 	rgb += floor(f_rgb.s1 * 255); */
+/* 	rgb <<= 8; */
+/* 	rgb += floor(f_rgb.s2 * 255); */
+/* 	return rgb; */
+/* } */
+
+ColorInt __attribute__((always_inline))
+to_color_int(float3 f_rgb)
 {
-	int rgb = 0;
-	rgb += f_rgb.s0 * 255;
-	rgb <<= 8;
-	rgb += f_rgb.s1 * 255;
-	rgb <<= 8;
-	rgb += f_rgb.s2 * 255;
-	return rgb;
+	ColorInt c;
+	c.r = floor(f_rgb.s0 * CINT_MAX);
+	c.g = floor(f_rgb.s1 * CINT_MAX);
+	c.b = floor(f_rgb.s2 * CINT_MAX);
+	return c;
 }
 
 bool __attribute__((always_inline))
@@ -153,7 +172,7 @@ shade(global ColorInt* image,
 		float3 y_proy = d *  inv_d.y;
 		float3 z_proy = d *  inv_d.z;
 
-		float4 final_val = (float4)(1.f,0.f,0.f,1.f);
+		float4 final_val = (float4)(0.f,0.f,0.f,1.f);
 
 		float2 cm_coords;
 
@@ -200,11 +219,20 @@ shade(global ColorInt* image,
 	const float3 minrgb = (float3)(0.f,0.f,0.f);
 	const float3 maxrgb = (float3)(1.f,1.f,1.f);
 
-	float3 f_rgb = ray_plus.contribution * (clamp(valrgb,minrgb,maxrgb));
+	float3 f_rgb = clamp(ray_plus.contribution * valrgb,minrgb,maxrgb);
 
-	int rgb = to_int_color(f_rgb);
+	/* int rgb = to_int_color(f_rgb); */
+	ColorInt rgb = to_color_int(f_rgb);
 
-	global int* pixel_ptr = (image + ray_plus.pixel);
-	atomic_add(pixel_ptr, rgb);
+	/* global int* pixel_ptr = (image + ray_plus.pixel); */
+	/* atomic_add(pixel_ptr, rgb); */
 
+	global unsigned int* r_ptr = &(image[ray_plus.pixel].r);
+	global unsigned int* g_ptr = &(image[ray_plus.pixel].g);
+	global unsigned int* b_ptr = &(image[ray_plus.pixel].b);
+
+	atomic_add(r_ptr, rgb.r);
+	atomic_add(g_ptr, rgb.g);
+	atomic_add(b_ptr, rgb.b);
+	
 }

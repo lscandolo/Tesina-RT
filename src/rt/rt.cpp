@@ -50,6 +50,12 @@ void gl_key(unsigned char key, int x, int y)
 {
 	float delta = 2.f;
 
+	const sample_cl samples1[] = {{ 0.f , 0.f, 1.f}};
+	const sample_cl samples4[] = {{ 0.25f , 0.25f, 0.25f},
+				      { 0.25f ,-0.25f, 0.25f},
+				      {-0.25f , 0.25f, 0.25f},
+				      {-0.25f ,-0.25f, 0.25f}};
+
 	switch (key){
 	case 'a':
 		camera.panRight(-delta);
@@ -62,6 +68,18 @@ void gl_key(unsigned char key, int x, int y)
 		break;
 	case 'd':
 		camera.panRight(delta);
+		break;
+	case '1': /* Set 1 sample per pixel */
+		if (!prim_ray_gen.set_spp(1,samples1)){
+			std::cerr << "Error seting spp" << std::endl;
+			exit(1);
+		}
+		break;
+	case '4': /* Set 4 samples per pixel */
+		if (!prim_ray_gen.set_spp(4,samples4)){
+			std::cerr << "Error seting spp" << std::endl;
+			exit(1);
+		}
 		break;
 	case 'q':
 		std::cout << std::endl << "Exiting..." << std::endl;
@@ -411,16 +429,6 @@ int main (int argc, char** argv)
 		exit(1);
 	}
 	std::cout << "Initialized primary ray generator succesfully." << std::endl;
-
-	/* Set samples per pixel */
-	sample_cl samples[] = {{ 0.25f , 0.25f, 0.25f},
-			       { 0.25f ,-0.25f, 0.25f},
-			       {-0.25f , 0.25f, 0.25f},
-			       {-0.25f ,-0.25f, 0.25f}};
-	if (!prim_ray_gen.set_spp(4,samples)){
-		std::cerr << "Error seting spp" << std::endl;
-		exit(1);
-	}
 		
 
 	/* ------------------ Initialize Secondary Ray Generator ----------------------*/

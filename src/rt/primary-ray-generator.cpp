@@ -8,7 +8,7 @@ bool
 PrimaryRayGenerator::initialize(CLInfo& clinfo)
 {
 
-	if (init_cl_kernel(&clinfo,"src/kernel/primary-ray-generator-spp.cl", 
+	if (init_cl_kernel(&clinfo,"src/kernel/primary-ray-generator.cl", 
 			   "generate_primary_rays", &ray_clk))
 		return false;
 
@@ -113,7 +113,7 @@ PrimaryRayGenerator::set_rays(const Camera& cam, RayBundle& bundle, uint32_t siz
 }
 
 bool 
-PrimaryRayGenerator::set_spp(int _spp, sample_cl* samples)
+PrimaryRayGenerator::set_spp(int _spp, sample_cl const* samples)
 {
 	cl_int err;
 	if (_spp < 1)

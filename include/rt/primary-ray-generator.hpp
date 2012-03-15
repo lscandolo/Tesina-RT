@@ -18,7 +18,7 @@ class PrimaryRayGenerator{
 public:
 	bool initialize(CLInfo& clinfo);
 
-	bool set_spp(int _spp, sample_cl* samples);
+	bool set_spp(int _spp, sample_cl const* samples);
 	int  get_spp() const;
 	const cl_mem& get_samples() const;
 	cl_mem& get_samples();

@@ -21,6 +21,16 @@ struct color_cl {
 
 };
 
+// /* Help color struct for synchronization purposes */
+// RT_ALIGN
+// struct color_int_cl {
+
+// 	float operator[](int32_t i) const;
+// 	float& operator[](int32_t i);
+
+// 	cl_int rgb;
+// }
+
 /* Help color struct for synchronization purposes */
 RT_ALIGN
 struct color_int_cl {
@@ -28,7 +38,10 @@ struct color_int_cl {
 	float operator[](int32_t i) const;
 	float& operator[](int32_t i);
 
-	cl_int rgb;
+	cl_uint r;
+	cl_uint g;
+	cl_uint b;
+
 };
 
 /* Helpful color definitions */
