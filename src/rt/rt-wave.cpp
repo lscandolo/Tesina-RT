@@ -59,6 +59,20 @@ void gl_key(unsigned char key, int x, int y)
 {
 	float delta = 2.f;
 
+	sample_cl samples1[] = {{ 0.f , 0.f, 1.f}};
+	sample_cl samples4[] = {{ 0.25f , 0.25f, 0.25f},
+				{ 0.25f ,-0.25f, 0.25f},
+				{-0.25f , 0.25f, 0.25f},
+				{-0.25f ,-0.25f, 0.25f}};
+	sample_cl samples9[] = {{-0.33f , 0.33f, 0.11111f},
+				{ 0.f   , 0.33f, 0.11111f},
+				{ 0.33f , 0.33f, 0.11111f},
+				{-0.33f , 0.f, 0.11111f},
+				{ 0.f   , 0.f, 0.11111f},
+				{ 0.33f , 0.f, 0.11111f},
+				{-0.33f , 0.33f, 0.11111f},
+				{ 0.f   , 0.33f, 0.11111f},
+				{ 0.33f , 0.33f, 0.11111f}};
 	switch (key){
 	case 'a':
 		camera.panRight(-delta);
@@ -81,6 +95,24 @@ void gl_key(unsigned char key, int x, int y)
 		break;
 	case 'c':
 		gpu_mangling = false;
+		break;
+	case '1': /* Set 1 sample per pixel */
+		if (!prim_ray_gen.set_spp(1,samples1)){
+			std::cerr << "Error seting spp" << std::endl;
+			exit(1);
+		}
+		break;
+	case '4': /* Set 4 samples per pixel */
+		if (!prim_ray_gen.set_spp(4,samples4)){
+			std::cerr << "Error seting spp" << std::endl;
+			exit(1);
+		}
+		break;
+	case '9': /* Set 9 samples per pixel */
+		if (!prim_ray_gen.set_spp(9,samples9)){
+			std::cerr << "Error seting spp" << std::endl;
+			exit(1);
+		}
 		break;
 	}
 }
@@ -170,14 +202,15 @@ void gl_loop()
 	ambient[0] = ambient[1] = ambient[2] = 0.1f;
 	scene_info.set_ambient_light(ambient);
 
-	for (int32_t offset = 0; offset < pixel_count; offset+= tile_size) {
+	int32_t sample_count = pixel_count * prim_ray_gen.get_spp();
+	for (int32_t offset = 0; offset < sample_count; offset+= tile_size) {
 
 		
 		RayBundle* ray_in =  &ray_bundle_1;
 		RayBundle* ray_out = &ray_bundle_2;
 
-		if (pixel_count - offset < tile_size)
-			tile_size = pixel_count - offset;
+		if (sample_count - offset < tile_size)
+			tile_size = sample_count - offset;
 
 		if (!prim_ray_gen.set_rays(camera, ray_bundle_1, window_size,
 					   tile_size, offset)) {

@@ -60,6 +60,11 @@ void gl_key(unsigned char key, int x, int y)
 {
 	float delta = 2.f;
 
+	sample_cl samples1[] = {{ 0.f , 0.f, 1.f}};
+	sample_cl samples4[] = {{ 0.25f , 0.25f, 0.25f},
+				{ 0.25f ,-0.25f, 0.25f},
+				{-0.25f , 0.25f, 0.25f},
+				{-0.25f ,-0.25f, 0.25f}};
 	switch (key){
 	case 'a':
 		camera.panRight(-delta);
@@ -126,6 +131,18 @@ void gl_key(unsigned char key, int x, int y)
 		camera.set(makeVector(0,120,0), makeVector(0,-1,0.01), makeVector(0,1,0), M_PI/4.,
 			   window_size[0] / (float)window_size[1]);
 		break;
+	case 'r': /* Set 1 sample per pixel */
+		if (!prim_ray_gen.set_spp(1,samples1)){
+			std::cerr << "Error seting spp" << std::endl;
+			exit(1);
+		}
+		break;
+	case 't': /* Set 4 samples per pixel */
+		if (!prim_ray_gen.set_spp(4,samples4)){
+			std::cerr << "Error seting spp" << std::endl;
+			exit(1);
+		}
+		break;
 	}
 }
 
@@ -170,14 +187,15 @@ void gl_loop()
 	ambient[0] = ambient[1] = ambient[2] = 0.1f;
 	si.set_ambient_light(ambient);
 
-	for (int32_t offset = 0; offset < pixel_count; offset+= tile_size) {
+	int32_t sample_count = pixel_count * prim_ray_gen.get_spp();
+	for (int32_t offset = 0; offset < sample_count; offset+= tile_size) {
 
 		
 		RayBundle* ray_in =  &ray_bundle_1;
 		RayBundle* ray_out = &ray_bundle_2;
 
-		if (pixel_count - offset < tile_size)
-			tile_size = pixel_count - offset;
+		if (sample_count - offset < tile_size)
+			tile_size = sample_count - offset;
 
 		if (!prim_ray_gen.set_rays(camera, ray_bundle_1, window_size,
 					   tile_size, offset)) {

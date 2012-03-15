@@ -17,44 +17,21 @@ typedef struct
 	float contribution;
 } RayPlus;
 
-int get_morton_x(int val)
+typedef struct
 {
-	int x = 0;
-	int val_bit = 1;
-
-	for (int i = 0; i < 12; ++i) {
-
-		int v = val & val_bit;
-		v = v?1:0;
-		x |= (v << i);
-		val_bit <<= 2;
-	}
-	return x;
-}
-
-int get_morton_y(int val)
-{
-	int y = 0;
-	int val_bit = 2;
-
-	for (int i = 0; i < 12; ++i) {
-		int v = val & val_bit;
-		v = v?1:0;
-		y |= (v << i);
-		val_bit <<= 2;
-	}
-	return y;
-}
+	float ox;
+	float oy;
+	float contribution;
+} Sample;
 
 kernel void
 _generate_primary_rays(global RayPlus* ray_buffer,
-		      read_only float4 pos,
-		      read_only float4 dir,
-		      read_only float4 right,
-		      read_only float4 up,
-		      read_only int width,
-		      read_only int height)
-
+		       read_only float4 pos,
+		       read_only float4 dir,
+		       read_only float4 right,
+		       read_only float4 up,
+		       read_only int width,
+		       read_only int height)
 {
 	int x = get_global_id(0);
 	int offset_x = get_global_offset(0);
@@ -85,17 +62,23 @@ _generate_primary_rays(global RayPlus* ray_buffer,
 
 kernel void
 generate_primary_rays(global RayPlus* ray_buffer,
-			    read_only float4 pos,
-			    read_only float4 dir,
-			    read_only float4 right,
-			    read_only float4 up,
-			    read_only int width,
-			    read_only int height)
+		      read_only float4 pos,
+		      read_only float4 dir,
+		      read_only float4 right,
+		      read_only float4 up,
+		      read_only int width,
+		      read_only int height,
+		      read_only int spp,
+		      global    Sample* samples)
 
 {
-	int i = get_global_id(0);
-	int offset_i = get_global_offset(0);
-  	int index = (i-offset_i);
+	int gid = get_global_id(0);
+	int offset = get_global_offset(0);
+  	int index = (gid-offset);
+
+	int i = gid / spp;
+	Sample sample = samples[gid%spp];
+
 
   	global Ray* ray = &(ray_buffer[index].ray);
 
@@ -136,18 +119,9 @@ generate_primary_rays(global RayPlus* ray_buffer,
 		y = start_y + top_i % slab_size;
 	}
 
-	float xPosNDC = (0.5f + (float)x) / (float)width;
-	float yPosNDC = (0.5f + (float)y) / (float)height;
+	float xPosNDC = (0.5f + (float)x + sample.ox) / (float)width;
+	float yPosNDC = (0.5f + (float)y + sample.oy) / (float)height;
 	
-	/* float xPosOffset = (i%2)*2 - 1; */
-	/* float yPosOffset = (i%4)<2? 1:-1; */
-	/* xPosOffset *= 0.25; */
-	/* yPosOffset *= 0.25; */
-	/* xPosNDC += xPosOffset / (float)width; */
-	/* yPosNDC += xPosOffset / (float)height; */
-	/* x /= 2; */
-	/* y /= 2; */
-
 	ray->ori = pos.xyz;
 	ray->dir = (dir + right * (xPosNDC * 2.f - 1.f) + up * (yPosNDC * 2.f - 1.f)).xyz;
 
@@ -157,5 +131,5 @@ generate_primary_rays(global RayPlus* ray_buffer,
 	ray->tMax = 1e37f;
 
 	ray_buffer[index].pixel = width * y + x;
-	ray_buffer[index].contribution = 1.f;
+	ray_buffer[index].contribution = sample.contribution;
 }

@@ -106,14 +106,15 @@ void gl_loop()
 	ambient[0] = ambient[1] = ambient[2] = 0.1f;
 	scene_info.set_ambient_light(ambient);
 
-	for (int32_t offset = 0; offset < pixel_count; offset+= tile_size) {
+	int32_t sample_count = pixel_count * prim_ray_gen.get_spp();
+	for (int32_t offset = 0; offset < sample_count; offset+= tile_size) {
 
 		
 		RayBundle* ray_in =  &ray_bundle_1;
 		RayBundle* ray_out = &ray_bundle_2;
 
-		if (pixel_count - offset < tile_size)
-			tile_size = pixel_count - offset;
+		if (sample_count - offset < tile_size)
+			tile_size = sample_count - offset;
 
 		if (!prim_ray_gen.set_rays(camera, ray_bundle_1, window_size,
 					   tile_size, offset)) {
@@ -210,8 +211,8 @@ void gl_loop()
 		  << "\t"
 		  << total_ray_count
 		  << " rays casted "
-		  << "\t(" << pixel_count << " primary, " 
-		  << total_ray_count-pixel_count << " secondary)"
+		  << "\t(" << sample_count << " primary, " 
+		  << total_ray_count-sample_count << " secondary)"
 		  << "               \r" ;
 	std::flush(std::cout);
 	rt_time.snap_time();
@@ -342,7 +343,6 @@ int main (int argc, char** argv)
 	camera.set(makeVector(0,3,-30), makeVector(0,0,1), makeVector(0,1,0), M_PI/4.,
 		   window_size[0] / (float)window_size[1]);
 
-
 	/*---------------------------- Set tile size ------------------------------*/
 	best_tile_size = clinfo.max_compute_units * clinfo.max_work_item_sizes[0];
 	best_tile_size *= 64;
@@ -412,6 +412,16 @@ int main (int argc, char** argv)
 	}
 	std::cout << "Initialized primary ray generator succesfully." << std::endl;
 
+	/* Set samples per pixel */
+	sample_cl samples[] = {{ 0.25f , 0.25f, 0.25f},
+			       { 0.25f ,-0.25f, 0.25f},
+			       {-0.25f , 0.25f, 0.25f},
+			       {-0.25f ,-0.25f, 0.25f}};
+	if (!prim_ray_gen.set_spp(4,samples)){
+		std::cerr << "Error seting spp" << std::endl;
+		exit(1);
+	}
+		
 
 	/* ------------------ Initialize Secondary Ray Generator ----------------------*/
 	if (!sec_ray_gen.initialize(clinfo)) {

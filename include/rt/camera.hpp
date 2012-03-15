@@ -19,7 +19,7 @@ public:
 	float aspect;
 
 /*Constructors*/
-	Camera(){};
+	Camera();
 
 	Camera(const vec3& Position, /*The position of the camera*/
 	       const vec3& Direction, /*The viewing direction of the camera*/ 
@@ -51,6 +51,7 @@ public:
 	void panForward(float dp);
 	void panRight(float dp);
 	void panUp(float dp);
+
 
 /* Direction of a ray passing through a point on the image plane */
 /*Sample location in NDC space. NDC space ranges from 0-1 on 

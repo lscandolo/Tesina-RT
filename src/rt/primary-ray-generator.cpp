@@ -8,13 +8,23 @@ bool
 PrimaryRayGenerator::initialize(CLInfo& clinfo)
 {
 
-	if (init_cl_kernel(&clinfo,"src/kernel/primary-ray-generator.cl", 
+	if (init_cl_kernel(&clinfo,"src/kernel/primary-ray-generator-spp.cl", 
 			   "generate_primary_rays", &ray_clk))
 		return false;
 
 	ray_clk.work_dim = 1;
-	ray_clk.arg_count = 7;
+	ray_clk.arg_count = 9;
 	timing = false;
+	
+	spp = 1;
+	sample_cl single_sample = {0.f,0.f,1.f};
+	if (create_filled_cl_mem(clinfo, 
+				 CL_MEM_READ_ONLY,
+				 spp * sizeof(sample_cl),
+				 &single_sample,
+				 &samples_mem))
+		return false;
+	
 
 	return true;
 	
@@ -70,6 +80,16 @@ PrimaryRayGenerator::set_rays(const Camera& cam, RayBundle& bundle, uint32_t siz
 	if (error_cl(err, "clSetKernelArg 6"))
 		return false;
 
+	err = clSetKernelArg(ray_clk.kernel, 7, 
+			     sizeof(cl_int), &spp);
+	if (error_cl(err, "clSetKernelArg 7"))
+		return false;
+
+	err = clSetKernelArg(ray_clk.kernel, 8, 
+			     sizeof(cl_mem), &samples_mem);
+	if (error_cl(err, "clSetKernelArg 8"))
+		return false;
+
 
 	ray_clk.global_work_size[0] = ray_count;
 	ray_clk.global_work_offset[0] = offset;
@@ -91,6 +111,48 @@ PrimaryRayGenerator::set_rays(const Camera& cam, RayBundle& bundle, uint32_t siz
 
 	return true;
 }
+
+bool 
+PrimaryRayGenerator::set_spp(int _spp, sample_cl* samples)
+{
+	cl_int err;
+	if (_spp < 1)
+		return false;
+
+	spp = _spp;
+
+	err = clReleaseMemObject(samples_mem);
+	if (error_cl(err, "clReleaseMemObject"))
+		return false;
+
+	if (create_filled_cl_mem(*(ray_clk.clinfo), 
+				 CL_MEM_READ_ONLY,
+				 spp * sizeof(sample_cl),
+				 samples,
+				 &samples_mem))
+		return false;
+		
+	return true;
+}
+
+int
+PrimaryRayGenerator::get_spp() const
+{
+	return spp;
+}
+
+cl_mem&
+PrimaryRayGenerator::get_samples() 
+{
+	return samples_mem;
+}
+
+const cl_mem&
+PrimaryRayGenerator::get_samples() const
+{
+	return samples_mem;
+}
+
 
 void 
 PrimaryRayGenerator::enable_timing(bool b)

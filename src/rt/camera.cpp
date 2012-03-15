@@ -1,5 +1,9 @@
 #include <rt/camera.hpp>
 
+Camera::Camera()
+{
+}
+
 Camera::Camera(const vec3& Position, /*The position of the camera*/
 	       const vec3& Direction, /*The viewing direction of the camera*/ 
 	       const vec3& Up, /*Camera Up direction*/
@@ -172,14 +176,16 @@ void Camera::panUp(float dp)
 /*Sample location in NDC space. NDC space ranges from 0-1 on 
   each axis over the length of the screen with 0,0 at the bottom-left*/
 
-vec3 Camera::getRayDirection(const float& xPosNDC, 
+vec3
+Camera::getRayDirection(const float& xPosNDC, 
 			       const float& yPosNDC) const
 {
 	return dir + right * (xPosNDC * 2.0f - 1.0f) + 
 	             up    * (yPosNDC * 2.0f - 1.0f);
 }
 
-ray_cl Camera::getRay(const float& xPosNDC, 
+ray_cl
+Camera::getRay(const float& xPosNDC, 
 		    const float& yPosNDC) const
 {
 	vec3 offset = right * (xPosNDC * 2.0f - 1.0f) + 
