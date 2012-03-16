@@ -1,4 +1,4 @@
-#define CINT_MAX 1e6
+#define CINT_MAX 1e6f
 
 typedef struct 
 {

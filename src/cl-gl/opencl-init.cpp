@@ -187,7 +187,12 @@ init_cl_kernel(CLInfo* clinfo, const char* kernel_file,
 	if (error_cl(err, "clCreateProgramWithSource"))
 		return 1;
 
-	err = clBuildProgram(clkernelinfo->program,0,NULL,NULL,NULL,NULL);
+	err = clBuildProgram(clkernelinfo->program,
+		0,
+		NULL,
+		"-cl-single-precision-constant -cl-std=CL1.1", //options
+		NULL,
+		NULL);
 	if (error_cl(err, "clBuildProgram")){
 		char build_log[8196];
 		size_t bytes_returned;

@@ -26,7 +26,8 @@
 class Log
 {
 public:
-    ~Log()
+    Log(){enabled = false; silent = false;}	
+	~Log()
     {
         if (log.is_open())
             log.close();

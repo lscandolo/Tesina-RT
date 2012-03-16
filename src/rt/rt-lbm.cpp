@@ -101,6 +101,9 @@ void gl_key(unsigned char key, int x, int y)
 		exit(1);
 		break;
 	case 'l':
+		if (!rt_log.initialize("rt-lbm-log")){
+			std::cerr << "Error initializing log!" << std::endl;
+		}
 		loging_state = 1;
 		rt_log.enabled = true;
 		rt_log << "SPP: " << prim_ray_gen.get_spp() << std::endl;
@@ -180,6 +183,7 @@ void gl_loop()
 				window_size[0] / (float)window_size[1]);
 		} else if (loging_state == 9) {
 			rt_log.enabled = false;
+			rt_log.silent = true;
 			camera.set(makeVector(0,3,-30), makeVector(0,0,1), makeVector(0,1,0), M_PI/4.,
 				window_size[0] / (float)window_size[1]);
 			std::cout << "Done loging!"	<< std::endl;
@@ -404,9 +408,6 @@ int main (int argc, char** argv)
 	CLInfo clinfo;
 	GLInfo glinfo;
 
-	if (!rt_log.initialize("rt-lbm-log")){
-		std::cerr << "Error initializing log!" << std::endl;
-	}
 	rt_log.enabled = true;
 	rt_log.silent = false;
 

@@ -1,4 +1,4 @@
-#define CINT_MAX 1e6
+#define CINT_MAX 1e6f
 
 typedef float3 Color;
 /* typedef int    ColorInt; */
@@ -159,7 +159,7 @@ shade(global ColorInt* image,
 		/* u = info.uv.s0; */
 		/* v = info.uv.s1; */
 		/* w = 1.f - (u+v); */
-		/* if (u < 0.02 || v < 0.02 || w < 0.02) */
+		/* if (u < 0.02f || v < 0.02f || w < 0.02f) */
 		/* 	valrgb = (float3)(0.f,1.f,0.f); */
 
 	/* Miss branch: compute color from cubemap */
