@@ -7,7 +7,7 @@
 #ifdef _WIN32
   #define RT_ALIGN(x) _declspec(align(x))
 #else
-  #define RT_ALIGN
+  #define RT_ALIGN(x)
 #endif
 
 cl_float3 vec3_to_float3(const vec3& v);
