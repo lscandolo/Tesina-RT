@@ -5,7 +5,7 @@
 #include <rt/ray.hpp>
 #include <rt/camera.hpp>
 
-RT_ALIGN
+RT_ALIGN(4)
 struct sample_cl{
 
 	cl_float ox;

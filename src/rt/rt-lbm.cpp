@@ -5,7 +5,31 @@
 #include <cl-gl/opencl-init.hpp>
 #include <rt/rt.hpp>
 
+#define		GRID_SIZE_X	  100							// Width Of Our Water Height Map (NEW)
+#define		GRID_SIZE_Y	  100							// Width Of Our Water Height Map (NEW)
+#define		STEP_SIZE	  1							    // Width And Height Of Each Quad (NEW)
+#define		HEIGHT_RATIO  1.5//1.5							// Ratio That The Y Is Scaled According To The X And Z (NEW)
+
+//Fluid Module
+extern "C" {
+  void __declspec(dllimport) __stdcall LBM_initialize(int,int,double,double);
+  void __declspec(dllimport) __stdcall LBM_update();
+  double __declspec(dllimport) __stdcall LBM_getRho(int,int);
+  void __declspec(dllimport) __stdcall LBM_addEvent(int,int,int,int,double);
+  int __declspec(dllimport) __stdcall LBM_getWidth();
+  int __declspec(dllimport) __stdcall LBM_getHeight();
+}
+
 #define MAX_BOUNCE 5
+#define WAVE_HEIGHT 0.5
+
+void rainEvent();
+
+CLKernelInfo mangler_clk;
+Scene scene;
+
+bool gpu_mangling = false;
+
 
 cl_mem cl_tex_mem;
 
@@ -35,8 +59,10 @@ void gl_mouse(int x, int y)
 	float d_inc = delta * (window_size[1]*0.5f - y);/* y axis points downwards */
 	float d_yaw = delta * (x - window_size[0]*0.5f);
 
-	d_inc = std::min(std::max(d_inc, -0.1f), 0.1f);
-	d_yaw = std::min(std::max(d_yaw, -0.1f), 0.1f);
+	float max_motion = 0.05f;
+
+	d_inc = std::min(std::max(d_inc, -max_motion), max_motion);
+	d_yaw = std::min(std::max(d_yaw, -max_motion), max_motion);
 
 	if (d_inc == 0.f && d_yaw == 0.f)
 		return;
@@ -49,7 +75,6 @@ void gl_mouse(int x, int y)
 void gl_key(unsigned char key, int x, int y)
 {
 	float delta = 2.f;
-
 	const sample_cl samples1[] = {{ 0.f , 0.f, 1.f}};
 	const sample_cl samples4[] = {{ 0.25f , 0.25f, 0.25f},
 				      { 0.25f ,-0.25f, 0.25f},
@@ -69,6 +94,19 @@ void gl_key(unsigned char key, int x, int y)
 	case 'd':
 		camera.panRight(delta);
 		break;
+	case 'q':
+		std::cout << std::endl << "Exiting..." << std::endl;
+		exit(1);
+		break;
+	case 'g':
+		gpu_mangling = true;
+		break;
+	case 'c':
+		gpu_mangling = false;
+		break;
+	case 'r':
+		LBM_addEvent(50,50,53,53,0.035f);
+		break;
 	case '1': /* Set 1 sample per pixel */
 		if (!prim_ray_gen.set_spp(1,samples1)){
 			std::cerr << "Error seting spp" << std::endl;
@@ -81,10 +119,6 @@ void gl_key(unsigned char key, int x, int y)
 			exit(1);
 		}
 		break;
-	case 'q':
-		std::cout << std::endl << "Exiting..." << std::endl;
-		exit(1);
-		break;
 	}
 }
 
@@ -92,6 +126,8 @@ void gl_key(unsigned char key, int x, int y)
 void gl_loop()
 {
 	static int i = 0;
+	static cl_float mangler_arg = 0;
+	static cl_float last_mangler_arg = -1000;
 	static int dir = 1;
 	static int total_ray_count = 0;
 
@@ -116,9 +152,70 @@ void gl_loop()
 	cl_int arg = i%STEPS;
 	int32_t tile_size = best_tile_size;
 
+	cl_int err;
+	mangler_arg += 1.f;
+	rt_time_t mangle_timer;
+
+		
+	/*-------------- Mangle verts in CPU ---------------------*/
+	//std::cerr << "Using CPU..." << std::endl;
+	mangle_timer.snap_time();
+	// Create new rain drop and update the lbm simulator
+	rainEvent();
+	LBM_update();
+	/////
+	Mesh& mesh = scene.get_aggregate_mesh();
+	for (uint32_t v = 0; v < mesh.vertexCount(); ++ v) {
+		Vertex& vert = mesh.vertex(v);
+		float x = (vert.position.s[0] - 50.f)/100.f;
+		float z = (vert.position.s[2] - 50.f)/100.f;
+		
+		x = (x + 1) * GRID_SIZE_X;
+		z = (z + 1) * GRID_SIZE_Y;
+		
+		if (x < 1.f)
+			x = 1.f;
+		if (z < 1.f)
+			z = 1.f;
+
+		const float DROP_HEIGHT = 20.f;
+		
+		float y = LBM_getRho((int)x,(int)z);
+		
+		y = y - 0.05f;
+		y = y * DROP_HEIGHT;
+		
+		vert.position.s[1] = y;
+		
+		vec3 normal;
+		normal[0] = -(LBM_getRho(x+1,z) - LBM_getRho(x-1,z))  * 0.5 * DROP_HEIGHT;
+		normal[1] = 1.f;
+		normal[2] = -(LBM_getRho(x,z+1) - LBM_getRho(x,z-1))  * 0.5 * DROP_HEIGHT;
+		
+		vert.normal = vec3_to_float3(normal.normalized());
+		
+		if (fabsf(y) > WAVE_HEIGHT)
+			std::cerr << "y: " << y << std::endl;
+	}
+	cl_mem vert_mem = scene_info.vertex_mem();
+	clEnqueueWriteBuffer(mangler_clk.clinfo->command_queue,
+		vert_mem,
+		true,
+		0,
+		mesh.vertexCount() * sizeof(Vertex),
+		mesh.vertexArray(),
+		0,NULL,NULL);
+	clFinish(mangler_clk.clinfo->command_queue);
+	/*--------------------------------------*/
+	double mangle_time = mangle_timer.msec_since_snap();
+	//std::cerr << "Simulation time: "  << mangle_time << " msec." << std::endl;
+	last_mangler_arg = mangler_arg;
+	
+	
 	directional_light_cl light;
 	light.set_dir(0.05f * (arg - 8.f) , -0.6f, 0.2f);
-	light.set_color(0.05f * (fabsf(arg)) + 0.1f, 0.2f, 0.05f * fabsf(arg+4.f));
+	//light.set_color(0.05f * (fabsf(arg)) + 0.1f, 0.2f, 0.05f * fabsf(arg+4.f));
+	light.set_color(0.8f,0.8f,0.8f);
 	scene_info.set_dir_light(light);
 	color_cl ambient;
 	ambient[0] = ambient[1] = ambient[2] = 0.1f;
@@ -143,10 +240,17 @@ void gl_loop()
 
 		total_ray_count += tile_size;
 
-		tracer.trace(scene_info, tile_size, *ray_in, hit_bundle);
+		if (!tracer.trace(scene_info, tile_size, *ray_in, hit_bundle)){
+			std::cerr << "Failed to trace." << std::endl;
+			exit(1);
+		}
 		prim_trace_time += tracer.get_trace_exec_time();
 
-		tracer.shadow_trace(scene_info, tile_size, *ray_in, hit_bundle);
+		if (!tracer.shadow_trace(scene_info, tile_size, *ray_in, hit_bundle)){
+			std::cerr << "Failed to shadow trace." << std::endl;
+			exit(1);
+		}
+
 		prim_shadow_trace_time += tracer.get_shadow_exec_time();
 
 		if (!ray_shader.shade(*ray_in, hit_bundle, scene_info,
@@ -155,6 +259,7 @@ void gl_loop()
 			exit(1);
 		}
 		shader_time += ray_shader.get_exec_time();
+		
 
 		int32_t sec_ray_count = tile_size;
 		for (uint32_t i = 0; i < MAX_BOUNCE; ++i) {
@@ -175,6 +280,7 @@ void gl_loop()
 			tracer.trace(scene_info, sec_ray_count, 
 				     *ray_in, hit_bundle, true);
 			sec_trace_time += tracer.get_trace_exec_time();
+
 
 			tracer.shadow_trace(scene_info, sec_ray_count, 
 					    *ray_in, hit_bundle, true);
@@ -227,29 +333,30 @@ void gl_loop()
 		  << (1000.f / total_msec)
 		  << " FPS"
 		  << "\t"
-		  << total_ray_count
-		  << " rays casted "
-		  << "\t(" << sample_count << " primary, " 
-		  << total_ray_count-sample_count << " secondary)"
+		  //<< total_ray_count
+		  //<< " rays casted "
+		  //<< "\t(" << pixel_count << " primary, " 
+		  //<< total_ray_count-pixel_count << " secondary)"
 		  << "               \r" ;
 	std::flush(std::cout);
 	rt_time.snap_time();
 	total_ray_count = 0;
 
-	std::cout << "\nPrim Gen time: \t" << prim_gen_time  << std::endl;
-	std::cout << "Sec Gen time: \t" << sec_gen_time << std::endl;
-	std::cout << "Tracer time: \t" << prim_trace_time + sec_trace_time  
-		  << " (" <<  prim_trace_time << " - " << sec_trace_time 
-		  << ")" << std::endl;
-	std::cout << "Shadow time: \t" << prim_shadow_trace_time + sec_shadow_trace_time 
-		  << " (" <<  prim_shadow_trace_time 
-		  << " - " << sec_shadow_trace_time << ")" << std::endl;
-	std::cout << "Shader time: \t " << shader_time << std::endl;
-	std::cout << "Fb clear time: \t" << fb_clear_time << std::endl;
-	std::cout << "Fb copy time: \t" << fb_copy_time << std::endl;
-	std::cout << std::endl;
+	//std::cout << "\nPrim Gen time: \t" << prim_gen_time  << std::endl;
+	//std::cout << "Sec Gen time: \t" << sec_gen_time << std::endl;
+	//std::cout << "Tracer time: \t" << prim_trace_time + sec_trace_time  
+	//	  << " (" <<  prim_trace_time << " - " << sec_trace_time 
+	//	  << ")" << std::endl;
+	//std::cout << "Shadow time: \t" << prim_shadow_trace_time + sec_shadow_trace_time 
+	//	  << " (" <<  prim_shadow_trace_time 
+	//	  << " - " << sec_shadow_trace_time << ")" << std::endl;
+	//std::cout << "Shader time: \t " << shader_time << std::endl;
+	//std::cout << "Fb clear time: \t" << fb_clear_time << std::endl;
+	//std::cout << "Fb copy time: \t" << fb_copy_time << std::endl;
+	//std::cout << std::endl;
 
 	glutSwapBuffers();
+
 }
 
 int main (int argc, char** argv)
@@ -275,74 +382,33 @@ int main (int argc, char** argv)
 	}
 	print_cl_info(clinfo);
 
+	/*---------------------- Initialize lbm simulator ----------------------*/
+	LBM_initialize(GRID_SIZE_X, GRID_SIZE_Y, 0.05f, 0.77f);
+	//LBM_initialize(GRID_SIZE_X, GRID_SIZE_Y, 0.01f, 0.2f);
+
 	/*---------------------- Create shared GL-CL texture ----------------------*/
 	gl_tex = create_tex_gl(window_size[0],window_size[1]);
 	if (create_cl_mem_from_gl_tex(clinfo, gl_tex, &cl_tex_mem))
 		exit(1);
 
 	/*---------------------- Set up scene ---------------------------*/
-	Scene scene;
 
-	/* Other models 
-	models/obj/floor.obj
-	models/obj/teapot-low_res.obj
-	models/obj/teapot.obj
-	models/obj/teapot2.obj
-	models/obj/frame_boat1.obj
-	models/obj/frame_others1.obj
-	models/obj/frame_water1.obj
-	*/
-
-	//// mesh_id floor_mesh_id = scene.load_obj_file("models/obj/floor.obj");
-	//mesh_id floor_mesh_id = scene.load_obj_file("models/obj/frame_water1.obj");
-	//object_id floor_obj_id  = scene.geometry.add_object(floor_mesh_id);
-	//Object& floor_obj = scene.geometry.object(floor_obj_id);
- //	floor_obj.geom.setScale(2.f);
-	//floor_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
-	//floor_obj.mat.diffuse = Blue;
-	//floor_obj.mat.reflectiveness = 0.9f;
-	//floor_obj.mat.refractive_index = 1.333f;
-
-	mesh_id teapot_mesh_id = scene.load_obj_file("models/obj/teapot2.obj");
-	// mesh_id teapot_mesh_id = scene.load_obj_file("models/obj/teapot-low_res.obj");
-	object_id teapot_obj_id = scene.geometry.add_object(teapot_mesh_id);
-	Object& teapot_obj = scene.geometry.object(teapot_obj_id);
-	teapot_obj.geom.setPos(makeVector(-8.f,-5.f,0.f));
-	teapot_obj.mat.diffuse = Green;
-	teapot_obj.mat.shininess = 1.f;
-	teapot_obj.mat.reflectiveness = 0.3f;
-
-	object_id teapot_obj_id_2 = scene.geometry.add_object(teapot_mesh_id);
-	Object& teapot_obj_2 = scene.geometry.object(teapot_obj_id_2);
-	teapot_obj_2.mat.diffuse = Red;
-	teapot_obj_2.mat.shininess = 1.f;
-	teapot_obj_2.geom.setPos(makeVector(8.f,5.f,0.f));
-	teapot_obj_2.geom.setRpy(makeVector(0.2f,0.1f,0.3f));
-	teapot_obj_2.geom.setScale(0.3f);
-	teapot_obj_2.mat.reflectiveness = 0.3f;
-
-	// mesh_id boat_mesh_id = scene.load_obj_file("models/obj/frame_boat1.obj");
-	// object_id boat_obj_id = scene.geometry.add_object(boat_mesh_id);
-	// Object& boat_obj = scene.geometry.object(boat_obj_id);
-	// boat_obj.geom.setPos(makeVector(0.f,-18.f,0.f));
-	// boat_obj.mat.diffuse = Red;
-	// boat_obj.mat.shininess = 1.f;
-	// boat_obj.mat.reflectiveness = 0.0f;
-
-	 //mesh_id bunny_mesh_id = scene.load_obj_file("models/obj/bunny.obj");
-	 //object_id bunny_obj_id = scene.geometry.add_object(bunny_mesh_id);
-	 //Object& bunny_obj = scene.geometry.object(bunny_obj_id);
-	 //bunny_obj.geom.setPos(makeVector(0.f,0.f,-3.f));
-	 //bunny_obj.geom.setRpy(makeVector(0.f,0.f,M_PI));
-	 //bunny_obj.mat.diffuse = White;
-	 //bunny_obj.mat.shininess = 0.8;
-	 //bunny_obj.mat.reflectiveness = 0.f;
+	mesh_id floor_mesh_id = scene.load_obj_file("models/obj/grid100.obj");
+	object_id floor_obj_id  = scene.geometry.add_object(floor_mesh_id);
+	Object& floor_obj = scene.geometry.object(floor_obj_id);
+ 	floor_obj.geom.setScale(10.f);
+	// floor_obj.geom.setPos(makeVector(0.f,0.f,0.f));
+	floor_obj.mat.diffuse = Blue;
+	floor_obj.mat.reflectiveness = 0.95f;
+	floor_obj.mat.refractive_index = 1.5f;
+	floor_obj.slack = makeVector(0.f,WAVE_HEIGHT,0.f);
 
 	scene.create_aggregate();
 	Mesh& scene_mesh = scene.get_aggregate_mesh();
 	std::cout << "Created scene aggregate succesfully." << std::endl;
 
 	rt_time.snap_time();
+	// scene.create_bvh_with_slack(makeVector(0.f,WAVE_HEIGHT,0.f));
 	scene.create_bvh();
 	BVH& scene_bvh   = scene.get_aggregate_bvh ();
 	double bvh_build_time = rt_time.msec_since_snap();
@@ -360,6 +426,7 @@ int main (int argc, char** argv)
 	/*---------------------- Set initial Camera paramaters -----------------------*/
 	camera.set(makeVector(0,3,-30), makeVector(0,0,1), makeVector(0,1,0), M_PI/4.,
 		   window_size[0] / (float)window_size[1]);
+
 
 	/*---------------------------- Set tile size ------------------------------*/
 	best_tile_size = clinfo.max_compute_units * clinfo.max_work_item_sizes[0];
@@ -429,7 +496,7 @@ int main (int argc, char** argv)
 		exit(1);
 	}
 	std::cout << "Initialized primary ray generator succesfully." << std::endl;
-		
+
 
 	/* ------------------ Initialize Secondary Ray Generator ----------------------*/
 	if (!sec_ray_gen.initialize(clinfo)) {
@@ -452,6 +519,24 @@ int main (int argc, char** argv)
 	sec_ray_gen.enable_timing(true);
 	tracer.enable_timing(true);
 	ray_shader.enable_timing(true);
+
+	/* ------------------------- Create vertex mangler -----------------------*/
+	cl_int err;
+	mangler_clk.work_dim = 1;
+	mangler_clk.arg_count = 4;
+	mangler_clk.global_work_size[0] = scene_mesh.vertexCount();
+	if (init_cl_kernel(&clinfo,"src/kernel/mangler.cl", "mangle", 
+			   &mangler_clk)) {
+		std::cerr << "Error initializing mangler kernel." << std::endl;
+		exit(1);
+	}
+	err = clSetKernelArg(mangler_clk.kernel,0,sizeof(cl_mem), &scene_info.vertex_mem());
+	if (error_cl(err, "clSetKernelArg 0"))
+		return false;
+	cl_float h = WAVE_HEIGHT;
+	err = clSetKernelArg(mangler_clk.kernel,3,sizeof(cl_float), &h);
+	if (error_cl(err, "clSetKernelArg 3"))
+		return false;
 
 	/*---------------------- Print scene data ----------------------*/
 	std::cerr << "\nScene stats: " << std::endl;
@@ -521,3 +606,25 @@ int main (int argc, char** argv)
 	return 0;
 }
 
+
+void rainEvent(){
+	int x,y,size;
+	int XMin = 3;
+	int XMax = GRID_SIZE_X-5;
+	
+	int YMin = 3;
+	int YMax = GRID_SIZE_Y-5;
+
+	double r = double(rand())/(double(RAND_MAX)+1.0); // random double in range 0.0 to 1.0 (non inclusive)
+    x = int(XMin + r*(XMax - XMin)); // transform to wanted range
+    
+	r = double(rand())/(double(RAND_MAX)+1.0); // random double in range 0.0 to 1.0 (non inclusive)
+	y = int(YMin + r*(YMax - YMin)); // transform to wanted range
+	
+	XMin = 1;
+	XMax = 5;
+
+    size = int(XMin + r*(XMax - XMin)); // transform to wanted range
+
+	LBM_addEvent(x,y,x+size,y+size,0.035f);
+}

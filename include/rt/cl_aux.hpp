@@ -5,7 +5,7 @@
 #include <rt/vector.hpp>
 
 #ifdef _WIN32
-  #define RT_ALIGN _declspec(align(16))
+  #define RT_ALIGN(x) _declspec(align(x))
 #else
   #define RT_ALIGN
 #endif

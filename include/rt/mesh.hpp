@@ -17,7 +17,7 @@ struct Triangle
 	index_t v[3];
 };
 
-RT_ALIGN
+RT_ALIGN(16)
 struct Vertex
 {
         cl_float3 position;

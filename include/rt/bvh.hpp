@@ -25,7 +25,7 @@ struct BBox {
 	cl_float3 hi,lo;
 };
 
-RT_ALIGN
+RT_ALIGN(16)
 class BVHNode {
 
 public:
