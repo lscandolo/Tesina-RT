@@ -26,6 +26,7 @@ uint32_t window_size[] = {512, 512};
 
 int32_t pixel_count = window_size[0] * window_size[1];
 int32_t best_tile_size;
+Log rt_log;
 
 #define STEPS 16
 
@@ -221,7 +222,7 @@ void gl_loop()
 	if (!(i % (STEPS-1))){
 		dir *= -1;
 	}		
-	std::cout << "Time elapsed: " 
+	rt_log<< "Time elapsed: " 
 		  << total_msec << " milliseconds " 
 		  << "\t" 
 		  << (1000.f / total_msec)
@@ -229,25 +230,32 @@ void gl_loop()
 		  << "\t"
 		  << total_ray_count
 		  << " rays casted "
-		  << "\t(" << sample_count << " primary, " 
-		  << total_ray_count-sample_count << " secondary)"
-		  << "               \r" ;
+		  << "\t(" << pixel_count << " primary, " 
+		  << total_ray_count-pixel_count << " secondary)"
+		  << std::endl;
+	if (rt_log.silent)
+		std::cout<< "Time elapsed: "
+		<< total_msec << " milliseconds "
+		<< "\t"
+		<< (1000.f / total_msec)
+		<< " FPS"
+		<< "                \r";
 	std::flush(std::cout);
 	rt_time.snap_time();
 	total_ray_count = 0;
 
-	std::cout << "\nPrim Gen time: \t" << prim_gen_time  << std::endl;
-	std::cout << "Sec Gen time: \t" << sec_gen_time << std::endl;
-	std::cout << "Tracer time: \t" << prim_trace_time + sec_trace_time  
+	rt_log << "\nPrim Gen time: \t" << prim_gen_time << std::endl;
+	rt_log << "Sec Gen time: \t" << sec_gen_time << std::endl;
+	rt_log << "Tracer time: \t" << prim_trace_time + sec_trace_time  
 		  << " (" <<  prim_trace_time << " - " << sec_trace_time 
 		  << ")" << std::endl;
-	std::cout << "Shadow time: \t" << prim_shadow_trace_time + sec_shadow_trace_time 
+	rt_log << "Shadow time: \t" << prim_shadow_trace_time + sec_shadow_trace_time 
 		  << " (" <<  prim_shadow_trace_time 
 		  << " - " << sec_shadow_trace_time << ")" << std::endl;
-	std::cout << "Shader time: \t " << shader_time << std::endl;
-	std::cout << "Fb clear time: \t" << fb_clear_time << std::endl;
-	std::cout << "Fb copy time: \t" << fb_copy_time << std::endl;
-	std::cout << std::endl;
+	rt_log << "Shader time: \t " << shader_time << std::endl;
+	rt_log << "Fb clear time: \t" << fb_clear_time << std::endl;
+	rt_log << "Fb copy time: \t" << fb_copy_time << std::endl;
+	rt_log << std::endl;
 
 	glutSwapBuffers();
 }
@@ -260,6 +268,10 @@ int main (int argc, char** argv)
 
 	/*---------------------- Initialize OpenGL and OpenCL ----------------------*/
 
+	if (!rt_log.initialize("rt-log")){
+		std::cerr << "Error initializing log!" << std::endl;
+	}
+		
 	if (init_gl(argc,argv,&glinfo, window_size, "RT") != 0){
 		std::cerr << "Failed to initialize GL" << std::endl;
 		exit(1);
@@ -293,41 +305,41 @@ int main (int argc, char** argv)
 	models/obj/frame_water1.obj
 	*/
 
-	//// mesh_id floor_mesh_id = scene.load_obj_file("models/obj/floor.obj");
-	//mesh_id floor_mesh_id = scene.load_obj_file("models/obj/frame_water1.obj");
-	//object_id floor_obj_id  = scene.geometry.add_object(floor_mesh_id);
-	//Object& floor_obj = scene.geometry.object(floor_obj_id);
- //	floor_obj.geom.setScale(2.f);
-	//floor_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
-	//floor_obj.mat.diffuse = Blue;
-	//floor_obj.mat.reflectiveness = 0.9f;
-	//floor_obj.mat.refractive_index = 1.333f;
+	// mesh_id floor_mesh_id = scene.load_obj_file("models/obj/floor.obj");
+	mesh_id floor_mesh_id = scene.load_obj_file("models/obj/frame_water1.obj");
+	object_id floor_obj_id  = scene.geometry.add_object(floor_mesh_id);
+	Object& floor_obj = scene.geometry.object(floor_obj_id);
+ 	floor_obj.geom.setScale(2.f);
+	floor_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
+	floor_obj.mat.diffuse = Blue;
+	floor_obj.mat.reflectiveness = 0.9f;
+	floor_obj.mat.refractive_index = 1.333f;
 
-	mesh_id teapot_mesh_id = scene.load_obj_file("models/obj/teapot2.obj");
-	// mesh_id teapot_mesh_id = scene.load_obj_file("models/obj/teapot-low_res.obj");
-	object_id teapot_obj_id = scene.geometry.add_object(teapot_mesh_id);
-	Object& teapot_obj = scene.geometry.object(teapot_obj_id);
-	teapot_obj.geom.setPos(makeVector(-8.f,-5.f,0.f));
-	teapot_obj.mat.diffuse = Green;
-	teapot_obj.mat.shininess = 1.f;
-	teapot_obj.mat.reflectiveness = 0.3f;
+	//mesh_id teapot_mesh_id = scene.load_obj_file("models/obj/teapot2.obj");
+	//// mesh_id teapot_mesh_id = scene.load_obj_file("models/obj/teapot-low_res.obj");
+	//object_id teapot_obj_id = scene.geometry.add_object(teapot_mesh_id);
+	//Object& teapot_obj = scene.geometry.object(teapot_obj_id);
+	//teapot_obj.geom.setPos(makeVector(-8.f,-5.f,0.f));
+	//teapot_obj.mat.diffuse = Green;
+	//teapot_obj.mat.shininess = 1.f;
+	//teapot_obj.mat.reflectiveness = 0.3f;
 
-	object_id teapot_obj_id_2 = scene.geometry.add_object(teapot_mesh_id);
-	Object& teapot_obj_2 = scene.geometry.object(teapot_obj_id_2);
-	teapot_obj_2.mat.diffuse = Red;
-	teapot_obj_2.mat.shininess = 1.f;
-	teapot_obj_2.geom.setPos(makeVector(8.f,5.f,0.f));
-	teapot_obj_2.geom.setRpy(makeVector(0.2f,0.1f,0.3f));
-	teapot_obj_2.geom.setScale(0.3f);
-	teapot_obj_2.mat.reflectiveness = 0.3f;
+	//object_id teapot_obj_id_2 = scene.geometry.add_object(teapot_mesh_id);
+	//Object& teapot_obj_2 = scene.geometry.object(teapot_obj_id_2);
+	//teapot_obj_2.mat.diffuse = Red;
+	//teapot_obj_2.mat.shininess = 1.f;
+	//teapot_obj_2.geom.setPos(makeVector(8.f,5.f,0.f));
+	//teapot_obj_2.geom.setRpy(makeVector(0.2f,0.1f,0.3f));
+	//teapot_obj_2.geom.setScale(0.3f);
+	//teapot_obj_2.mat.reflectiveness = 0.3f;
 
-	// mesh_id boat_mesh_id = scene.load_obj_file("models/obj/frame_boat1.obj");
-	// object_id boat_obj_id = scene.geometry.add_object(boat_mesh_id);
-	// Object& boat_obj = scene.geometry.object(boat_obj_id);
-	// boat_obj.geom.setPos(makeVector(0.f,-18.f,0.f));
-	// boat_obj.mat.diffuse = Red;
-	// boat_obj.mat.shininess = 1.f;
-	// boat_obj.mat.reflectiveness = 0.0f;
+	 mesh_id boat_mesh_id = scene.load_obj_file("models/obj/frame_boat1.obj");
+	 object_id boat_obj_id = scene.geometry.add_object(boat_mesh_id);
+	 Object& boat_obj = scene.geometry.object(boat_obj_id);
+	 boat_obj.geom.setPos(makeVector(0.f,-17.f,0.f));
+	 boat_obj.mat.diffuse = Red;
+	 boat_obj.mat.shininess = 1.f;
+	 boat_obj.mat.reflectiveness = 0.0f;
 
 	 //mesh_id bunny_mesh_id = scene.load_obj_file("models/obj/bunny.obj");
 	 //object_id bunny_obj_id = scene.geometry.add_object(bunny_mesh_id);
@@ -509,6 +521,8 @@ int main (int argc, char** argv)
 
 	/*------------------------ Set GLUT and misc functions -----------------------*/
 	rt_time.snap_time();
+	rt_log.enabled = false;
+	rt_log.silent = true;
 
 	glutKeyboardFunc(gl_key);
 	glutMotionFunc(gl_mouse);

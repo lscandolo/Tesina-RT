@@ -30,6 +30,7 @@ Scene scene;
 
 bool gpu_mangling = false;
 
+int loging_state = 0;
 
 cl_mem cl_tex_mem;
 
@@ -50,6 +51,7 @@ uint32_t window_size[] = {512, 512};
 
 int32_t pixel_count = window_size[0] * window_size[1];
 int32_t best_tile_size;
+Log rt_log;
 
 #define STEPS 16
 
@@ -98,6 +100,10 @@ void gl_key(unsigned char key, int x, int y)
 		std::cout << std::endl << "Exiting..." << std::endl;
 		exit(1);
 		break;
+	case 'l':
+		loging_state = 1;
+		rt_log.enabled = true;
+		rt_log << "SPP: " << prim_ray_gen.get_spp() << std::endl;
 	case 'g':
 		gpu_mangling = true;
 		break;
@@ -152,11 +158,37 @@ void gl_loop()
 	cl_int arg = i%STEPS;
 	int32_t tile_size = best_tile_size;
 
-	cl_int err;
 	mangler_arg += 1.f;
 	rt_time_t mangle_timer;
 
-		
+	if (loging_state){
+		if(loging_state == 1){
+			rt_log << "Camera configuration 'o' " << std::endl;
+			camera.set(makeVector(0,3,-30), makeVector(0,0,1), makeVector(0,1,0), M_PI/4.,
+				window_size[0] / (float)window_size[1]);
+		} else if (loging_state == 3){
+			rt_log << "Camera configuration 'i' " << std::endl;
+			camera.set(makeVector(0,5,-30), makeVector(0,-0.5,1), makeVector(0,1,0), M_PI/4.,
+				window_size[0] / (float)window_size[1]);
+		} else if (loging_state == 5) {
+			rt_log << "Camera configuration 'k' " << std::endl;
+			camera.set(makeVector(0,25,-60), makeVector(0,-0.5,1), makeVector(0,1,0), M_PI/4.,
+			   window_size[0] / (float)window_size[1]);
+		} else if (loging_state == 7) {
+			rt_log << "Camera configuration 'l' " << std::endl;
+			camera.set(makeVector(0,120,0), makeVector(0,-1,0.01), makeVector(0,1,0), M_PI/4.,
+				window_size[0] / (float)window_size[1]);
+		} else if (loging_state == 9) {
+			rt_log.enabled = false;
+			camera.set(makeVector(0,3,-30), makeVector(0,0,1), makeVector(0,1,0), M_PI/4.,
+				window_size[0] / (float)window_size[1]);
+			std::cout << "Done loging!"	<< std::endl;
+			loging_state = 0;
+		}
+		if (loging_state)
+			loging_state++;
+	}
+
 	/*-------------- Mangle verts in CPU ---------------------*/
 	//std::cerr << "Using CPU..." << std::endl;
 	mangle_timer.snap_time();
@@ -327,33 +359,40 @@ void gl_loop()
 	if (!(i % (STEPS-1))){
 		dir *= -1;
 	}		
-	std::cout << "Time elapsed: " 
+	rt_log<< "Time elapsed: " 
 		  << total_msec << " milliseconds " 
 		  << "\t" 
 		  << (1000.f / total_msec)
 		  << " FPS"
 		  << "\t"
-		  //<< total_ray_count
-		  //<< " rays casted "
-		  //<< "\t(" << pixel_count << " primary, " 
-		  //<< total_ray_count-pixel_count << " secondary)"
-		  << "               \r" ;
+		  << total_ray_count
+		  << " rays casted "
+		  << "\t(" << pixel_count << " primary, " 
+		  << total_ray_count-pixel_count << " secondary)"
+		  << std::endl;
+	if (rt_log.silent)
+		std::cout<< "Time elapsed: "
+		<< total_msec << " milliseconds "
+		<< "\t"
+		<< (1000.f / total_msec)
+		<< " FPS"
+		<< "                \r";
 	std::flush(std::cout);
 	rt_time.snap_time();
 	total_ray_count = 0;
 
-	//std::cout << "\nPrim Gen time: \t" << prim_gen_time  << std::endl;
-	//std::cout << "Sec Gen time: \t" << sec_gen_time << std::endl;
-	//std::cout << "Tracer time: \t" << prim_trace_time + sec_trace_time  
-	//	  << " (" <<  prim_trace_time << " - " << sec_trace_time 
-	//	  << ")" << std::endl;
-	//std::cout << "Shadow time: \t" << prim_shadow_trace_time + sec_shadow_trace_time 
-	//	  << " (" <<  prim_shadow_trace_time 
-	//	  << " - " << sec_shadow_trace_time << ")" << std::endl;
-	//std::cout << "Shader time: \t " << shader_time << std::endl;
-	//std::cout << "Fb clear time: \t" << fb_clear_time << std::endl;
-	//std::cout << "Fb copy time: \t" << fb_copy_time << std::endl;
-	//std::cout << std::endl;
+	rt_log << "\nPrim Gen time: \t" << prim_gen_time  << std::endl;
+	rt_log << "Sec Gen time: \t" << sec_gen_time << std::endl;
+	rt_log << "Tracer time: \t" << prim_trace_time + sec_trace_time  
+		  << " (" <<  prim_trace_time << " - " << sec_trace_time 
+		  << ")" << std::endl;
+	rt_log << "Shadow time: \t" << prim_shadow_trace_time + sec_shadow_trace_time 
+		  << " (" <<  prim_shadow_trace_time 
+		  << " - " << sec_shadow_trace_time << ")" << std::endl;
+	rt_log << "Shader time: \t " << shader_time << std::endl;
+	rt_log << "Fb clear time: \t" << fb_clear_time << std::endl;
+	rt_log << "Fb copy time: \t" << fb_copy_time << std::endl;
+	rt_log << std::endl;
 
 	glutSwapBuffers();
 
@@ -364,6 +403,12 @@ int main (int argc, char** argv)
 
 	CLInfo clinfo;
 	GLInfo glinfo;
+
+	if (!rt_log.initialize("rt-lbm-log")){
+		std::cerr << "Error initializing log!" << std::endl;
+	}
+	rt_log.enabled = true;
+	rt_log.silent = false;
 
 	/*---------------------- Initialize OpenGL and OpenCL ----------------------*/
 
@@ -594,6 +639,8 @@ int main (int argc, char** argv)
 
 	/*------------------------ Set GLUT and misc functions -----------------------*/
 	rt_time.snap_time();
+	rt_log.enabled = false;
+	rt_log.silent = true;
 
 	glutKeyboardFunc(gl_key);
 	glutMotionFunc(gl_mouse);
