@@ -190,7 +190,7 @@ init_cl_kernel(CLInfo* clinfo, const char* kernel_file,
 	err = clBuildProgram(clkernelinfo->program,
 		0,
 		NULL,
-		"-cl-single-precision-constant -cl-std=CL1.1", //options
+		NULL,
 		NULL,
 		NULL);
 	if (error_cl(err, "clBuildProgram")){
