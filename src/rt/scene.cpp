@@ -124,13 +124,6 @@ Scene::create_bvh(){
 	return 0;
 }
 
-uint32_t 
-Scene::create_bvh_with_slack(const vec3& sl){
-	if (!bvh.construct_and_map(geometry_aggregate, material_map, sl))
-		return 1;
-	return 0;
-}
-
 bool 
 Scene::reorderTriangles(const std::vector<uint32_t>& new_order) {
 	ASSERT(new_order.size() == geometry_aggregate.triangles.size());
@@ -151,6 +144,76 @@ Scene::reorderTriangles(const std::vector<uint32_t>& new_order) {
 
     return true;	
 }
+
+
+uint32_t
+Scene::process()
+{
+
+        std::vector<Object>::iterator obj;
+        int32_t node_offset = 0;
+        int32_t tri_offset = 0;
+
+        // int32_t total_tris = 0;
+        // int32_t total_verts = 0;
+        // int32_t total_nodes = 0;
+
+        /* Create bvh for each mesh that is referenced by a valid object*/
+        /* Save the resulting structures in this->bvhs and this->mmaps (for material maps)*/
+        for (obj = geometry.objects.begin(); obj < geometry.objects.end(); obj++) {
+                /*If object is invalid, ignore*/
+                if (!obj->is_valid())
+                        continue;
+
+                /*If object mesh is already processed, just add its root*/
+                if (bvhs.find(obj->id) != bvhs.end()) {
+                        BVHRoot bvh_root;
+                        bvh_root.node = bvhs[obj->id].start_node;
+                        bvh_root.tr   = obj->geom.getTransformMatrix();
+                        bvh_roots.push_back(bvh_root);
+                        continue;
+                }
+
+                
+                BVH bvh;
+                Mesh& mesh = mesh_atlas[obj->id];
+
+		material_list.push_back(obj->mat);
+		cl_int map_index = cl_int(material_list.size() - 1);
+		material_map.resize(tri_offset + mesh.triangleCount(), map_index);
+
+                if (!bvh.construct(mesh, node_offset, tri_offset))
+                        return 1;
+
+                bvh_order.push_back(obj->id);
+                bvhs[obj->id] = bvh;
+                mmaps[obj->id] = material_map;
+
+                BVHRoot bvh_root;
+                bvh_root.node = node_offset;
+                bvh_root.tr   = obj->geom.getTransformMatrix();
+                bvh_roots.push_back(bvh_root);
+
+                // total_tris  += mesh_atlas[obj->id].triangleCount();
+                // total_verts += mesh_atlas[obj->id].vertexCount();
+                // total_nodes += bvh.nodeArraySize();
+
+
+                node_offset += bvh.nodeArraySize();
+                tri_offset  += mesh_atlas[obj->id].triangleCount();
+        }
+        /* At this point the bvh nodes are properly offset and the triangles 
+           they point to as well.
+           We still need to offset the vertex indices in the triangles of the meshes 
+           when moving the data to the OpenCL device */
+        
+
+        return 0;
+}
+
+
+
+
 
 /*---------------------------- Scene Info methods ---------------------------*/
 
@@ -220,6 +283,136 @@ SceneInfo::initialize(Scene& scene, const CLInfo& cli)
 				 sizeof(lights_cl),
 				 &lights_m))
 		return false;
+
+
+        /********************** !!STUB multi-BVH info ****************************/
+        
+        BVHRoot bvh_root;
+        bvh_root.node = 0;
+        if (create_filled_cl_mem(clinfo,CL_MEM_READ_ONLY,
+                                sizeof(BVHRoot),
+                                 &bvh_root,
+                                 &bvh_roots_m))
+                return false;
+        
+        bvh_roots_cant = 1;
+        /***********************************************************************/
+        
+
+	return true;
+
+}
+
+bool 
+SceneInfo::initialize_multi(Scene& scene, const CLInfo& cli)
+{
+
+	if (!cli.initialized)
+		return false;
+	clinfo = cli;
+
+	/*--------------------- move bvhs to device memory ---------------------*/
+        std::vector<BVHNode> bvh_nodes;
+        for(std::vector<index_t>::iterator id = scene.bvh_order.begin();
+            id < scene.bvh_order.end();
+            id++) { 
+                BVH& bvh = scene.bvhs[*id];
+                bvh_nodes.insert(bvh_nodes.end(), bvh.m_nodes.begin(), bvh.m_nodes.end());
+        }
+        
+	if (bvh_nodes.size()) {
+		if (create_filled_cl_mem(clinfo,CL_MEM_READ_ONLY,
+					 bvh_nodes.size() * sizeof(BVHNode),
+					 &(bvh_nodes[0]),
+					 &bvh_m))
+			return false;
+        }
+
+	if (scene.bvh_roots.size()) {
+		if (create_filled_cl_mem(clinfo,CL_MEM_READ_ONLY,
+					 scene.bvh_roots.size() * sizeof(BVHRoot),
+					 &(scene.bvh_roots[0]),
+					 &bvh_roots_m))
+			return false;
+        }
+        bvh_roots_cant = scene.bvh_roots.size();
+
+	/*---------------------- Move model data to OpenCL device -----------------*/
+
+        std::vector<Vertex> vertices;
+        std::vector<Triangle> triangles;
+        std::vector<vec3> slacks;
+
+        int32_t vtx_count = 0;
+        int32_t tri_count = 0;
+
+        for (std::vector<index_t>::iterator id = scene.bvh_order.begin(); 
+             id < scene.bvh_order.end(); 
+             id++) { 
+
+                Mesh& mesh = scene.mesh_atlas[*id];
+
+                for (size_t i = 0; i < mesh.vertexCount(); ++i) {
+                        vertices.push_back(mesh.vertex(i));
+                }
+
+                for (size_t i = 0; i < mesh.triangleCount(); ++i) {
+                        Triangle t = mesh.triangle(i);
+                        t.v[0] += vtx_count;
+                        t.v[1] += vtx_count;
+                        t.v[2] += vtx_count;
+                        triangles.push_back(t);
+                }
+
+
+                vtx_count += mesh.vertexCount();
+                tri_count += mesh.triangleCount();
+        }
+
+	if (create_filled_cl_mem(clinfo,CL_MEM_READ_ONLY,
+				 vertices.size() * sizeof(Vertex),
+				 &(vertices[0]),
+				 &vert_m))
+		return false;
+
+
+	if (create_filled_cl_mem(clinfo,CL_MEM_READ_ONLY,
+				 triangles.size() * sizeof(Triangle),
+				 &(triangles[0]),
+				 &index_m))
+		return false;
+
+	/*---------------------- Move material data to OpenCL device ------------*/
+
+	std::vector<material_cl>& mat_list = scene.get_material_list();
+	std::vector<cl_int>& mat_map = scene.get_material_map();
+	
+	void* mat_list_ptr = &(mat_list[0]);
+	void* mat_map_ptr  = &(mat_map[0]);
+
+	size_t mat_list_size = sizeof(material_cl) * mat_list.size();
+	size_t mat_map_size  = sizeof(cl_int)      * mat_map.size();
+
+	if (create_filled_cl_mem(clinfo,CL_MEM_READ_ONLY,
+				 mat_list_size,
+				 mat_list_ptr,
+				 &mat_list_m))
+		return false;
+
+	if (create_filled_cl_mem(clinfo,CL_MEM_READ_ONLY,
+				 mat_map_size,
+				 mat_map_ptr,
+				 &mat_map_m))
+		return false;
+
+
+	/*-------------- Move initial light info to device memory---------------*/
+	
+        if (create_empty_cl_mem(clinfo,CL_MEM_READ_ONLY,
+				 sizeof(lights_cl),
+				 &lights_m))
+		return false;
+
 
 	return true;
 

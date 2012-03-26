@@ -10,6 +10,7 @@
 #include <rt/mesh.hpp>
 #include <rt/material.hpp>
 #include <rt/bvh.hpp>
+#include <rt/multi-bvh.hpp>
 #include <rt/light.hpp>
 #include <rt/geom.hpp>
 #include <rt/obj-loader.hpp>
@@ -58,7 +59,6 @@ public:
 
 	uint32_t create_aggregate();
 	uint32_t create_bvh();
-	uint32_t create_bvh_with_slack(const vec3& sl);
 
 	Mesh& get_aggregate_mesh(){return geometry_aggregate;}
 	BVH&  get_aggregate_bvh (){return bvh;}
@@ -69,14 +69,28 @@ public:
 
 	SceneGeometry geometry;
 
-private:
+
+        /*!! Create Multi-BVH */
+        uint32_t process();
+
 	std::vector<Mesh> mesh_atlas;
 	// std::vector<Light> lights;
+
+private:
 
 	Mesh geometry_aggregate;
 	BVH bvh;
 	std::vector<material_cl> material_list;
 	std::vector<cl_int>   material_map;
+
+public:
+        std::map<index_t, BVH> bvhs;
+        std::map<index_t, std::vector<cl_int> > mmaps;
+        std::vector<index_t> bvh_order; /*This is to keep track of the order in which the 
+                                          bvhs were created, since the node references 
+                                          are offset, they need to be ordered the same way
+                                          when we move them to device mem*/
+        std::vector<BVHRoot> bvh_roots;
 };
 
 
@@ -85,6 +99,8 @@ class SceneInfo {
 public:
 	bool initialize(Scene& scene, const CLInfo& cli);
 
+	bool initialize_multi(Scene& scene, const CLInfo& cli);
+
 	cl_mem& vertex_mem(){return vert_m;}
 	cl_mem& index_mem(){return index_m;}
 	cl_mem& mat_map_mem(){return mat_map_m;}
@@ -92,9 +108,13 @@ public:
 	cl_mem& bvh_mem(){return bvh_m;}
 	cl_mem& light_mem(){return lights_m;}
 
+	cl_mem& bvh_roots_mem(){return bvh_roots_m;}
+
 	size_t size(); /* Size in bytes of the combined memory buffers */
 	bool set_dir_light(const directional_light_cl& dl);
 	bool set_ambient_light(const color_cl& color);
+
+        int bvh_roots_cant;
 
 private:
 
@@ -106,6 +126,8 @@ private:
 	cl_mem  lights_m;
 	CLInfo  clinfo;
 	lights_cl lights;
+
+        cl_mem bvh_roots_m;
 };
 
 #endif /* RT_SCENE_HPP */

@@ -33,7 +33,7 @@ Log rt_log;
 void gl_mouse(int x, int y)
 {
         float delta = 0.001f;
-        float d_inc = delta * (window_size[1]*0.5f - y);/* y axis points downwards */
+        float d_inc = delta * (window_size[1]*0.5f - y);/* y axis points downwards */ 
         float d_yaw = delta * (x - window_size[0]*0.5f);
 
         d_inc = std::min(std::max(d_inc, -0.1f), 0.1f);
@@ -147,8 +147,8 @@ void gl_loop()
                 tracer.trace(scene_info, tile_size, *ray_in, hit_bundle);
                 prim_trace_time += tracer.get_trace_exec_time();
 
-                tracer.shadow_trace(scene_info, tile_size, *ray_in, hit_bundle);
-                prim_shadow_trace_time += tracer.get_shadow_exec_time();
+                // tracer.shadow_trace(scene_info, tile_size, *ray_in, hit_bundle);
+                // prim_shadow_trace_time += tracer.get_shadow_exec_time();
 
                 if (!ray_shader.shade(*ray_in, hit_bundle, scene_info,
                                       cubemap, framebuffer, tile_size)){
@@ -177,9 +177,9 @@ void gl_loop()
                                      *ray_in, hit_bundle, true);
                         sec_trace_time += tracer.get_trace_exec_time();
 
-                        tracer.shadow_trace(scene_info, sec_ray_count, 
-                                            *ray_in, hit_bundle, true);
-                        sec_shadow_trace_time += tracer.get_shadow_exec_time();
+                        // tracer.shadow_trace(scene_info, sec_ray_count, 
+                        //                     *ray_in, hit_bundle, true);
+                        // sec_shadow_trace_time += tracer.get_shadow_exec_time();
 
                         if (!ray_shader.shade(*ray_in, hit_bundle, scene_info,
                                               cubemap, framebuffer, sec_ray_count)){
@@ -309,20 +309,28 @@ int main (int argc, char** argv)
         mesh_id floor_mesh_id = scene.load_obj_file("models/obj/frame_water1.obj");
         object_id floor_obj_id  = scene.geometry.add_object(floor_mesh_id);
         Object& floor_obj = scene.geometry.object(floor_obj_id);
-        floor_obj.geom.setScale(2.f);
-        floor_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
+        // floor_obj.geom.setScale(2.f);
+        // floor_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
         floor_obj.mat.diffuse = Blue;
         floor_obj.mat.reflectiveness = 0.9f;
         floor_obj.mat.refractive_index = 1.333f;
 
-        //mesh_id teapot_mesh_id = scene.load_obj_file("models/obj/teapot2.obj");
-        //// mesh_id teapot_mesh_id = scene.load_obj_file("models/obj/teapot-low_res.obj");
-        //object_id teapot_obj_id = scene.geometry.add_object(teapot_mesh_id);
-        //Object& teapot_obj = scene.geometry.object(teapot_obj_id);
-        //teapot_obj.geom.setPos(makeVector(-8.f,-5.f,0.f));
-        //teapot_obj.mat.diffuse = Green;
-        //teapot_obj.mat.shininess = 1.f;
-        //teapot_obj.mat.reflectiveness = 0.3f;
+         mesh_id boat_mesh_id = scene.load_obj_file("models/obj/frame_boat1.obj");
+         object_id boat_obj_id = scene.geometry.add_object(boat_mesh_id);
+         Object& boat_obj = scene.geometry.object(boat_obj_id);
+         // boat_obj.geom.setPos(makeVector(0.f,-17.f,0.f));
+         boat_obj.mat.diffuse = Red;
+         boat_obj.mat.shininess = 1.f;
+         boat_obj.mat.reflectiveness = 0.0f;
+
+        // mesh_id teapot_mesh_id = scene.load_obj_file("models/obj/teapot2.obj");
+        // // mesh_id teapot_mesh_id = scene.load_obj_file("models/obj/teapot-low_res.obj");
+        // object_id teapot_obj_id = scene.geometry.add_object(teapot_mesh_id);
+        // Object& teapot_obj = scene.geometry.object(teapot_obj_id);
+        // // teapot_obj.geom.setPos(makeVector(-8.f,-5.f,0.f));
+        // teapot_obj.mat.diffuse = Green;
+        // teapot_obj.mat.shininess = 1.f;
+        // teapot_obj.mat.reflectiveness = 0.3f;
 
         //object_id teapot_obj_id_2 = scene.geometry.add_object(teapot_mesh_id);
         //Object& teapot_obj_2 = scene.geometry.object(teapot_obj_id_2);
@@ -333,14 +341,6 @@ int main (int argc, char** argv)
         //teapot_obj_2.geom.setScale(0.3f);
         //teapot_obj_2.mat.reflectiveness = 0.3f;
 
-         mesh_id boat_mesh_id = scene.load_obj_file("models/obj/frame_boat1.obj");
-         object_id boat_obj_id = scene.geometry.add_object(boat_mesh_id);
-         Object& boat_obj = scene.geometry.object(boat_obj_id);
-         boat_obj.geom.setPos(makeVector(0.f,-17.f,0.f));
-         boat_obj.mat.diffuse = Red;
-         boat_obj.mat.shininess = 1.f;
-         boat_obj.mat.reflectiveness = 0.0f;
-
          //mesh_id bunny_mesh_id = scene.load_obj_file("models/obj/bunny.obj");
          //object_id bunny_obj_id = scene.geometry.add_object(bunny_mesh_id);
          //Object& bunny_obj = scene.geometry.object(bunny_obj_id);
@@ -350,24 +350,38 @@ int main (int argc, char** argv)
          //bunny_obj.mat.shininess = 0.8;
          //bunny_obj.mat.reflectiveness = 0.f;
 
-        scene.create_aggregate();
-        Mesh& scene_mesh = scene.get_aggregate_mesh();
-        std::cout << "Created scene aggregate succesfully." << std::endl;
 
-        rt_time.snap_time();
-        scene.create_bvh();
-        BVH& scene_bvh   = scene.get_aggregate_bvh ();
-        double bvh_build_time = rt_time.msec_since_snap();
-        std::cout << "Created BVH succesfully (build time: " 
-                  << bvh_build_time << " msec, " 
-                  << scene_bvh.nodeArraySize() << " nodes)." << std::endl;
+         /* -=-=-=-=-=-=-=-=-=-=-=-=-=-=- Aggregate BVH -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- */
+        // scene.create_aggregate();
+        // Mesh& scene_mesh = scene.get_aggregate_mesh();
+        // std::cout << "Created scene aggregate succesfully." << std::endl;
+
+        // rt_time.snap_time();
+        // scene.create_bvh();
+        // BVH& scene_bvh   = scene.get_aggregate_bvh ();
+        // double bvh_build_time = rt_time.msec_since_snap();
+        // std::cout << "Created BVH succesfully (build time: " 
+        //           << bvh_build_time << " msec, " 
+        //           << scene_bvh.nodeArraySize() << " nodes)." << std::endl;
+
+        // /*---------------------- Initialize SceneInfo ----------------------------*/
+        // if (!scene_info.initialize(scene,clinfo)) {
+        //         std::cerr << "Failed to initialize scene info." << std::endl;
+        //         exit(1);
+        // }
+        // std::cout << "Initialized scene info succesfully." << std::endl;
+
+         /* -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- Multi BVH -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- */
+         scene.process();
+         // exit(1);
 
         /*---------------------- Initialize SceneInfo ----------------------------*/
-        if (!scene_info.initialize(scene,clinfo)) {
+         if (!scene_info.initialize_multi(scene,clinfo)) {
                 std::cerr << "Failed to initialize scene info." << std::endl;
                 exit(1);
         }
         std::cout << "Initialized scene info succesfully." << std::endl;
+         // exit(1);
 
         /*---------------------- Set initial Camera paramaters -----------------------*/
         camera.set(makeVector(0,3,-30), makeVector(0,0,1), makeVector(0,1,0), M_PI/4.,
@@ -466,9 +480,9 @@ int main (int argc, char** argv)
         ray_shader.enable_timing(true);
 
         /*---------------------- Print scene data ----------------------*/
-        std::cerr << "\nScene stats: " << std::endl;
-        std::cerr << "\tTriangle count: " << scene_mesh.triangleCount() << std::endl;
-        std::cerr << "\tVertex count: " << scene_mesh.vertexCount() << std::endl;
+        // std::cerr << "\nScene stats: " << std::endl;
+        // std::cerr << "\tTriangle count: " << scene_mesh.triangleCount() << std::endl;
+        // std::cerr << "\tVertex count: " << scene_mesh.vertexCount() << std::endl;
 
         /*------------------------- Count mem usage -----------------------------------*/
         int32_t total_cl_mem = 0;

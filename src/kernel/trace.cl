@@ -1,3 +1,13 @@
+typedef struct 
+{
+        float m[16];
+} sqmat4;
+
+typedef struct {
+        int node;
+        sqmat4 tr;
+} BVHRoot;
+
 typedef struct
 {
         float3 ori;
@@ -54,6 +64,17 @@ typedef struct {
         float3 n;
  
 } RayHitInfo;
+
+
+Ray transform_ray(Ray ray, sqmat4 tr)
+{
+        return ray;
+}
+
+RayHitInfo transform_hit_info(RayHitInfo hit_info, sqmat4 tr)
+{
+        return hit_info;
+}
 
 void __attribute__((always_inline))
 merge_hit_info(RayHitInfo* best_info, RayHitInfo* new_info){
@@ -193,7 +214,8 @@ leaf_hit(BVHNode node,
 RayHitInfo trace_ray(Ray ray,
                      global Vertex* vertex_buffer,
                      global int* index_buffer,
-                     global BVHNode* bvh_nodes)
+                     global BVHNode* bvh_nodes,
+                     int bvh_root)
 {
         RayHitInfo best_hit_info;
         best_hit_info.hit = false;
@@ -202,8 +224,8 @@ RayHitInfo trace_ray(Ray ray,
 
         bool going_up = false;
 
-        unsigned int last = 0;
-        unsigned int curr = 0;
+        unsigned int last = bvh_root;
+        unsigned int curr = bvh_root;
         
         best_hit_info.t = ray.tMax;
 
@@ -245,7 +267,7 @@ RayHitInfo trace_ray(Ray ray,
 
                 if (going_up) {
                         // I'm going up from the root, so break
-                        if (last == 0) {
+                        if (last == bvh_root) {
                                 break;
 
                         // I'm going up from my first child, do the second one
@@ -309,14 +331,27 @@ trace(global RayHitInfo* trace_info,
       global RayPlus* rays,
       global Vertex* vertex_buffer,
       global int* index_buffer,
-      global BVHNode* bvh_nodes)
+      global BVHNode* bvh_nodes,
+      global BVHRoot* roots,
+      int root_cant)
       
 {
         int index = get_global_id(0);
         int offset = get_global_offset(0);
         Ray ray = rays[index].ray;
 
-        RayHitInfo hit_info = trace_ray(ray, vertex_buffer, index_buffer, bvh_nodes);
+        RayHitInfo hit_info;
+        hit_info.hit = false;
+
+        for (int i = 0; i < root_cant; ++i) {
+                
+                Ray tr_ray = transform_ray(ray, roots[i].tr);
+                RayHitInfo root_hit_info = trace_ray(ray, vertex_buffer, index_buffer, 
+                                                     bvh_nodes, roots[i].node);
+
+                root_hit_info = transform_hit_info(root_hit_info, roots[i].tr);
+                merge_hit_info (&hit_info, &root_hit_info);
+        }
 
         /* Compute normal at hit point */
         if (hit_info.hit) {

@@ -1,3 +1,4 @@
+#include <iostream> //!!
 #include <algorithm>
 #include <limits>
 
@@ -81,7 +82,9 @@ void
 BVHNode::sort(const std::vector<BBox>& bboxes,
 	      std::vector<tri_id>& ordered_triangles,
 	      std::vector<BVHNode>& nodes,
-	      uint32_t node_index) 
+	      uint32_t node_index,
+              uint32_t node_offset,
+              uint32_t tri_offset) 
 {
 
 	/*------------------------ Compute bbox ----------------------*/
@@ -89,6 +92,7 @@ BVHNode::sort(const std::vector<BBox>& bboxes,
 
 	/* ----------------- Check if it's small enough ---------------*/
 	if (m_end_index - m_start_index  <= BVH::MIN_PRIMS_PER_NODE) {
+                offsetBounds(tri_offset);
 		m_leaf = true;
 		return;
 	}
@@ -102,6 +106,7 @@ BVHNode::sort(const std::vector<BBox>& bboxes,
 	uint32_t split_location = chooseSplitLocationSAH(bboxes, ordered_triangles);
 
 	if (split_location == m_start_index || split_location == m_end_index) {
+                offsetBounds(tri_offset);
 		m_leaf = true;
 		return;
 	}
@@ -112,68 +117,37 @@ BVHNode::sort(const std::vector<BBox>& bboxes,
 	BVHNode lnode,rnode;
 
 	nodes.resize(nodes.size()+2);
-	m_l_child = uint32_t(nodes.size()-2);
-	m_r_child = uint32_t(nodes.size()-1);
+        uint32_t l_child_index = uint32_t(nodes.size()-2);
+        uint32_t r_child_index = uint32_t(nodes.size()-1);
+
+        /* Offset is added in case the nodes are inserted in a big array of nodes 
+           starting at node_offset */
+	m_l_child = l_child_index + node_offset;
+	m_r_child = r_child_index + node_offset;
 	
 	/*---------------------- Left node creation -------------------*/
 	lnode.setBounds(m_start_index, split_location);
-	lnode.sort(bboxes, ordered_triangles, nodes, m_l_child);
+	lnode.sort(bboxes, ordered_triangles, nodes, m_l_child, node_offset, tri_offset);
 	lnode.m_parent = node_index;
 	
 	/*--------------------- Right node creation -------------------*/
 	rnode.setBounds(split_location, m_end_index);
-	rnode.sort(bboxes, ordered_triangles, nodes, m_r_child);
+	rnode.sort(bboxes, ordered_triangles, nodes, m_r_child, node_offset, tri_offset);
 	rnode.m_parent = node_index;
 
-
-	nodes[m_l_child] = lnode;
-	nodes[m_r_child] = rnode;
+        /*----------------- Save created nodex -------------------------*/
+        offsetBounds(tri_offset);
+	nodes[l_child_index] = lnode;
+	nodes[r_child_index] = rnode;
 	return;
 }
 
 bool 
-BVH::construct(Mesh& m_mesh, vec3 slack) 
+BVH::construct(Mesh& mesh, int32_t node_offset, int32_t tri_offset) 
 {
 
 	/*------------------- Initialize members ----------------------------------*/
-    size_t tris = m_mesh.triangleCount();
-	m_ordered_triangles.resize(tris);
-	for (uint32_t i = 0 ; i  < tris ; ++i)
-		m_ordered_triangles[i] = i;
-
-
-	/*------------------------ Initialize bboxes ------------------------------*/
-	std::vector<BBox> bboxes;
-	bboxes.resize(m_mesh.triangleCount());
-	for (uint32_t i = 0; i < bboxes.size(); ++i) {
-		const Triangle& t = m_mesh.triangle(i);
-		bboxes[i].set(m_mesh.vertex(t.v[0]),
-			      m_mesh.vertex(t.v[1]),
-			      m_mesh.vertex(t.v[2]));
-		bboxes[i].add_slack(m_mesh.slacks[i]);
-	}
-
-	/*------------------------ Initialize root and sort it ----------------------*/
-	// m_nodes.reserve(2*m_mesh.triangleCount());
-	m_nodes.resize(1);
-	BVHNode root;
-	root.setBounds(0, uint32_t(m_mesh.triangleCount()));
-	root.sort(bboxes, m_ordered_triangles, m_nodes, 0);
-	m_nodes[0] = root;
-
-
-	/*------------------ Reorder triangles in mesh now ----------------*/
-	m_mesh.reorderTriangles(m_ordered_triangles);
-
-	return true;
-}
-
-
-bool 
-BVH::construct_and_map(Mesh& m_mesh, std::vector<cl_int>& map, vec3 slack)
-{
-	/*------------------- Initialize members ----------------------------------*/
-	size_t tris = m_mesh.triangleCount();
+        size_t tris = mesh.triangleCount();
 	m_ordered_triangles.resize(tris);
 	for (uint32_t i = 0 ; i  < tris ; ++i)
 		m_ordered_triangles[i] = i;
@@ -181,37 +155,81 @@ BVH::construct_and_map(Mesh& m_mesh, std::vector<cl_int>& map, vec3 slack)
 	if (tris == 0) {
 		m_nodes.resize(1);
 		BVHNode root;
-		root.m_leaf = true;
-		root.m_start_index = 0;
-		root.m_end_index = 0;
+                root.set_empty(node_offset);
 		m_nodes[0] = root;
 		return true;
 	}
 
-
 	/*------------------------ Initialize bboxes ------------------------------*/
 	std::vector<BBox> bboxes;
-	bboxes.resize(m_mesh.triangleCount());
+	bboxes.resize(mesh.triangleCount());
 	for (uint32_t i = 0; i < bboxes.size(); ++i) {
-		const Triangle& t = m_mesh.triangle(i);
-		bboxes[i].set(m_mesh.vertex(t.v[0]),
-			      m_mesh.vertex(t.v[1]),
-			      m_mesh.vertex(t.v[2]));
-		bboxes[i].add_slack(m_mesh.slacks[i]);
-		// bboxes[i].add_slack(slack);
+		const Triangle& t = mesh.triangle(i);
+		bboxes[i].set(mesh.vertex(t.v[0]),
+			      mesh.vertex(t.v[1]),
+			      mesh.vertex(t.v[2]));
+                if (mesh.slacks.size() > i)
+                        bboxes[i].add_slack(mesh.slacks[i]);
 	}
 
 	/*------------------------ Initialize root and sort it ----------------------*/
-	// m_nodes.reserve(2*m_mesh.triangleCount());
+	// m_nodes.reserve(2*mesh.triangleCount());
 	m_nodes.resize(1);
 	BVHNode root;
-	root.setBounds(0, uint32_t(m_mesh.triangleCount()));
-	root.sort(bboxes, m_ordered_triangles, m_nodes, 0);
+	root.setBounds(0, uint32_t(mesh.triangleCount()));
+	root.sort(bboxes, m_ordered_triangles, m_nodes, node_offset, 
+                  node_offset, tri_offset);
 	m_nodes[0] = root;
 
 
 	/*------------------ Reorder triangles in mesh now ----------------*/
-	m_mesh.reorderTriangles(m_ordered_triangles);
+	mesh.reorderTriangles(m_ordered_triangles);
+
+        start_node = node_offset;
+	return true;
+}
+
+
+bool 
+BVH::construct_and_map(Mesh& mesh, std::vector<cl_int>& map, 
+                       int32_t node_offset, int32_t tri_offset)
+{
+	/*------------------- Initialize members ----------------------------------*/
+	size_t tris = mesh.triangleCount();
+	m_ordered_triangles.resize(tris);
+	for (uint32_t i = 0 ; i  < tris ; ++i)
+		m_ordered_triangles[i] = i;
+
+	if (tris == 0) {
+		m_nodes.resize(1);
+		BVHNode root;
+                root.set_empty(node_offset);
+		m_nodes[0] = root;
+		return true;
+	}
+
+	/*------------------------ Initialize bboxes ------------------------------*/
+	std::vector<BBox> bboxes;
+	bboxes.resize(mesh.triangleCount());
+	for (uint32_t i = 0; i < bboxes.size(); ++i) {
+		const Triangle& t = mesh.triangle(i);
+		bboxes[i].set(mesh.vertex(t.v[0]),
+			      mesh.vertex(t.v[1]),
+			      mesh.vertex(t.v[2]));
+                if (mesh.slacks.size() > i)
+                        bboxes[i].add_slack(mesh.slacks[i]);
+	}
+
+	/*------------------------ Initialize root and sort it ----------------------*/
+	m_nodes.resize(1);
+	BVHNode root;
+	root.setBounds(0, uint32_t(mesh.triangleCount()));
+	root.sort(bboxes, m_ordered_triangles, m_nodes, node_offset, 
+                  node_offset, tri_offset);
+	m_nodes[0] = root;
+
+	/*------------------ Reorder triangles in mesh now ----------------*/
+	mesh.reorderTriangles(m_ordered_triangles);
 
 	/*------------------ Reorder map ----------------------------------*/
 	std::vector<cl_int> new_map = map;
@@ -219,6 +237,7 @@ BVH::construct_and_map(Mesh& m_mesh, std::vector<cl_int>& map, vec3 slack)
 		map[i] = new_map[m_ordered_triangles[i]];
 	}
 
+        start_node = node_offset;
 	return true;
 }
 

@@ -3,6 +3,7 @@
 
 #include <CL/opencl.h>
 #include <rt/vector.hpp>
+#include <rt/matrix.hpp>
 
 #ifdef _WIN32
   #define RT_ALIGN(x) _declspec(align(x))
@@ -33,5 +34,8 @@ cl_float4 makeFloat4(const float* v);
 
 cl_float3 max(const cl_float3 a, const cl_float3 b);
 cl_float3 min(const cl_float3 a, const cl_float3 b);
+
+typedef sqmat<3,cl_float> cl_sqmat3;
+typedef sqmat<4,cl_float> cl_sqmat4;
 
 #endif /* RT_CL_AUX */

@@ -58,7 +58,20 @@ Tracer::trace(SceneInfo& scene_info, cl_mem& bvh_mem, int32_t ray_count,
 	if (error_cl(err, "clSetKernelArg 4"))
 		return false;
 
-	bool ret = true;
+        /********************** MultiBVH info ****************************/
+	err = clSetKernelArg(tracer_clk.kernel,5,
+                             sizeof(cl_mem),&scene_info.bvh_roots_mem());
+	if (error_cl(err, "clSetKernelArg 5"))
+		return false;
+
+        cl_int root_cant = scene_info.bvh_roots_cant;
+	err = clSetKernelArg(tracer_clk.kernel,6,sizeof(cl_int),&root_cant);
+	if (error_cl(err, "clSetKernelArg 6"))
+		return false;
+        
+        /***********************************************************************/
+
+        bool ret = true;
 
 	const int32_t  sec_size = 64;
 	int32_t leftover = ray_count%sec_size;
@@ -123,7 +136,19 @@ Tracer::trace(SceneInfo& scene_info, int32_t ray_count,
 	if (error_cl(err, "clSetKernelArg 4"))
 		return false;
 
-	// tracer_clk.global_work_size[0] = ray_count;
+        /********************** Multi-BVH info ****************************/
+        
+	err = clSetKernelArg(tracer_clk.kernel,5,
+                             sizeof(cl_mem),&scene_info.bvh_roots_mem());
+	if (error_cl(err, "clSetKernelArg 5"))
+		return false;
+
+        cl_int root_cant = scene_info.bvh_roots_cant;
+	err = clSetKernelArg(tracer_clk.kernel,6,sizeof(cl_int),&root_cant);
+	if (error_cl(err, "clSetKernelArg 6"))
+		return false;
+        
+        /***********************************************************************/
 	
 	bool ret = true;
 

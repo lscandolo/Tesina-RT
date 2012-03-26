@@ -8,7 +8,8 @@ VariantDir('build/cl-gl', 'src/cl-gl', duplicate=0)
 env = Environment(ENV = os.environ)
 env.AppendENVPath('PATH', extra_path)
 
-env.Append(CCFLAGS = '-g -Wall -O3')
+# env.Append(CCFLAGS = '-g -Wall -O3')
+env.Append(CCFLAGS = '-g -Wall ')
 
 env.Replace(CXX = 'llvm-clang')
 
@@ -39,6 +40,7 @@ rt_primitives_lib = env.StaticLibrary('lib/rt-primitives' ,
                                        'build/rt/camera.cpp',
                                        'build/rt/obj-loader.cpp',
                                        'build/rt/bvh.cpp',
+                                       'build/rt/multi-bvh.cpp',
                                        'build/rt/scene.cpp',
                                        'build/rt/cubemap.cpp',
                                        'build/rt/framebuffer.cpp',

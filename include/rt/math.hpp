@@ -10,42 +10,36 @@
 #include <rt/assert.hpp>
 
 
-// float norm(const vec<3>* v);
-// float norm(const vec<3>& v);
-// float sqnorm(const vec<3>* v);
-// float sqnorm(const vec<3>& v);
-
-
-template <int N>
-const vec<N> lerp( const vec<N>& a, const vec<N>& b, const float& t )
+template <int N, typename F>
+const vec<N,F> lerp( const vec<N,F>& a, const vec<N,F>& b, const float& t )
 {
 	return a + (b-a)*t;
 }
 
-template <int N>
-vec<N> min(const vec<N>& a, const vec<N>& b )
+template <int N, typename F>
+vec<N,F> min(const vec<N,F>& a, const vec<N,F>& b )
 {
-	vec<N> m;
+	vec<N,F> m;
 	for (uint32_t i = 0 ; i < N ; ++i){
 		m[i] = std::min(a[i], b[i]);
 	}
 	return m;
 }
 
-template <int N>
-vec<N> max(const vec<N>& a, const vec<N>& b )
+template <int N, typename F>
+vec<N,F> max(const vec<N,F>& a, const vec<N,F>& b )
 {
-	vec<N> m;
+	vec<N,F> m;
 	for (uint32_t i = 0 ; i < N ; ++i){
 		m[i] = std::max(a[i], b[i]);
 	}
 	return m;
 }
 
-template <int N>
-vec<N> inv(const vec<N>& v)
+template <int N, typename F>
+vec<N,F> inv(const vec<N,F>& v)
 {
-	vec<N> in;
+	vec<N,F> in;
 	for (uint32_t i = 0 ; i < N ; ++i){
 		in[i] = (v.v[i] == 0.f ? 0.f : 1.0f / v.v[i]);
 	}	

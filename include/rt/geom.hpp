@@ -23,6 +23,8 @@ public:
 
 	void transform(Vertex& v);
 
+
+        mat4x4 getTransformMatrix(){return M;}
 private:
 
 	void updateTransform();

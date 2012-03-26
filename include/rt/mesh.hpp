@@ -39,10 +39,10 @@ public:
 	Mesh();
 
         /* Returns the number of triangles in the mesh */
-       size_t triangleCount() const;
+        size_t triangleCount() const;
 	
         /* Returns the number of vertices in the mesh */
-	   size_t vertexCount() const;
+        size_t vertexCount() const;
 
         /* Accessor for the vertex array */
         Vertex& vertex(vtx_id i) ;
