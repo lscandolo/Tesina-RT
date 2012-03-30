@@ -25,23 +25,38 @@ CLKernelInfo clkernelinfo;
 GLuint gl_tex, gl_buf;
 cl_mem cl_tex_mem, cl_buf_mem;
 
-
 #ifdef __linux__
 timespec tp;
 
-timespec compute_diff(timespec tp_begin, timespec tp_end)
+double compute_diff(timespec tp_begin, timespec tp_end)
 {
 	timespec tp_aux;
 	if ((tp_end.tv_nsec - tp_begin.tv_nsec) < 0) {
 		tp_aux.tv_sec = tp_end.tv_sec-tp_begin.tv_sec-1;
-		tp_aux.tv_nsec = 1000000000+tp_end.tv_nsec-tp_begin.tv_nsec;
+		tp_aux.tv_nsec = 1e9+tp_end.tv_nsec-tp_begin.tv_nsec;
 	} else {
 		tp_aux.tv_sec = tp_end.tv_sec-tp_begin.tv_sec;
 		tp_aux.tv_nsec = tp_end.tv_nsec-tp_begin.tv_nsec;
 	}
-	return tp_aux;
+	double msec = tp_aux.tv_nsec/1e6 + tp_aux.tv_sec * 1e3 ;
+	return msec;
 }
 #elif defined _WIN32
+__int64 tp;
+
+__int64 snap_time(){
+ 	LARGE_INTEGER li;
+	QueryPerformanceCounter(&li);
+	return (__int64)(li.QuadPart);
+}
+
+__int64 compute_diff(__int64 tp_begin, __int64 tp_end)
+{
+        LARGE_INTEGER fli;
+	QueryPerformanceFrequency(&fli);
+	double freq = double(fli.QuadPart) / 1e3;
+        return (tp_end-tp_begin) / freq;
+}
 
 
 #endif
@@ -94,12 +109,13 @@ void gl_loop()
 	if (!(i % (STEPS-1))){
 		dir *= -1;
 #ifdef __linux__
-		timespec _tp, d;
+		timespec _tp;
 		clock_gettime(CLOCK_MONOTONIC, &_tp);
-		d = compute_diff(tp, _tp);
-		double msec = d.tv_nsec/1000000. + d.tv_sec * 1000. ;
+		double msec = compute_diff(tp, _tp);
 #elif defined _WIN32
-        double msec = 0;		
+                __int64 _tp;
+                _tp = snap_time();
+                double msec = compute_diff(tp,_tp);
 #endif
 		std::cout << "Time elapsed: " 
 			  << msec << " milliseconds " 
@@ -107,9 +123,8 @@ void gl_loop()
 			  << int(STEPS / (msec/1000))
 			  << " FPS)          \r" ;
 		std::flush(std::cout);
-#ifdef __linux__
-		tp = _tp;
-#endif
+
+                tp = _tp;
 	}		
 	glutSwapBuffers();
 }
@@ -178,6 +193,9 @@ int main(int argc, char** argv)
 
 #ifdef __linux__
 	clock_gettime(CLOCK_MONOTONIC, &tp);
+#elif defined _WIN32
+        tp = snap_time();
+
 #endif
 	std::cout << std::endl;
 	glutMainLoop();	

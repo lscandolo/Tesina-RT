@@ -22,14 +22,13 @@ env['LIBS'] = base_libs
 env['CPPPATH'] = cpppath
 env['LIBPATH'] = libpath
 
-
 rt_primitives_lib = env.StaticLibrary('lib/rt-primitives' ,
                                       ['build/rt/vector.cpp',
                                        'build/rt/matrix.cpp',
                                        'build/rt/math.cpp',
                                        'build/rt/geom.cpp',
-                                       'build/rt/cl_aux.cpp',
                                        'build/rt/timing.cpp',
+                                       'build/rt/cl_aux.cpp',
                                        'build/rt/ray.cpp',
                                        'build/rt/primary-ray-generator.cpp',
                                        'build/rt/secondary-ray-generator.cpp',
