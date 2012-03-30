@@ -7,6 +7,8 @@
 
 #define MAX_BOUNCE 5
 
+CLInfo clinfo;
+GLInfo glinfo;
 cl_mem cl_tex_mem;
 
 RayBundle             ray_bundle_1,ray_bundle_2;
@@ -107,6 +109,7 @@ void gl_loop()
         double fb_copy_time = 0;
 
         glClear(GL_COLOR_BUFFER_BIT);
+        acquire_gl_tex(cl_tex_mem,clinfo);
 
         if (!framebuffer.clear()) {
                 std::cerr << "Failed to clear framebuffer." << std::endl;
@@ -199,6 +202,7 @@ void gl_loop()
         double total_msec = rt_time.msec_since_snap();
 
         ////////////////// Immediate mode textured quad
+        release_gl_tex(cl_tex_mem,clinfo);
         glBindTexture(GL_TEXTURE_2D, gl_tex);
 
         glBegin(GL_TRIANGLE_STRIP);
@@ -262,9 +266,6 @@ void gl_loop()
 
 int main (int argc, char** argv)
 {
-
-        CLInfo clinfo;
-        GLInfo glinfo;
 
         /*---------------------- Initialize OpenGL and OpenCL ----------------------*/
 

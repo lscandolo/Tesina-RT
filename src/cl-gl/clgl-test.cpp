@@ -77,6 +77,7 @@ void gl_loop()
 	cl_int err;
 	
 	//////////// CL STUFF
+        acquire_gl_tex(cl_tex_mem,*(clkernelinfo.clinfo));
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	cl_int arg = i%STEPS;
@@ -86,6 +87,7 @@ void gl_loop()
 	execute_cl(clkernelinfo);
 	
 	////////////////// Immediate mode textured quad
+        release_gl_tex(cl_tex_mem,*(clkernelinfo.clinfo));
 	glBindTexture(GL_TEXTURE_2D, gl_tex);
 
 	glBegin(GL_TRIANGLE_STRIP);

@@ -98,4 +98,7 @@ void print_cl_image_2d_info(const cl_mem& mem);
 void print_cl_mem_info(const cl_mem& mem);
 size_t cl_mem_size(const cl_mem& mem);
 
+int32_t acquire_gl_tex(cl_mem& tex_mem, const CLInfo& clinfo);
+int32_t release_gl_tex(cl_mem& tex_mem, const CLInfo& clinfo);
+
 #endif //OPENCL_INIT_HPP

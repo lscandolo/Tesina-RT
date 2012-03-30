@@ -13,6 +13,8 @@ uint32_t frames = 0;
 uint32_t current_frame = 0;
 uint32_t motion_rate = 1;
 
+CLInfo clinfo;
+GLInfo glinfo;
 cl_mem cl_tex_mem;
 cl_mem bvh_mem;
 
@@ -166,6 +168,7 @@ void gl_loop()
 	double fb_copy_time = 0;
 
 	glClear(GL_COLOR_BUFFER_BIT);
+        acquire_gl_tex(cl_tex_mem,clinfo);
 
 	if (!framebuffer.clear()) {
 		std::cerr << "Failed to clear framebuffer." << std::endl;
@@ -286,6 +289,7 @@ void gl_loop()
 		max_time = std::max(max_time,total_msec);
 
 	////////////////// Immediate mode textured quad
+        release_gl_tex(cl_tex_mem,clinfo);
 	glBindTexture(GL_TEXTURE_2D, gl_tex);
 
 	glBegin(GL_TRIANGLE_STRIP);
@@ -361,9 +365,6 @@ void gl_loop()
 
 int main (int argc, char** argv)
 {
-
-	CLInfo clinfo;
-	GLInfo glinfo;
 
 	/*---------------------- Initialize OpenGL and OpenCL ----------------------*/
 

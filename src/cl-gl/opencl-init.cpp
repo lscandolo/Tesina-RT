@@ -595,3 +595,43 @@ size_t cl_mem_size(const cl_mem& mem)
 
 	return mem_size;
 }
+
+int32_t acquire_gl_tex(cl_mem& tex_mem, const CLInfo& clinfo)
+{
+        cl_int err;
+
+        err = clEnqueueAcquireGLObjects (clinfo.command_queue,
+                                         1,
+                                         &tex_mem,
+                                         0,
+                                         NULL,
+                                         NULL);
+	if (error_cl(err, "clEnqueueAcquireGLObjects "))
+                return -1;
+
+	err = clFinish(clinfo.command_queue);
+
+	if (error_cl(err, "clEnqueueAcquireGLObjects -> clFinish"))
+                return -1;
+        return 0;
+}
+
+int32_t release_gl_tex(cl_mem& tex_mem, const CLInfo& clinfo)
+{
+        cl_int err;
+
+        err = clEnqueueReleaseGLObjects (clinfo.command_queue,
+                                         1,
+                                         &tex_mem,
+                                         0,
+                                         NULL,
+                                         NULL);
+	if (error_cl(err, "clEnqueueReleaseGLObjects "))
+                return -1;
+
+	err = clFinish(clinfo.command_queue);
+
+	if (error_cl(err, "clEnqueueReleaseGLObjects -> clFinish"))
+                return -1;
+        return 0;
+}

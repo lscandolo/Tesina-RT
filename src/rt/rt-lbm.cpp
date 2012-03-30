@@ -25,7 +25,8 @@ extern "C" {
 
 void rainEvent();
 
-CLKernelInfo mangler_clk;
+CLInfo clinfo;
+GLInfo glinfo;
 Scene scene;
 
 bool gpu_mangling = false;
@@ -151,6 +152,7 @@ void gl_loop()
 	double fb_copy_time = 0;
 
 	glClear(GL_COLOR_BUFFER_BIT);
+        acquire_gl_tex(cl_tex_mem,clinfo);
 
 	if (!framebuffer.clear()) {
 		std::cerr << "Failed to clear framebuffer." << std::endl;
@@ -234,14 +236,14 @@ void gl_loop()
 			std::cerr << "y: " << y << std::endl;
 	}
 	cl_mem vert_mem = scene_info.vertex_mem();
-	clEnqueueWriteBuffer(mangler_clk.clinfo->command_queue,
+	clEnqueueWriteBuffer(clinfo->command_queue,
 		vert_mem,
 		true,
 		0,
 		mesh.vertexCount() * sizeof(Vertex),
 		mesh.vertexArray(),
 		0,NULL,NULL);
-	clFinish(mangler_clk.clinfo->command_queue);
+	clFinish(clinfo->command_queue);
 	/*--------------------------------------*/
 	double mangle_time = mangle_timer.msec_since_snap();
 	//std::cerr << "Simulation time: "  << mangle_time << " msec." << std::endl;
@@ -340,6 +342,7 @@ void gl_loop()
 	double total_msec = rt_time.msec_since_snap();
 
 	////////////////// Immediate mode textured quad
+        release_gl_tex(cl_tex_mem,clinfo);
 	glBindTexture(GL_TEXTURE_2D, gl_tex);
 
 	glBegin(GL_TRIANGLE_STRIP);
@@ -404,9 +407,6 @@ void gl_loop()
 
 int main (int argc, char** argv)
 {
-
-	CLInfo clinfo;
-	GLInfo glinfo;
 
 	rt_log.enabled = true;
 	rt_log.silent = false;
@@ -566,23 +566,7 @@ int main (int argc, char** argv)
 	tracer.enable_timing(true);
 	ray_shader.enable_timing(true);
 
-	/* ------------------------- Create vertex mangler -----------------------*/
 	cl_int err;
-	mangler_clk.work_dim = 1;
-	mangler_clk.arg_count = 4;
-	mangler_clk.global_work_size[0] = scene_mesh.vertexCount();
-	if (init_cl_kernel(&clinfo,"src/kernel/mangler.cl", "mangle", 
-			   &mangler_clk)) {
-		std::cerr << "Error initializing mangler kernel." << std::endl;
-		exit(1);
-	}
-	err = clSetKernelArg(mangler_clk.kernel,0,sizeof(cl_mem), &scene_info.vertex_mem());
-	if (error_cl(err, "clSetKernelArg 0"))
-		return false;
-	cl_float h = WAVE_HEIGHT;
-	err = clSetKernelArg(mangler_clk.kernel,3,sizeof(cl_float), &h);
-	if (error_cl(err, "clSetKernelArg 3"))
-		return false;
 
 	/*---------------------- Print scene data ----------------------*/
 	std::cerr << "\nScene stats: " << std::endl;
