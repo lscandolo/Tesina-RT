@@ -1,6 +1,7 @@
 #include <rt/geom.hpp>
 #include <rt/math.hpp>
 #include <rt/cl_aux.hpp>
+#include <rt/lu.hpp>
 
 void 
 GeometricProperties::setPos(const vec3& new_pos)
@@ -37,6 +38,7 @@ GeometricProperties::updateTransform()
 	mat4x4 rpyM = rotationMatrix4x4(rpy);
 	mat4x4 scaleM = scaleMatrix4x4(scale);
 	M = scaleM * posM * rpyM;
+        Minv = inverse(M);
 }
 
 void 

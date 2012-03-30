@@ -7,6 +7,7 @@
 #include <sstream>
 
 #include <rt/math.hpp>
+#include <rt/lu.hpp>
 #include <rt/ray.hpp>
 #include <rt/light.hpp>
 #include <rt/timing.hpp>

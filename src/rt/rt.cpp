@@ -309,8 +309,8 @@ int main (int argc, char** argv)
         mesh_id floor_mesh_id = scene.load_obj_file("models/obj/frame_water1.obj");
         object_id floor_obj_id  = scene.geometry.add_object(floor_mesh_id);
         Object& floor_obj = scene.geometry.object(floor_obj_id);
-        // floor_obj.geom.setScale(2.f);
-        // floor_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
+        floor_obj.geom.setScale(2.f);
+        floor_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
         floor_obj.mat.diffuse = Blue;
         floor_obj.mat.reflectiveness = 0.9f;
         floor_obj.mat.refractive_index = 1.333f;
@@ -318,7 +318,8 @@ int main (int argc, char** argv)
          mesh_id boat_mesh_id = scene.load_obj_file("models/obj/frame_boat1.obj");
          object_id boat_obj_id = scene.geometry.add_object(boat_mesh_id);
          Object& boat_obj = scene.geometry.object(boat_obj_id);
-         // boat_obj.geom.setPos(makeVector(0.f,-17.f,0.f));
+         boat_obj.geom.setPos(makeVector(0.f,-17.f,0.f));
+         boat_obj.geom.setRpy(makeVector(0.1f,0.f,0.f));
          boat_obj.mat.diffuse = Red;
          boat_obj.mat.shininess = 1.f;
          boat_obj.mat.reflectiveness = 0.0f;

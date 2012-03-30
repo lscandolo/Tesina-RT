@@ -6,6 +6,7 @@ typedef struct
 typedef struct {
         int node;
         sqmat4 tr;
+        sqmat4 trInv;
 } BVHRoot;
 
 typedef struct
@@ -66,13 +67,80 @@ typedef struct {
 } RayHitInfo;
 
 
+float3 __attribute__((always_inline)) 
+multiply_vector(float3 v, sqmat4 M)
+{
+        float4 x = (float4)(v,0.f);
+        float4 r = (float4)(0.f,0.f,0.f,0.f);
+        int m_idx = 0;
+
+        r.x += M.m[m_idx++] * x.x;
+        r.y += M.m[m_idx++] * x.x;
+        r.z += M.m[m_idx++] * x.x;
+        r.w += M.m[m_idx++] * x.x;
+
+        r.x += M.m[m_idx++] * x.y;
+        r.y += M.m[m_idx++] * x.y;
+        r.z += M.m[m_idx++] * x.y;
+        r.w += M.m[m_idx++] * x.y;
+
+        r.x += M.m[m_idx++] * x.z;
+        r.y += M.m[m_idx++] * x.z;
+        r.z += M.m[m_idx++] * x.z;
+        r.w += M.m[m_idx++] * x.z;
+
+        r.x += M.m[m_idx++] * x.w;
+        r.y += M.m[m_idx++] * x.w;
+        r.z += M.m[m_idx++] * x.w;
+        r.w += M.m[m_idx++] * x.w;
+
+        if (fabs(r.w > 0.00001f))
+                r = r / r.w;
+        return r.xyz;
+}
+
+float3 __attribute__((always_inline)) 
+multiply_point(float3 v, sqmat4 M)
+{
+        float4 x = (float4)(v,1.f);
+        float4 r = (float4)(0.f,0.f,0.f,0.f);
+        int m_idx = 0;
+
+        r.x += M.m[m_idx++] * x.x;
+        r.y += M.m[m_idx++] * x.x;
+        r.z += M.m[m_idx++] * x.x;
+        r.w += M.m[m_idx++] * x.x;
+
+        r.x += M.m[m_idx++] * x.y;
+        r.y += M.m[m_idx++] * x.y;
+        r.z += M.m[m_idx++] * x.y;
+        r.w += M.m[m_idx++] * x.y;
+
+        r.x += M.m[m_idx++] * x.z;
+        r.y += M.m[m_idx++] * x.z;
+        r.z += M.m[m_idx++] * x.z;
+        r.w += M.m[m_idx++] * x.z;
+
+        r.x += M.m[m_idx++] * x.w;
+        r.y += M.m[m_idx++] * x.w;
+        r.z += M.m[m_idx++] * x.w;
+        r.w += M.m[m_idx++] * x.w;
+
+        if (fabs(r.w > 0.00001f))
+                r = r / r.w;
+        return r.xyz;
+}
+
 Ray transform_ray(Ray ray, sqmat4 tr)
 {
+        ray.dir = multiply_vector(ray.dir, tr);
+        ray.ori = multiply_point(ray.ori, tr);
         return ray;
 }
 
 RayHitInfo transform_hit_info(RayHitInfo hit_info, sqmat4 tr)
 {
+        hit_info.n = multiply_vector(hit_info.n, tr);
         return hit_info;
 }
 
@@ -345,24 +413,30 @@ trace(global RayHitInfo* trace_info,
 
         for (int i = 0; i < root_cant; ++i) {
                 
-                Ray tr_ray = transform_ray(ray, roots[i].tr);
-                RayHitInfo root_hit_info = trace_ray(ray, vertex_buffer, index_buffer, 
+                Ray tr_ray = transform_ray(ray, roots[i].trInv);
+                RayHitInfo root_hit_info = trace_ray(tr_ray, vertex_buffer, index_buffer, 
                                                      bvh_nodes, roots[i].node);
 
                 root_hit_info = transform_hit_info(root_hit_info, roots[i].tr);
                 merge_hit_info (&hit_info, &root_hit_info);
-        }
 
-        /* Compute normal at hit point */
-        if (hit_info.hit) {
-                hit_info.n = compute_normal(vertex_buffer, index_buffer, 
-                                            hit_info.id, hit_info.uv);
-                /* If the normal is pointing out, invert it and note it in the flags */
-                if (dot(hit_info.n,ray.dir) > 0) {
-                        hit_info.inverse_n = true;
-                        hit_info.n *= -1.f;
+
+                /* Compute normal at hit point */
+                if (hit_info.hit) {
+
+                        hit_info.n = compute_normal(vertex_buffer, index_buffer, 
+                                                    hit_info.id, hit_info.uv);
+                        hit_info.n = normalize(multiply_vector(hit_info.n,roots[i].trInv));
+                        
+                        /* If the normal is pointing out, 
+                           invert it and note it in the flags */
+                        if (dot(hit_info.n,ray.dir) > 0) {
+                                hit_info.inverse_n = true;
+                                hit_info.n *= -1.f;
+                        }
                 }
         }
+
 
         /* Save hit info*/
         trace_info[index] = hit_info;

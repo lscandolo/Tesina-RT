@@ -1,4 +1,5 @@
 #include <iostream> //!!
+#include <rt/lu.hpp> //!!
 
 
 #include <rt/scene.hpp>
@@ -170,6 +171,7 @@ Scene::process()
                         BVHRoot bvh_root;
                         bvh_root.node = bvhs[obj->id].start_node;
                         bvh_root.tr   = obj->geom.getTransformMatrix();
+                        bvh_root.trInv   = obj->geom.getTransformMatrixInv();
                         bvh_roots.push_back(bvh_root);
                         continue;
                 }
@@ -192,6 +194,7 @@ Scene::process()
                 BVHRoot bvh_root;
                 bvh_root.node = node_offset;
                 bvh_root.tr   = obj->geom.getTransformMatrix();
+                bvh_root.trInv   = obj->geom.getTransformMatrixInv();
                 bvh_roots.push_back(bvh_root);
 
                 // total_tris  += mesh_atlas[obj->id].triangleCount();

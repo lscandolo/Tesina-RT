@@ -8,6 +8,7 @@
 struct BVHRoot {
         cl_int node;
         cl_sqmat4 tr;
+        cl_sqmat4 trInv;
 };
 
 struct MultiBVH {

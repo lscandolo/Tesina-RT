@@ -12,7 +12,7 @@ class sqmat
 {
 public:
 
-        /* Row major order */
+        /* Col major order */
         F v[N*N];
 
 	inline sqmat<N,F> () {}
@@ -39,6 +39,16 @@ public:
 	inline F val(uint32_t row, uint32_t col) const
 		{
 			return v[col*N+row];
+		}
+
+	inline sqmat<N,F> operator*(const F x) const
+		{
+			sqmat<N,F> res(0.f);
+			for(uint32_t i = 0; i < N; ++i) 
+				for (uint32_t j = 0; j < N; ++j) 
+                                        res.val(i,j) = val(i,j) * x;
+
+			return res;
 		}
 
 	inline sqmat<N,F> operator*(const sqmat<N,F>& rhs) const
@@ -99,6 +109,36 @@ public:
 			return res;
 		}
 
+
+        inline vec<N,F> row(const int n) const{
+                ASSERT(n<N);
+                vec<N,F> row;
+                int v_idx = n;
+                for (uint32_t i = 0; i < N; ++i, v_idx+=N)
+                        row[i] = v[v_idx];
+                return row;
+        }
+
+        inline vec<N,F> col(const int n) const{
+                ASSERT(n<N);
+                vec<N,F> col;
+                int v_idx = n*N;
+                for (uint32_t i = 0; i < N; ++i, v_idx++)
+                        col[i] = v[v_idx];
+                return col;
+        }
+
+        inline void set_row(const int n, const vec<N,F>& row){
+                F* vptr = v+n;
+                for (uint32_t i = 0; i < N; ++i, vptr+=N)
+                         *vptr = row[i];
+        }
+
+        inline void set_col(const int n, const vec<N,F>& col){
+                F* vptr = v+(n*N);
+                for (uint32_t i = 0; i < N; ++i, vptr++)
+                        *vptr = col[i];
+        }
 };
 
 typedef sqmat<3,float> mat3x3;
