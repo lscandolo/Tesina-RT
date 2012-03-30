@@ -1,6 +1,9 @@
 #ifndef LOG_HPP
 #define LOG_HPP
 
+#include <fstream>
+#include <iostream>
+
 class Log
 {
 public:

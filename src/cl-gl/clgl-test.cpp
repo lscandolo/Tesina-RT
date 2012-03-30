@@ -5,8 +5,9 @@
 
 #include <stdio.h>
 #include <CL/cl.h>
-#include "cl-gl/opengl-init.hpp"
-#include "cl-gl/opencl-init.hpp"
+#include <cl-gl/opengl-init.hpp>
+#include <cl-gl/opencl-init.hpp>
+#include <misc/log.hpp>
 
 #include <stdint.h>
 

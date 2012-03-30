@@ -1,7 +1,7 @@
 #ifndef OPENCL_INIT_HPP
 #define OPENCL_INIT_HPP
 
-#include "cl-gl/opengl-init.hpp"
+#include <cl-gl/opengl-init.hpp>
 
 #ifdef _WIN32
   #include <Windows.h>

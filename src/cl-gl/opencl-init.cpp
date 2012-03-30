@@ -1,4 +1,4 @@
-#include "cl-gl/opencl-init.hpp"
+#include <cl-gl/opencl-init.hpp>
 
 #include <fstream>
 #include <iostream>

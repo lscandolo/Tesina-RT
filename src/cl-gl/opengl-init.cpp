@@ -1,7 +1,7 @@
 #include <FreeImagePlus.h>
 
-#include "cl-gl/opengl-init.hpp"
-#include "cl-gl/opencl-init.hpp"
+#include <cl-gl/opengl-init.hpp>
+#include <cl-gl/opencl-init.hpp>
 
 #include <iostream>
 
