@@ -236,14 +236,14 @@ void gl_loop()
 			std::cerr << "y: " << y << std::endl;
 	}
 	cl_mem vert_mem = scene_info.vertex_mem();
-	clEnqueueWriteBuffer(clinfo->command_queue,
+	clEnqueueWriteBuffer(clinfo.command_queue,
 		vert_mem,
 		true,
 		0,
 		mesh.vertexCount() * sizeof(Vertex),
 		mesh.vertexArray(),
 		0,NULL,NULL);
-	clFinish(clinfo->command_queue);
+	clFinish(clinfo.command_queue);
 	/*--------------------------------------*/
 	double mangle_time = mangle_timer.msec_since_snap();
 	//std::cerr << "Simulation time: "  << mangle_time << " msec." << std::endl;
