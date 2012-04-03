@@ -572,7 +572,10 @@ inline int error_cl(cl_int err_num, std::string msg)
 {
 	if (err_num != CL_SUCCESS){
 		std::cerr << " *** OpenCL error: " << msg 
-			  << " (error code " << err_num << ")" <<std::endl;
+			  << " (error code " << err_num << ")" 
+                          << std::endl
+                          << " File: " << __FILE__ << " Line: " << __LINE__ 
+                          << std::endl;
 		return 1;
 	}
 	return 0;

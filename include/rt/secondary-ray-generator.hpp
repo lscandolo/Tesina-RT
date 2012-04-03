@@ -11,7 +11,7 @@ class SecondaryRayGenerator {
 public:
 
 	bool initialize(CLInfo& clinfo);
-	bool generate(SceneInfo& si, RayBundle& ray_in, int32_t rays_in,
+	bool generate(Scene& scene, RayBundle& ray_in, int32_t rays_in,
 		      HitBundle& hits, RayBundle& ray_out, int32_t* rays_out);
 	void set_max_rays(int32_t max);
 

@@ -5,78 +5,71 @@ RayShader::initialize(CLInfo& clinfo)
 
 		
 {
-	/*------------------------ Set up ray shading kernel info ---------------------*/
-	if (init_cl_kernel(&clinfo,"src/kernel/ray-shader.cl", "shade", 
-			   &shade_clk))
-		return false;
+        if (device.initialize(clinfo))
+                return false;
 
-	shade_clk.work_dim = 1;
-	shade_clk.arg_count = 12;
+	/*------------------------ Set up ray shading kernel info ---------------------*/
+        shade_id = device.new_function();
+        DeviceFunction& shade_function = device.function(shade_id);
+
+        if (shade_function.initialize("src/kernel/ray-shader.cl", "shade"))
+                return false;
+
+        shade_function.set_dims(1);
+
 	timing = false;
-	
 	return true;
 }
 
 bool 
-RayShader::shade(RayBundle& rays, HitBundle& hb, SceneInfo& scene_info, 
+RayShader::shade(RayBundle& rays, HitBundle& hb, Scene& scene, 
 		 Cubemap& cm, FrameBuffer& fb, int32_t size)
 {
-	cl_int err;
-
 	if (timing)
 		timer.snap_time();
 
-	err = clSetKernelArg(shade_clk.kernel,0,sizeof(cl_mem), &fb.image_mem());
-	if (error_cl(err, "clSetKernelArg 0"))
+        DeviceFunction& shade_function = device.function(shade_id);
+        
+        if (shade_function.set_arg(0, fb.image_mem()))
+            return false;
+
+        if (shade_function.set_arg(1,sizeof(cl_mem),&hb.mem()))
 		return false;
 
-	err = clSetKernelArg(shade_clk.kernel,1,sizeof(cl_mem),&hb.mem());
-	if (error_cl(err, "clSetKernelArg 1"))
+        if (shade_function.set_arg(2,sizeof(cl_mem),&rays.mem()))
 		return false;
 
-	err = clSetKernelArg(shade_clk.kernel,2,sizeof(cl_mem),&rays.mem());
-	if (error_cl(err, "clSetKernelArg 2"))
+        if (shade_function.set_arg(3,scene.material_list_mem()))
 		return false;
 
-	err = clSetKernelArg(shade_clk.kernel,3,sizeof(cl_mem),&scene_info.mat_list_mem());
-	if (error_cl(err, "clSetKernelArg 3"))
+        if (shade_function.set_arg(4,scene.material_map_mem()))
 		return false;
 
-	err = clSetKernelArg(shade_clk.kernel,4,sizeof(cl_mem),&scene_info.mat_map_mem());
-	if (error_cl(err, "clSetKernelArg 4"))
+        if (shade_function.set_arg(5,cm.positive_x_mem()))
 		return false;
 
-	err = clSetKernelArg(shade_clk.kernel,5,sizeof(cl_mem),&cm.positive_x_mem());
-	if (error_cl(err, "clSetKernelArg 5"))
+        if (shade_function.set_arg(6,cm.negative_x_mem()))
 		return false;
 
-	err = clSetKernelArg(shade_clk.kernel,6,sizeof(cl_mem),&cm.negative_x_mem());
-	if (error_cl(err, "clSetKernelArg 6"))
+        if (shade_function.set_arg(7,cm.positive_y_mem()))
 		return false;
 
-	err = clSetKernelArg(shade_clk.kernel,7,sizeof(cl_mem),&cm.positive_y_mem());
-	if (error_cl(err, "clSetKernelArg 7"))
+        if (shade_function.set_arg(8,cm.negative_y_mem()))
 		return false;
 
-	err = clSetKernelArg(shade_clk.kernel,8,sizeof(cl_mem),&cm.negative_y_mem());
-	if (error_cl(err, "clSetKernelArg 8"))
+        if (shade_function.set_arg(9,cm.positive_z_mem()))
 		return false;
 
-	err = clSetKernelArg(shade_clk.kernel,9,sizeof(cl_mem),&cm.positive_z_mem());
-	if (error_cl(err, "clSetKernelArg 9"))
+        if (shade_function.set_arg(10,cm.negative_z_mem()))
 		return false;
 
-	err = clSetKernelArg(shade_clk.kernel,10,sizeof(cl_mem),&cm.negative_z_mem());
-	if (error_cl(err, "clSetKernelArg 10"))
+        if (shade_function.set_arg(11,scene.lights_mem()))
 		return false;
 
-	err = clSetKernelArg(shade_clk.kernel,11,sizeof(cl_mem),&scene_info.light_mem());
-	if (error_cl(err, "clSetKernelArg 11"))
-		return false;
+        size_t shade_work_size[] = {size, 0, 0};
+        shade_function.set_global_size(shade_work_size);
 
-	shade_clk.global_work_size[0] = size;
-
-	if (execute_cl(shade_clk))
+	if (shade_function.execute())
 		return false;
 
 	if (timing)

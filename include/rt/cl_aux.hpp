@@ -11,18 +11,20 @@
   #define RT_ALIGN(x)
 #endif
 
-cl_float3 vec3_to_float3(const vec3& v);
+RT_ALIGN(16)
+struct cl_sqmat4 {
+        cl_float4 row[4];
+};
 
+cl_float3 vec3_to_float3(const vec3& v);
+cl_float4 vec3_to_float4(const vec3& v, float w = 0);
 cl_float4 vec4_to_float4(const vec4& v);
 
-cl_float4 vec3_to_float4(const vec3& v, float w = 0);
-
 vec3 float3_to_vec3(const cl_float3& f);
-
+vec4 float3_to_vec4(const cl_float3& f, float w = 0);
 vec4 float4_to_vec4(const cl_float4& f);
 
-vec4 float3_to_vec4(const cl_float3& f, float w = 0);
-
+cl_sqmat4 mat4x4_to_cl_sqmat4(const mat4x4& M);
 
 cl_float2 makeFloat2(const float x, const float y);
 cl_float3 makeFloat3(const float x, const float y, const float z);
@@ -34,8 +36,5 @@ cl_float4 makeFloat4(const float* v);
 
 cl_float3 max(const cl_float3 a, const cl_float3 b);
 cl_float3 min(const cl_float3 a, const cl_float3 b);
-
-typedef sqmat<3,cl_float> cl_sqmat3;
-typedef sqmat<4,cl_float> cl_sqmat4;
 
 #endif /* RT_CL_AUX */

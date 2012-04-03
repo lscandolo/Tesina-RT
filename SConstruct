@@ -4,6 +4,7 @@ extra_path = []
 
 VariantDir('build/rt', 'src/rt', duplicate=0)
 VariantDir('build/cl-gl', 'src/cl-gl', duplicate=0)
+VariantDir('build/gpu', 'src/gpu', duplicate=0)
 
 env = Environment(ENV = os.environ)
 env.AppendENVPath('PATH', extra_path)
@@ -52,6 +53,12 @@ clgl_lib = env.StaticLibrary('lib/clgl' ,
                              Glob('build/cl-gl/open[cg]l-init.cpp')
                              )
 
+gpu_lib = env.StaticLibrary('lib/gpu' ,
+                            ['build/gpu/function.cpp',
+                             'build/gpu/memory.cpp',
+                             'build/gpu/interface.cpp'
+                             ])
+
 clgl_test = env.Program('bin/cl-gl-test' ,
                         'build/cl-gl/clgl-test.cpp' ,
                         LIBS = base_libs + clgl_lib
@@ -59,15 +66,15 @@ clgl_test = env.Program('bin/cl-gl-test' ,
 
 rt = env.Program('bin/rt' ,
                  'build/rt/rt.cpp' ,
-                 LIBS= base_libs + clgl_lib + rt_primitives_lib
+                 LIBS= base_libs + clgl_lib + gpu_lib + rt_primitives_lib
                  )   
 
 rt_seq = env.Program('bin/rt-seq' ,
                      'build/rt/rt-seq.cpp' ,
-                     LIBS= base_libs + clgl_lib + rt_primitives_lib
+                     LIBS= base_libs + clgl_lib + gpu_lib + rt_primitives_lib
                      )   
 
 rt_wave = env.Program('bin/rt-wave' ,
                       'build/rt/rt-wave.cpp' ,
-                      LIBS= base_libs + clgl_lib + rt_primitives_lib
+                      LIBS= base_libs + clgl_lib + gpu_lib + rt_primitives_lib
                       )   

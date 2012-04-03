@@ -20,6 +20,7 @@
 
 #include <stdint.h>
 #include <string>
+#include <iostream>
 
 
 struct CLInfo
@@ -92,10 +93,12 @@ int32_t copy_from_cl_mem(const CLInfo& clinfo, uint32_t size,
 			 void* values, cl_mem& mem, uint32_t offset = 0);
 int32_t create_cl_mem_from_gl_tex(const CLInfo& clinfo, const GLuint gl_tex, cl_mem* mem);
 int32_t execute_cl(const CLKernelInfo& clkernelinfo);
-int32_t error_cl(cl_int err_num, std::string msg);
 void print_cl_info(const CLInfo& clinfo);
 void print_cl_image_2d_info(const cl_mem& mem);
 void print_cl_mem_info(const cl_mem& mem);
 size_t cl_mem_size(const cl_mem& mem);
+
+
+inline int32_t error_cl(cl_int err_num, std::string msg);
 
 #endif //OPENCL_INIT_HPP

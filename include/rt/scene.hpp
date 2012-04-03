@@ -6,7 +6,7 @@
 #include <stdint.h>
 
 #include <cl-gl/opencl-init.hpp>
-
+#include <gpu/interface.hpp>
 #include <rt/mesh.hpp>
 #include <rt/material.hpp>
 #include <rt/bvh.hpp>
@@ -14,7 +14,6 @@
 #include <rt/light.hpp>
 #include <rt/geom.hpp>
 #include <rt/obj-loader.hpp>
-
 
 /*Once MeshInstances have been handed to the scene geometry, it is 
  the user's responsibility to make sure the mesh pointers remain valid */
@@ -55,15 +54,41 @@ struct SceneGeometry {
 class Scene {
 
 public:
+        
+        Scene();
+        int32_t initialize(CLInfo& clinfo);
+        bool    valid();
+        bool    valid_aggregate();
+        bool    valid_bvhs();
+
+	int32_t create_aggregate_mesh();
+	int32_t create_aggregate_bvh();
+
+	Mesh&   get_aggregate_mesh(){return aggregate_mesh;}
+	BVH&    get_aggregate_bvh (){return aggregate_bvh;}
+
+        int32_t transfer_aggregate_mesh_to_device();
+        int32_t transfer_aggregate_bvh_to_device();
+
+        int32_t create_bvhs();
+        int32_t transfer_meshes_to_device();
+        int32_t transfer_bvhs_to_device();
+        
+	int32_t set_dir_light(const directional_light_cl& dl);
+	int32_t set_ambient_light(const color_cl& color);
+
 	mesh_id load_obj_file(std::string filename);
 
-	uint32_t create_aggregate();
-	uint32_t create_bvh();
+        DeviceMemory& vertex_mem();
+        DeviceMemory& triangle_mem();
+        DeviceMemory& material_list_mem();
+        DeviceMemory& material_map_mem();
+        DeviceMemory& bvh_nodes_mem();
+        DeviceMemory& bvh_roots_mem();
+        DeviceMemory& lights_mem();
 
-	Mesh& get_aggregate_mesh(){return geometry_aggregate;}
-	BVH&  get_aggregate_bvh (){return bvh;}
 	std::vector<material_cl>& get_material_list (){return material_list;}
-	std::vector<cl_int>& get_material_map (){return material_map;}
+	std::vector<cl_int>&      get_material_map (){return material_map;}
 
 	bool reorderTriangles(const std::vector<uint32_t>& new_order);
 
@@ -71,15 +96,14 @@ public:
 
 
         /*!! Create Multi-BVH */
-        uint32_t process();
+        uint32_t create_multiple_bvhs();
+        uint32_t update_bvh_roots();
 
 	std::vector<Mesh> mesh_atlas;
-	// std::vector<Light> lights;
-
 private:
 
-	Mesh geometry_aggregate;
-	BVH bvh;
+	Mesh aggregate_mesh;
+	BVH  aggregate_bvh;
 	std::vector<material_cl> material_list;
 	std::vector<cl_int>   material_map;
 
@@ -91,6 +115,25 @@ public:
                                           are offset, they need to be ordered the same way
                                           when we move them to device mem*/
         std::vector<BVHRoot> bvh_roots;
+
+private:
+        bool m_initialized;
+        bool m_aggregate_mesh_built;
+        bool m_aggregate_bvh_built;
+        bool m_bvhs_built;
+
+        bool m_multi_bvh;
+
+	lights_cl lights;
+
+        DeviceInterface device;
+	memory_id vert_id;
+	memory_id tri_id;
+	memory_id mat_map_id;
+	memory_id mat_list_id;
+	memory_id bvh_id;
+	memory_id lights_id;
+        memory_id bvh_roots_id;
 };
 
 
@@ -98,8 +141,9 @@ class SceneInfo {
 
 public:
 	bool initialize(Scene& scene, const CLInfo& cli);
-
 	bool initialize_multi(Scene& scene, const CLInfo& cli);
+
+        bool update_bvh_roots(Scene& scene);
 
 	cl_mem& vertex_mem(){return vert_m;}
 	cl_mem& index_mem(){return index_m;}

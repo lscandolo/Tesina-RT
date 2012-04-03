@@ -7,14 +7,18 @@
 
 #define MAX_BOUNCE 5
 
-cl_mem cl_tex_mem;
+DeviceInterface device;
+memory_id texture_id;
+
+object_id boat_id;
+object_id floor_id;
 
 RayBundle             ray_bundle_1,ray_bundle_2;
 HitBundle             hit_bundle;
 PrimaryRayGenerator   prim_ray_gen;
 SecondaryRayGenerator sec_ray_gen;
 RayShader             ray_shader;
-SceneInfo             scene_info;
+Scene scene;
 Cubemap               cubemap;
 FrameBuffer           framebuffer;
 Tracer                tracer;
@@ -51,6 +55,10 @@ void gl_key(unsigned char key, int x, int y)
 {
         float delta = 2.f;
 
+        static float tilt = 0.f;
+        Object& boat_obj = scene.geometry.object(boat_id);
+        Object& floor_obj = scene.geometry.object(floor_id);
+
         const sample_cl samples1[] = {{ 0.f , 0.f, 1.f}};
         const sample_cl samples4[] = {{ 0.25f , 0.25f, 0.25f},
                                       { 0.25f ,-0.25f, 0.25f},
@@ -86,6 +94,18 @@ void gl_key(unsigned char key, int x, int y)
                 std::cout << std::endl << "Exiting..." << std::endl;
                 exit(1);
                 break;
+        case 't':
+                tilt -= 0.01f;
+                boat_obj.geom.setRpy(makeVector(tilt,0.f,0.f));
+                floor_obj.geom.setRpy(makeVector(0.f,0.f,tilt));
+                scene.update_bvh_roots();
+                break;
+        case 'y':
+                tilt += 0.01f;
+                boat_obj.geom.setRpy(makeVector(tilt,0.f,0.f));
+                floor_obj.geom.setRpy(makeVector(0.f,0.f,tilt));
+                scene.update_bvh_roots();
+                break;
         }
 }
 
@@ -120,10 +140,10 @@ void gl_loop()
         directional_light_cl light;
         light.set_dir(0.05f * (arg - 8.f) , -0.6f, 0.2f);
         light.set_color(0.05f * (fabsf(arg)) + 0.1f, 0.2f, 0.05f * fabsf(arg+4.f));
-        scene_info.set_dir_light(light);
+        scene.set_dir_light(light);
         color_cl ambient;
         ambient[0] = ambient[1] = ambient[2] = 0.1f;
-        scene_info.set_ambient_light(ambient);
+        scene.set_ambient_light(ambient);
 
         int32_t sample_count = pixel_count * prim_ray_gen.get_spp();
         for (int32_t offset = 0; offset < sample_count; offset+= tile_size) {
@@ -144,13 +164,13 @@ void gl_loop()
 
                 total_ray_count += tile_size;
 
-                tracer.trace(scene_info, tile_size, *ray_in, hit_bundle);
+                tracer.trace(scene, tile_size, *ray_in, hit_bundle);
                 prim_trace_time += tracer.get_trace_exec_time();
 
                 // tracer.shadow_trace(scene_info, tile_size, *ray_in, hit_bundle);
                 // prim_shadow_trace_time += tracer.get_shadow_exec_time();
 
-                if (!ray_shader.shade(*ray_in, hit_bundle, scene_info,
+                if (!ray_shader.shade(*ray_in, hit_bundle, scene,
                                       cubemap, framebuffer, tile_size)){
                         std::cerr << "Failed to update framebuffer." << std::endl;
                         exit(1);
@@ -160,7 +180,7 @@ void gl_loop()
                 int32_t sec_ray_count = tile_size;
                 for (uint32_t i = 0; i < MAX_BOUNCE; ++i) {
 
-                        sec_ray_gen.generate(scene_info, *ray_in, sec_ray_count, 
+                        sec_ray_gen.generate(scene, *ray_in, sec_ray_count, 
                                              hit_bundle, *ray_out, &sec_ray_count);
                         sec_gen_time += sec_ray_gen.get_exec_time();
 
@@ -173,7 +193,7 @@ void gl_loop()
 
                         total_ray_count += sec_ray_count;
 
-                        tracer.trace(scene_info, sec_ray_count, 
+                        tracer.trace(scene, sec_ray_count, 
                                      *ray_in, hit_bundle, true);
                         sec_trace_time += tracer.get_trace_exec_time();
 
@@ -181,7 +201,7 @@ void gl_loop()
                         //                     *ray_in, hit_bundle, true);
                         // sec_shadow_trace_time += tracer.get_shadow_exec_time();
 
-                        if (!ray_shader.shade(*ray_in, hit_bundle, scene_info,
+                        if (!ray_shader.shade(*ray_in, hit_bundle, scene,
                                               cubemap, framebuffer, sec_ray_count)){
                                 std::cerr << "Ray shader failed execution." << std::endl;
                                 exit(1);
@@ -191,7 +211,7 @@ void gl_loop()
 
         }
 
-        if (!framebuffer.copy(cl_tex_mem)){
+        if (!framebuffer.copy(device.memory(texture_id))){
                 std::cerr << "Failed to copy framebuffer." << std::endl;
                 exit(1);
         }
@@ -287,13 +307,28 @@ int main (int argc, char** argv)
         }
         print_cl_info(clinfo);
 
+        /* Initialize device interface */
+        if (device.initialize(clinfo)) {
+                std::cerr << "Failed to initialize device interface" << std::endl;
+                exit(1);
+        }
+        
         /*---------------------- Create shared GL-CL texture ----------------------*/
         gl_tex = create_tex_gl(window_size[0],window_size[1]);
-        if (create_cl_mem_from_gl_tex(clinfo, gl_tex, &cl_tex_mem))
+        
+        texture_id = device.new_memory();
+        DeviceMemory& tex_mem = device.memory(texture_id);
+        if (tex_mem.initialize_from_gl_texture(gl_tex)) {
+                std::cerr << "Failed to create memory object from gl texture" << std::endl;
                 exit(1);
-
+        }
         /*---------------------- Set up scene ---------------------------*/
-        Scene scene;
+        if (scene.initialize(clinfo)) {
+                std::cerr << "Failed to initialize scene" << std::endl;
+                exit(1);
+        } else {
+                std::cout << "Initialized scene succesfully" << std::endl;
+        }
 
         /* Other models 
         models/obj/floor.obj
@@ -309,6 +344,7 @@ int main (int argc, char** argv)
         mesh_id floor_mesh_id = scene.load_obj_file("models/obj/frame_water1.obj");
         object_id floor_obj_id  = scene.geometry.add_object(floor_mesh_id);
         Object& floor_obj = scene.geometry.object(floor_obj_id);
+        floor_id = floor_obj_id; //!!
         floor_obj.geom.setScale(2.f);
         floor_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
         floor_obj.mat.diffuse = Blue;
@@ -318,47 +354,49 @@ int main (int argc, char** argv)
          mesh_id boat_mesh_id = scene.load_obj_file("models/obj/frame_boat1.obj");
          object_id boat_obj_id = scene.geometry.add_object(boat_mesh_id);
          Object& boat_obj = scene.geometry.object(boat_obj_id);
+         boat_id = boat_obj_id; //!!
          boat_obj.geom.setPos(makeVector(0.f,-17.f,0.f));
-         boat_obj.geom.setRpy(makeVector(0.1f,0.f,0.f));
+         boat_obj.geom.setRpy(makeVector(0.05f,0.f,0.f));
+         boat_obj.geom.setScale(2.f);
          boat_obj.mat.diffuse = Red;
          boat_obj.mat.shininess = 1.f;
          boat_obj.mat.reflectiveness = 0.0f;
 
-        // mesh_id teapot_mesh_id = scene.load_obj_file("models/obj/teapot2.obj");
-        // // mesh_id teapot_mesh_id = scene.load_obj_file("models/obj/teapot-low_res.obj");
-        // object_id teapot_obj_id = scene.geometry.add_object(teapot_mesh_id);
-        // Object& teapot_obj = scene.geometry.object(teapot_obj_id);
-        // // teapot_obj.geom.setPos(makeVector(-8.f,-5.f,0.f));
-        // teapot_obj.mat.diffuse = Green;
-        // teapot_obj.mat.shininess = 1.f;
-        // teapot_obj.mat.reflectiveness = 0.3f;
+        mesh_id teapot_mesh_id = scene.load_obj_file("models/obj/teapot2.obj");
+        // mesh_id teapot_mesh_id = scene.load_obj_file("models/obj/teapot-low_res.obj");
+        object_id teapot_obj_id = scene.geometry.add_object(teapot_mesh_id);
+        Object& teapot_obj = scene.geometry.object(teapot_obj_id);
+        // teapot_obj.geom.setPos(makeVector(-8.f,-5.f,0.f));
+        teapot_obj.mat.diffuse = Green;
+        teapot_obj.mat.shininess = 1.f;
+        teapot_obj.mat.reflectiveness = 0.3f;
 
-        //object_id teapot_obj_id_2 = scene.geometry.add_object(teapot_mesh_id);
-        //Object& teapot_obj_2 = scene.geometry.object(teapot_obj_id_2);
-        //teapot_obj_2.mat.diffuse = Red;
-        //teapot_obj_2.mat.shininess = 1.f;
-        //teapot_obj_2.geom.setPos(makeVector(8.f,5.f,0.f));
-        //teapot_obj_2.geom.setRpy(makeVector(0.2f,0.1f,0.3f));
-        //teapot_obj_2.geom.setScale(0.3f);
-        //teapot_obj_2.mat.reflectiveness = 0.3f;
+        object_id teapot_obj_id_2 = scene.geometry.add_object(teapot_mesh_id);
+        Object& teapot_obj_2 = scene.geometry.object(teapot_obj_id_2);
+        teapot_obj_2.mat.diffuse = Red;
+        teapot_obj_2.mat.shininess = 1.f;
+        teapot_obj_2.geom.setPos(makeVector(8.f,5.f,0.f));
+        teapot_obj_2.geom.setRpy(makeVector(0.2f,0.1f,0.3f));
+        teapot_obj_2.geom.setScale(0.3f);
+        teapot_obj_2.mat.reflectiveness = 0.3f;
 
-         //mesh_id bunny_mesh_id = scene.load_obj_file("models/obj/bunny.obj");
-         //object_id bunny_obj_id = scene.geometry.add_object(bunny_mesh_id);
-         //Object& bunny_obj = scene.geometry.object(bunny_obj_id);
-         //bunny_obj.geom.setPos(makeVector(0.f,0.f,-3.f));
-         //bunny_obj.geom.setRpy(makeVector(0.f,0.f,M_PI));
-         //bunny_obj.mat.diffuse = White;
-         //bunny_obj.mat.shininess = 0.8;
-         //bunny_obj.mat.reflectiveness = 0.f;
+         // mesh_id bunny_mesh_id = scene.load_obj_file("models/obj/bunny.obj");
+         // object_id bunny_obj_id = scene.geometry.add_object(bunny_mesh_id);
+         // Object& bunny_obj = scene.geometry.object(bunny_obj_id);
+         // bunny_obj.geom.setPos(makeVector(0.f,0.f,-3.f));
+         // bunny_obj.geom.setRpy(makeVector(0.f,0.f,M_PI));
+         // bunny_obj.mat.diffuse = White;
+         // bunny_obj.mat.shininess = 0.8;
+         // bunny_obj.mat.reflectiveness = 0.f;
 
 
          /* -=-=-=-=-=-=-=-=-=-=-=-=-=-=- Aggregate BVH -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- */
-        // scene.create_aggregate();
+        // scene.create_aggregate_mesh();
         // Mesh& scene_mesh = scene.get_aggregate_mesh();
         // std::cout << "Created scene aggregate succesfully." << std::endl;
 
         // rt_time.snap_time();
-        // scene.create_bvh();
+        // scene.create_aggregate_bvh();
         // BVH& scene_bvh   = scene.get_aggregate_bvh ();
         // double bvh_build_time = rt_time.msec_since_snap();
         // std::cout << "Created BVH succesfully (build time: " 
@@ -372,17 +410,74 @@ int main (int argc, char** argv)
         // }
         // std::cout << "Initialized scene info succesfully." << std::endl;
 
+#if 0
+         /* -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- Aggregate BVH -=-=-=-=-=-=-=-=-=-=-=-=-=- */
+         if (scene.create_aggregate_mesh()) { 
+                std::cerr << "Failed to create aggregate mesh" << std::endl;
+                exit(1);
+         } else {
+                 std::cout << "Created aggregate mesh succesfully" << std::endl;
+         }
+
+         if (scene.create_aggregate_bvh()) { 
+                std::cerr << "Failed to create aggregate bvh" << std::endl;
+                exit(1);
+         } else {
+                 std::cout << "Created aggregate bvh succesfully" << std::endl;
+         }
+
+         if (scene.transfer_aggregate_mesh_to_device()) {
+                std::cerr << "Failed to transfer aggregate meshe to device memory" 
+                          << std::endl;
+                exit(1);
+         } else {
+                 std::cout << "Transfered aggregate meshe to device succesfully" 
+                           << std::endl;
+         }
+
+         if (scene.transfer_aggregate_bvh_to_device()) {
+                std::cerr << "Failed to transfer aggregate bvh to device memory" 
+                          << std::endl;
+                exit(1);
+         } else {
+                 std::cout << "Transfered aggregate bvh to device succesfully" 
+                           << std::endl;
+         }
+
+#endif
+
          /* -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- Multi BVH -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- */
-         scene.process();
-         // exit(1);
+         if (scene.create_bvhs()) { 
+                std::cerr << "Failed to create bvhs" << std::endl;
+                exit(1);
+         } else {
+                 std::cout << "Create bvhs succesfully" << std::endl;
+         }
+
+         if (scene.transfer_meshes_to_device()) {
+                std::cerr << "Failed to transfer meshes to device memory" << std::endl;
+                exit(1);
+         } else {
+                 std::cout << "Transfered meshes to device succesfully" << std::endl;
+         }
+
+         if (scene.transfer_bvhs_to_device()) {
+                std::cerr << "Failed to transfer bvhs to device memory" << std::endl;
+                exit(1);
+         } else {
+                 std::cout << "Transfered bvhs to device succesfully" << std::endl;
+         }
+
+
+         /* -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- NEW STUFF -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- */
 
         /*---------------------- Initialize SceneInfo ----------------------------*/
-         if (!scene_info.initialize_multi(scene,clinfo)) {
-                std::cerr << "Failed to initialize scene info." << std::endl;
-                exit(1);
-        }
-        std::cout << "Initialized scene info succesfully." << std::endl;
-         // exit(1);
+        //  if (!scene_info.initialize_multi(scene,clinfo)) {
+        //         std::cerr << "Failed to initialize scene info." << std::endl;
+        //         exit(1);
+        // }
+        // std::cout << "Initialized scene info succesfully." << std::endl;
+        //  // exit(1);
 
         /*---------------------- Set initial Camera paramaters -----------------------*/
         camera.set(makeVector(0,3,-30), makeVector(0,0,1), makeVector(0,1,0), M_PI/4.,
@@ -488,21 +583,21 @@ int main (int argc, char** argv)
         /*------------------------- Count mem usage -----------------------------------*/
         int32_t total_cl_mem = 0;
         total_cl_mem += pixel_count * 4; /* 4bpp texture */
-        total_cl_mem += scene_info.size();
+        // total_cl_mem += scene_info.size();
         total_cl_mem += cl_mem_size(ray_bundle_1.mem()) + cl_mem_size(ray_bundle_2.mem());
         total_cl_mem += cl_mem_size(hit_bundle.mem());
-        total_cl_mem += cl_mem_size(cubemap.positive_x_mem()) * 6;
-        total_cl_mem += cl_mem_size(framebuffer.image_mem());
+        total_cl_mem += cubemap.positive_x_mem().size() * 6;
+        total_cl_mem += framebuffer.image_mem().size();
 
         std::cout << "\nMemory stats: " << std::endl;
         std::cout << "\tTotal opencl mem usage: " 
                   << total_cl_mem/1e6 << " MB." << std::endl;
-        std::cout << "\tScene mem usage: " << scene_info.size()/1e6 << " MB." << std::endl;
+        // std::cout << "\tScene mem usage: " << scene_info.size()/1e6 << " MB." << std::endl;
         std::cout << "\tFramebuffer+Tex mem usage: " 
-                  << (cl_mem_size(framebuffer.image_mem()) + pixel_count * 4)/1e6
+                  << (framebuffer.image_mem().size() + pixel_count * 4)/1e6
                   << " MB."<< std::endl;
         std::cout << "\tCubemap mem usage: " 
-                  << (cl_mem_size(cubemap.positive_x_mem())*6)/1e6 
+                  << (cubemap.positive_x_mem().size()*6)/1e6 
                   << " MB."<< std::endl;
         std::cout << "\tRay mem usage: " 
                   << (cl_mem_size(ray_bundle_1.mem())*2)/1e6

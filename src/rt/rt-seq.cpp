@@ -13,15 +13,16 @@ uint32_t frames = 0;
 uint32_t current_frame = 0;
 uint32_t motion_rate = 1;
 
-cl_mem cl_tex_mem;
-cl_mem bvh_mem;
+DeviceInterface device;
+memory_id texture_id;
 
 RayBundle                ray_bundle_1,ray_bundle_2;
 HitBundle                hit_bundle;
 PrimaryRayGenerator     prim_ray_gen;
 SecondaryRayGenerator   sec_ray_gen;
 RayShader                ray_shader;
-std::vector<SceneInfo>  scene_info;
+Scene                    flat_scene;
+std::vector<Scene>       scenes;
 Cubemap                  cubemap;
 FrameBuffer              framebuffer;
 Tracer                   tracer;
@@ -165,6 +166,8 @@ void gl_loop()
 	double fb_clear_time = 0;
 	double fb_copy_time = 0;
 
+        DeviceMemory& bvh_mem = flat_scene.bvh_nodes_mem();
+
 	glClear(GL_COLOR_BUFFER_BIT);
 
 	if (!framebuffer.clear()) {
@@ -180,12 +183,12 @@ void gl_loop()
 	light.set_dir(0.05f * (arg - 8.f) , -0.6f, 0.2f);
 	light.set_color(0.05f * (fabsf(arg)) + 0.1f, 0.2f, 0.05f * fabsf(arg+4.f));
 
-	SceneInfo &si = scene_info[current_frame];
+	Scene &scene = scenes[current_frame];
 
-	si.set_dir_light(light);
+	scene.set_dir_light(light);
 	color_cl ambient;
 	ambient[0] = ambient[1] = ambient[2] = 0.1f;
-	si.set_ambient_light(ambient);
+	scene.set_ambient_light(ambient);
 
 	int32_t sample_count = pixel_count * prim_ray_gen.get_spp();
 	for (int32_t offset = 0; offset < sample_count; offset+= tile_size) {
@@ -203,36 +206,35 @@ void gl_loop()
 			exit(1);
 		}
 		prim_gen_time += prim_ray_gen.get_exec_time();
+                std::cerr << "Generated prim rays" << std::endl;
 
 		total_ray_count += tile_size;
 
-		// if (!tracer.trace(si, tile_size, *ray_in, hit_bundle)){
-		if (!tracer.trace(si, bvh_mem, tile_size, *ray_in, hit_bundle)){
+		if (!tracer.trace(scene, bvh_mem, tile_size, *ray_in, hit_bundle)){
 			std::cerr << "Failed to trace." << std::endl;
 			exit(1);
 		}
 		prim_trace_time += tracer.get_trace_exec_time();
+                std::cerr << "Traced" << std::endl;
 
-		// if (!tracer.shadow_trace(si, tile_size, *ray_in, hit_bundle)){
-		if (!tracer.shadow_trace(si, bvh_mem, tile_size, *ray_in, hit_bundle)){
-			std::cerr << "Failed to shadow trace." << std::endl;
-			exit(1);
-		}
+		// if (!tracer.shadow_trace(scene, bvh_mem, tile_size, *ray_in, hit_bundle)){
+		// 	std::cerr << "Failed to shadow trace." << std::endl;
+		// 	exit(1);
+		// }
+		// prim_shadow_trace_time += tracer.get_shadow_exec_time();
 
-		prim_shadow_trace_time += tracer.get_shadow_exec_time();
-
-		if (!ray_shader.shade(*ray_in, hit_bundle, si,
+		if (!ray_shader.shade(*ray_in, hit_bundle, scene,
 				      cubemap, framebuffer, tile_size)){
 			std::cerr << "Failed to update framebuffer." << std::endl;
 			exit(1);
 		}
 		shader_time += ray_shader.get_exec_time();
-		
+                std::cerr << "Shaded" << std::endl;
 
 		int32_t sec_ray_count = tile_size;
 		for (uint32_t i = 0; i < MAX_BOUNCE; ++i) {
 
-			sec_ray_gen.generate(si, *ray_in, sec_ray_count, 
+			sec_ray_gen.generate(scene, *ray_in, sec_ray_count, 
 					     hit_bundle, *ray_out, &sec_ray_count);
 			sec_gen_time += sec_ray_gen.get_exec_time();
 
@@ -245,20 +247,16 @@ void gl_loop()
 
 			total_ray_count += sec_ray_count;
 
-			// tracer.trace(si, sec_ray_count, 
-			// 	     *ray_in, hit_bundle);
-			tracer.trace(si, bvh_mem, sec_ray_count, 
+			tracer.trace(scene, bvh_mem, sec_ray_count, 
 				     *ray_in, hit_bundle, true);
 			sec_trace_time += tracer.get_trace_exec_time();
 
 
-			// tracer.shadow_trace(si, sec_ray_count, 
-			// 		    *ray_in, hit_bundle);
-			tracer.shadow_trace(si, bvh_mem, sec_ray_count, 
-					    *ray_in, hit_bundle, true);
-			sec_shadow_trace_time += tracer.get_shadow_exec_time();
+			// tracer.shadow_trace(scene, bvh_mem, sec_ray_count, 
+			// 		    *ray_in, hit_bundle, true);
+			// sec_shadow_trace_time += tracer.get_shadow_exec_time();
 
-			if (!ray_shader.shade(*ray_in, hit_bundle, si,
+			if (!ray_shader.shade(*ray_in, hit_bundle, scene,
 					      cubemap, framebuffer, sec_ray_count)){
 				std::cerr << "Ray shader failed execution." << std::endl;
 				exit(1);
@@ -268,7 +266,7 @@ void gl_loop()
 
 	}
 
-	if (!framebuffer.copy(cl_tex_mem)){
+	if (!framebuffer.copy(device.memory(texture_id))){
 		std::cerr << "Failed to copy framebuffer." << std::endl;
 		exit(1);
 	}
@@ -382,10 +380,20 @@ int main (int argc, char** argv)
 	}
 	print_cl_info(clinfo);
 
+        /* Initialize device interface */
+        if (device.initialize(clinfo)) {
+                std::cerr << "Failed to initialize device interface" << std::endl;
+                exit(1);
+        }
+
 	/*---------------------- Create shared GL-CL texture ----------------------*/
 	gl_tex = create_tex_gl(window_size[0],window_size[1]);
-	if (create_cl_mem_from_gl_tex(clinfo, gl_tex, &cl_tex_mem))
-		exit(1);
+        texture_id = device.new_memory();
+        DeviceMemory& tex_mem = device.memory(texture_id);
+        if (tex_mem.initialize_from_gl_texture(gl_tex)) {
+                std::cerr << "Failed to create memory object from gl texture" << std::endl;
+                exit(1);
+        }
 
 	/*---------------------- Set up scene ---------------------------*/
 	frames = 15;
@@ -395,12 +403,8 @@ int main (int argc, char** argv)
 	// const std::string pack = "pack2OBJ";
 	double wave_attenuation = 1.f;
 
-	std::vector<Scene> scene(frames);
-	scene_info = std::vector<SceneInfo>(frames);
-
 	/* -=-=-=-=-=-=-=- Flat grid bvh construction -=-=-=-=-=-=- */
-	Scene flat_scene;
-	SceneInfo flat_scene_info;
+        flat_scene.initialize(clinfo);
 	std::stringstream flat_grid_path;
 	flat_grid_path << "models/obj/" << pack << "/gridFluid" << 1 << ".obj";
 	mesh_id flat_grid_mid = flat_scene.load_obj_file(flat_grid_path.str());
@@ -437,30 +441,29 @@ int main (int argc, char** argv)
 	/* ------------------*/
 
 	flat_grid.geom.setScale(makeVector(1.f,0.f,1.f));
-	flat_scene.create_aggregate();
 	rt_time.snap_time();
+	if (flat_scene.create_aggregate_mesh() || flat_scene.create_aggregate_bvh())
+                std::cerr << "Failed to create flat scene aggregate" << std::endl;
+        if (flat_scene.transfer_aggregate_bvh_to_device())
+                std::cerr << "Failed to transfer flat scene bvh to device" << std::endl;
 	// flat_scene.create_bvh_with_slack(makeVector(0.f,.55f,0.f));
-	flat_scene.create_bvh();
 	BVH& flat_scene_bvh   = flat_scene.get_aggregate_bvh();
 	double bvh_build_time = rt_time.msec_since_snap();
 	std::cout << "Created BVH succesfully (build time: " 
 		  << bvh_build_time << " msec, " 
 		  << flat_scene_bvh.nodeArraySize() << " nodes)." << std::endl;
-	if (!flat_scene_info.initialize(flat_scene,clinfo)) {
-		std::cerr << "Failed to initialize flat scene info." << std::endl;
-		exit(1);
-	}
-	bvh_mem = flat_scene_info.bvh_mem();
 	/* -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- */
 
 
+        scenes.resize(frames);
 	for (uint32_t i = 0; i < frames ; ++i) {
 
+                scenes[i].initialize(clinfo);
 		std::stringstream grid_path,visual_path;
 		grid_path << "models/obj/" << pack << "/gridFluid" << i+1 << ".obj";
-		mesh_id grid_mid = scene[i].load_obj_file(grid_path.str());
-		object_id grid_oid = scene[i].geometry.add_object(grid_mid);
-		Object& grid = scene[i].geometry.object(grid_oid);
+		mesh_id grid_mid = scenes[i].load_obj_file(grid_path.str());
+		object_id grid_oid = scenes[i].geometry.add_object(grid_mid);
+		Object& grid = scenes[i].geometry.object(grid_oid);
 		grid.mat.diffuse = White;
 		grid.mat.reflectiveness = 0.95f;
 		grid.mat.refractive_index = 1.5f;
@@ -468,24 +471,24 @@ int main (int argc, char** argv)
 
 		/* ---- Solids ------ */
 		// visual_path << "models/obj/" << pack << "/visual" << visual_frame << ".obj";
-		// mesh_id visual_mid = scene[i].load_obj_file(visual_path.str());
-		// object_id visual_oid = scene[i].geometry.add_object(visual_mid);
-		// Object& visual = scene[i].geometry.object(visual_oid);
+		// mesh_id visual_mid = scenes[i].load_obj_file(visual_path.str());
+		// object_id visual_oid = scenes[i].geometry.add_object(visual_mid);
+		// Object& visual = scenes[i].geometry.object(visual_oid);
 		// visual.mat.diffuse = Red;
 
 		// for (uint32_t j = 0; j < bridge_parts ; ++j) {
 		// 	std::stringstream bridge_path;
 		// 	bridge_path << "models/obj/" << pack << "/bridge" << j << i+1 << ".obj";
-		// 	mesh_id bridge_mid = scene[i].load_obj_file(bridge_path.str());
-		// 	object_id bridge_oid = scene[i].geometry.add_object(bridge_mid);
-		// 	Object& bridge = scene[i].geometry.object(bridge_oid);
+		// 	mesh_id bridge_mid = scenes[i].load_obj_file(bridge_path.str());
+		// 	object_id bridge_oid = scenes[i].geometry.add_object(bridge_mid);
+		// 	Object& bridge = scenes[i].geometry.object(bridge_oid);
 		// 	bridge.mat.diffuse = Green;
 		// }
 
-		// mesh_id teapot_mesh_id = scene[i].load_obj_file("models/obj/teapot2.obj");
-		mesh_id teapot_mesh_id = scene[i].load_obj_file("models/obj/teapot-low_res.obj");
-		object_id teapot_obj_id = scene[i].geometry.add_object(teapot_mesh_id);
-		Object& teapot_obj = scene[i].geometry.object(teapot_obj_id);
+		// mesh_id teapot_mesh_id = scenes[i].load_obj_file("models/obj/teapot2.obj");
+		mesh_id teapot_mesh_id = scenes[i].load_obj_file("models/obj/teapot-low_res.obj");
+		object_id teapot_obj_id = scenes[i].geometry.add_object(teapot_mesh_id);
+		Object& teapot_obj = scenes[i].geometry.object(teapot_obj_id);
 		teapot_obj.geom.setPos(makeVector(-1.f,0.f,0.f));
 		teapot_obj.geom.setScale(makeVector(3.f,3.f,3.f));
 		teapot_obj.mat.diffuse = Green;
@@ -495,17 +498,12 @@ int main (int argc, char** argv)
 		/* ------------------*/
 
 		
-		scene[i].create_aggregate();
-		Mesh& scene_mesh = scene[i].get_aggregate_mesh();
+		scenes[i].create_aggregate_mesh();
+		Mesh& scene_mesh = scenes[i].get_aggregate_mesh();
+		scenes[i].reorderTriangles(flat_scene_bvh.m_ordered_triangles);
+                if (scenes[i].transfer_aggregate_mesh_to_device())
+                        std::cerr << "Failed to transfer scene bvh to device" << std::endl;
 
-		scene[i].reorderTriangles(flat_scene_bvh.m_ordered_triangles);
-
-		/*---------------------- Initialize SceneInfo ----------------------------*/
-		if (!scene_info[i].initialize(scene[i],clinfo)) {
-			std::cerr << "Failed to initialize scene info." << std::endl;
-			exit(1);
-		}
-		std::cout << "Initialized scene info succesfully." << std::endl;
 
 		/*---------------------- Print scene data ----------------------*/
 		std::cerr << "Scene " << i << " stats: " << std::endl;
@@ -615,8 +613,8 @@ int main (int argc, char** argv)
 	// 	total_cl_mem += scene_info[i].size();
 	total_cl_mem += cl_mem_size(ray_bundle_1.mem()) + cl_mem_size(ray_bundle_2.mem());
 	total_cl_mem += cl_mem_size(hit_bundle.mem());
-	total_cl_mem += cl_mem_size(cubemap.positive_x_mem()) * 6;
-	total_cl_mem += cl_mem_size(framebuffer.image_mem());
+	total_cl_mem += cubemap.positive_x_mem().size() * 6;
+	total_cl_mem += framebuffer.image_mem().size();
 
 	std::cout << "\nMemory stats: " << std::endl;
 	std::cout << "\tTotal opencl mem usage: " 
@@ -625,10 +623,10 @@ int main (int argc, char** argv)
 	// 	std::cout << "\tScene " << i << " mem usage: " << scene_info[i].size()/1e6 << " MB." << std::endl;
 
 	std::cout << "\tFramebuffer+Tex mem usage: " 
-		  << (cl_mem_size(framebuffer.image_mem()) + pixel_count * 4)/1e6
+		  << (framebuffer.image_mem().size() + pixel_count * 4)/1e6
 		  << " MB."<< std::endl;
 	std::cout << "\tCubemap mem usage: " 
-		  << (cl_mem_size(cubemap.positive_x_mem())*6)/1e6 
+		  << (cubemap.positive_x_mem().size()*6)/1e6 
 		  << " MB."<< std::endl;
 	std::cout << "\tRay mem usage: " 
 		  << (cl_mem_size(ray_bundle_1.mem())*2)/1e6

@@ -37,7 +37,7 @@ GeometricProperties::updateTransform()
 	mat4x4 posM = translationMatrix4x4(pos);
 	mat4x4 rpyM = rotationMatrix4x4(rpy);
 	mat4x4 scaleM = scaleMatrix4x4(scale);
-	M = scaleM * posM * rpyM;
+	M = posM * rpyM * scaleM ;
         Minv = inverse(M);
 }
 

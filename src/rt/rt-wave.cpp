@@ -8,20 +8,19 @@
 #define MAX_BOUNCE 5
 #define WAVE_HEIGHT 0.2
 
-CLKernelInfo mangler_clk;
 Scene scene;
 
+DeviceInterface device;
+memory_id texture_id;
+function_id mangler_id;
+
 bool gpu_mangling = true;
-
-
-cl_mem cl_tex_mem;
 
 RayBundle             ray_bundle_1,ray_bundle_2;
 HitBundle             hit_bundle;
 PrimaryRayGenerator   prim_ray_gen;
 SecondaryRayGenerator sec_ray_gen;
 RayShader             ray_shader;
-SceneInfo             scene_info;
 Cubemap               cubemap;
 FrameBuffer           framebuffer;
 Tracer                tracer;
@@ -147,24 +146,22 @@ void gl_loop()
 	cl_int arg = i%STEPS;
 	int32_t tile_size = best_tile_size;
 
-	cl_int err;
 	mangler_arg += 1.f;
 	rt_time_t mangle_timer;
+
+        DeviceFunction& mangler_function = device.function(mangler_id);
 
 	/*-------------- Mangle verts in OpenCL---------------------*/
 	if (gpu_mangling) {
 		std::cerr << "Using GPU..." << std::endl;
 		mangle_timer.snap_time();
-		err = clSetKernelArg(mangler_clk.kernel,1,sizeof(cl_float),&mangler_arg);
-		if (error_cl(err, "clSetKernelArg 1"))
-			exit(1);
-		err = clSetKernelArg(mangler_clk.kernel,2,sizeof(cl_float),&last_mangler_arg);
-		if (error_cl(err, "clSetKernelArg 2"))
-			exit(1);
-		if (execute_cl(mangler_clk)) {
+                mangler_function.set_arg(1,sizeof(cl_float),&mangler_arg);
+                mangler_function.set_arg(2,sizeof(cl_float),&last_mangler_arg);
+
+                if (mangler_function.execute()) {
 			std::cerr << "Error executing mangler." << std::endl;
 			exit(1);
-		}
+                }
 		
 	} else {
 		/*-------------- Mangle verts in CPU ---------------------*/
@@ -178,15 +175,8 @@ void gl_loop()
 			vert.normal.s[0] = cos(0.33*mangler_arg+vert.position.s[0]);
 			vert.normal.s[2] = -sin(0.57*mangler_arg+vert.position.s[2]);
 		}
-		cl_mem vert_mem = scene_info.vertex_mem();
-		clEnqueueWriteBuffer(mangler_clk.clinfo->command_queue, 
-				     vert_mem,
-				     true,
-				     0,
-				     mesh.vertexCount() * sizeof(Vertex),
-				     mesh.vertexArray(),
-				     0,NULL,NULL);
-		clFinish(mangler_clk.clinfo->command_queue);
+                DeviceMemory& vertex_mem = scene.vertex_mem();
+                vertex_mem.write(mesh.vertexCount() * sizeof(Vertex),mesh.vertexArray());
 	}
 	/*--------------------------------------*/
 	double mangle_time = mangle_timer.msec_since_snap();
@@ -197,10 +187,10 @@ void gl_loop()
 	directional_light_cl light;
 	light.set_dir(0.05f * (arg - 8.f) , -0.6f, 0.2f);
 	light.set_color(0.05f * (fabsf(arg)) + 0.1f, 0.2f, 0.05f * fabsf(arg+4.f));
-	scene_info.set_dir_light(light);
+	scene.set_dir_light(light);
 	color_cl ambient;
 	ambient[0] = ambient[1] = ambient[2] = 0.1f;
-	scene_info.set_ambient_light(ambient);
+	scene.set_ambient_light(ambient);
 
 	int32_t sample_count = pixel_count * prim_ray_gen.get_spp();
 	for (int32_t offset = 0; offset < sample_count; offset+= tile_size) {
@@ -221,20 +211,19 @@ void gl_loop()
 
 		total_ray_count += tile_size;
 
-		if (!tracer.trace(scene_info, tile_size, *ray_in, hit_bundle)){
+		if (!tracer.trace(scene, tile_size, *ray_in, hit_bundle)){
 			std::cerr << "Failed to trace." << std::endl;
 			exit(1);
 		}
 		prim_trace_time += tracer.get_trace_exec_time();
 
-		if (!tracer.shadow_trace(scene_info, tile_size, *ray_in, hit_bundle)){
-			std::cerr << "Failed to shadow trace." << std::endl;
-			exit(1);
-		}
+		// if (!tracer.shadow_trace(scene, tile_size, *ray_in, hit_bundle)){
+		// 	std::cerr << "Failed to shadow trace." << std::endl;
+		// 	exit(1);
+		// }
+		// prim_shadow_trace_time += tracer.get_shadow_exec_time();
 
-		prim_shadow_trace_time += tracer.get_shadow_exec_time();
-
-		if (!ray_shader.shade(*ray_in, hit_bundle, scene_info,
+		if (!ray_shader.shade(*ray_in, hit_bundle, scene,
 				      cubemap, framebuffer, tile_size)){
 			std::cerr << "Failed to update framebuffer." << std::endl;
 			exit(1);
@@ -245,7 +234,7 @@ void gl_loop()
 		int32_t sec_ray_count = tile_size;
 		for (uint32_t i = 0; i < MAX_BOUNCE; ++i) {
 
-			sec_ray_gen.generate(scene_info, *ray_in, sec_ray_count, 
+			sec_ray_gen.generate(scene, *ray_in, sec_ray_count, 
 					     hit_bundle, *ray_out, &sec_ray_count);
 			sec_gen_time += sec_ray_gen.get_exec_time();
 
@@ -258,16 +247,16 @@ void gl_loop()
 
 			total_ray_count += sec_ray_count;
 
-			tracer.trace(scene_info, sec_ray_count, 
+			tracer.trace(scene, sec_ray_count, 
 				     *ray_in, hit_bundle, true);
 			sec_trace_time += tracer.get_trace_exec_time();
 
 
-			tracer.shadow_trace(scene_info, sec_ray_count, 
-					    *ray_in, hit_bundle, true);
-			sec_shadow_trace_time += tracer.get_shadow_exec_time();
+			// tracer.shadow_trace(scene, sec_ray_count, 
+			// 		    *ray_in, hit_bundle, true);
+			// sec_shadow_trace_time += tracer.get_shadow_exec_time();
 
-			if (!ray_shader.shade(*ray_in, hit_bundle, scene_info,
+			if (!ray_shader.shade(*ray_in, hit_bundle, scene,
 					      cubemap, framebuffer, sec_ray_count)){
 				std::cerr << "Ray shader failed execution." << std::endl;
 				exit(1);
@@ -277,7 +266,7 @@ void gl_loop()
 
 	}
 
-	if (!framebuffer.copy(cl_tex_mem)){
+	if (!framebuffer.copy(device.memory(texture_id))){
 		std::cerr << "Failed to copy framebuffer." << std::endl;
 		exit(1);
 	}
@@ -362,12 +351,28 @@ int main (int argc, char** argv)
 	}
 	print_cl_info(clinfo);
 
+        /* Initialize device interface */
+        if (device.initialize(clinfo)) {
+                std::cerr << "Failed to initialize device interface" << std::endl;
+                exit(1);
+        }
+
 	/*---------------------- Create shared GL-CL texture ----------------------*/
 	gl_tex = create_tex_gl(window_size[0],window_size[1]);
-	if (create_cl_mem_from_gl_tex(clinfo, gl_tex, &cl_tex_mem))
-		exit(1);
 
+        texture_id = device.new_memory();
+        DeviceMemory& tex_mem = device.memory(texture_id);
+        if (tex_mem.initialize_from_gl_texture(gl_tex)) {
+                std::cerr << "Failed to create memory object from gl texture" << std::endl;
+                exit(1);
+        }
 	/*---------------------- Set up scene ---------------------------*/
+        if (scene.initialize(clinfo)) {
+                std::cerr << "Failed to initialize scene" << std::endl;
+                exit(1);
+        } else {
+                std::cout << "Initialized scene succesfully" << std::endl;
+        }
 
 	mesh_id floor_mesh_id = scene.load_obj_file("models/obj/grid100.obj");
 	object_id floor_obj_id  = scene.geometry.add_object(floor_mesh_id);
@@ -379,26 +384,21 @@ int main (int argc, char** argv)
 	floor_obj.mat.refractive_index = 1.5f;
 	floor_obj.slack = makeVector(0.f,WAVE_HEIGHT,0.f);
 
-	scene.create_aggregate();
+	scene.create_aggregate_mesh();
 	Mesh& scene_mesh = scene.get_aggregate_mesh();
 	std::cout << "Created scene aggregate succesfully." << std::endl;
 
 	rt_time.snap_time();
-	// scene.create_bvh_with_slack(makeVector(0.f,WAVE_HEIGHT,0.f));
-	scene.create_bvh();
+	scene.create_aggregate_bvh();
 	BVH& scene_bvh   = scene.get_aggregate_bvh ();
 	double bvh_build_time = rt_time.msec_since_snap();
 	std::cout << "Created BVH succesfully (build time: " 
 		  << bvh_build_time << " msec, " 
 		  << scene_bvh.nodeArraySize() << " nodes)." << std::endl;
 
-	/*---------------------- Initialize SceneInfo ----------------------------*/
-	if (!scene_info.initialize(scene,clinfo)) {
-		std::cerr << "Failed to initialize scene info." << std::endl;
-		exit(1);
-	}
-	std::cout << "Initialized scene info succesfully." << std::endl;
 
+        scene.transfer_aggregate_mesh_to_device();
+        scene.transfer_aggregate_bvh_to_device();
 	/*---------------------- Set initial Camera paramaters -----------------------*/
 	camera.set(makeVector(0,3,-30), makeVector(0,0,1), makeVector(0,1,0), M_PI/4.,
 		   window_size[0] / (float)window_size[1]);
@@ -497,22 +497,21 @@ int main (int argc, char** argv)
 	ray_shader.enable_timing(true);
 
 	/* ------------------------- Create vertex mangler -----------------------*/
-	cl_int err;
-	mangler_clk.work_dim = 1;
-	mangler_clk.arg_count = 4;
-	mangler_clk.global_work_size[0] = scene_mesh.vertexCount();
-	if (init_cl_kernel(&clinfo,"src/kernel/mangler.cl", "mangle", 
-			   &mangler_clk)) {
+        mangler_id = device.new_function();
+        DeviceFunction& mangler_function = device.function(mangler_id);
+        if (mangler_function.initialize("src/kernel/mangler.cl", "mangle")) {
 		std::cerr << "Error initializing mangler kernel." << std::endl;
 		exit(1);
 	}
-	err = clSetKernelArg(mangler_clk.kernel,0,sizeof(cl_mem), &scene_info.vertex_mem());
-	if (error_cl(err, "clSetKernelArg 0"))
-		return false;
+
+        mangler_function.set_dims(1);
+        size_t mangler_global_size[] = {scene_mesh.vertexCount(), 0 , 0};
 	cl_float h = WAVE_HEIGHT;
-	err = clSetKernelArg(mangler_clk.kernel,3,sizeof(cl_float), &h);
-	if (error_cl(err, "clSetKernelArg 3"))
-		return false;
+        mangler_function.set_global_size(mangler_global_size);
+        if (mangler_function.set_arg(0, scene.vertex_mem()))
+                std::cerr << "Error setting mangler argument 0" << std::endl;
+        if (mangler_function.set_arg(3,sizeof(cl_float), &h))
+                std::cerr << "Error setting mangler argument 3" << std::endl;
 
 	/*---------------------- Print scene data ----------------------*/
 	std::cerr << "\nScene stats: " << std::endl;
@@ -522,21 +521,19 @@ int main (int argc, char** argv)
 	/*------------------------- Count mem usage -----------------------------------*/
 	int32_t total_cl_mem = 0;
 	total_cl_mem += pixel_count * 4; /* 4bpp texture */
-	total_cl_mem += scene_info.size();
 	total_cl_mem += cl_mem_size(ray_bundle_1.mem()) + cl_mem_size(ray_bundle_2.mem());
 	total_cl_mem += cl_mem_size(hit_bundle.mem());
-	total_cl_mem += cl_mem_size(cubemap.positive_x_mem()) * 6;
-	total_cl_mem += cl_mem_size(framebuffer.image_mem());
+	total_cl_mem += cubemap.positive_x_mem().size() * 6;
+	total_cl_mem += framebuffer.image_mem().size();
 
 	std::cout << "\nMemory stats: " << std::endl;
 	std::cout << "\tTotal opencl mem usage: " 
 		  << total_cl_mem/1e6 << " MB." << std::endl;
-	std::cout << "\tScene mem usage: " << scene_info.size()/1e6 << " MB." << std::endl;
 	std::cout << "\tFramebuffer+Tex mem usage: " 
-		  << (cl_mem_size(framebuffer.image_mem()) + pixel_count * 4)/1e6
+		  << (framebuffer.image_mem().size() + pixel_count * 4)/1e6
 		  << " MB."<< std::endl;
 	std::cout << "\tCubemap mem usage: " 
-		  << (cl_mem_size(cubemap.positive_x_mem())*6)/1e6 
+		  << (cubemap.positive_x_mem().size()*6)/1e6 
 		  << " MB."<< std::endl;
 	std::cout << "\tRay mem usage: " 
 		  << (cl_mem_size(ray_bundle_1.mem())*2)/1e6

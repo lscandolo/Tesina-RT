@@ -28,7 +28,7 @@ SecondaryRayGenerator::initialize(CLInfo& clinfo)
 }
 
 bool 
-SecondaryRayGenerator::generate(SceneInfo& si, RayBundle& ray_in, int32_t rays_in,
+SecondaryRayGenerator::generate(Scene& scene, RayBundle& ray_in, int32_t rays_in,
 				HitBundle& hits, RayBundle& ray_out, int32_t* rays_out)
 {
 	static const cl_int zero = 0;
@@ -61,11 +61,13 @@ SecondaryRayGenerator::generate(SceneInfo& si, RayBundle& ray_in, int32_t rays_i
 	if (error_cl(err, "clSetKernelArg 1"))
 		return false;
 	
-	err = clSetKernelArg(generator_clk.kernel,2,sizeof(cl_mem),&si.mat_list_mem());
+	err = clSetKernelArg(generator_clk.kernel,2,sizeof(cl_mem),
+                             scene.material_list_mem().ptr());
 	if (error_cl(err, "clSetKernelArg 2"))
 		return false;
 
-	err = clSetKernelArg(generator_clk.kernel,3,sizeof(cl_mem),&si.mat_map_mem());
+	err = clSetKernelArg(generator_clk.kernel,3,sizeof(cl_mem),
+                             scene.material_map_mem().ptr());
 	if (error_cl(err, "clSetKernelArg 3"))
 		return false;
 

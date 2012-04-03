@@ -6,6 +6,7 @@
 #include <string>
 #include <sstream>
 
+#include <gpu/interface.hpp>
 #include <rt/math.hpp>
 #include <rt/lu.hpp>
 #include <rt/ray.hpp>

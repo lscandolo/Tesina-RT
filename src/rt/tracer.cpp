@@ -30,7 +30,7 @@ bool Tracer::initialize(CLInfo& clinfo)
 
 
 bool 
-Tracer::trace(SceneInfo& scene_info, cl_mem& bvh_mem, int32_t ray_count, 
+Tracer::trace(Scene& scene, DeviceMemory& bvh_mem, int32_t ray_count, 
 	      RayBundle& rays, HitBundle& hits, bool secondary)
 {
 	cl_int err;
@@ -46,25 +46,25 @@ Tracer::trace(SceneInfo& scene_info, cl_mem& bvh_mem, int32_t ray_count,
 	if (error_cl(err, "clSetKernelArg 1"))
 		return false;
 
-	err = clSetKernelArg(tracer_clk.kernel,2,sizeof(cl_mem),&scene_info.vertex_mem());
+	err = clSetKernelArg(tracer_clk.kernel,2,sizeof(cl_mem),scene.vertex_mem().ptr());
 	if (error_cl(err, "clSetKernelArg 2"))
 		return false;
 
-	err = clSetKernelArg(tracer_clk.kernel,3,sizeof(cl_mem),&scene_info.index_mem());
+	err = clSetKernelArg(tracer_clk.kernel,3,sizeof(cl_mem),scene.triangle_mem().ptr());
 	if (error_cl(err, "clSetKernelArg 3"))
 		return false;
 
-	err = clSetKernelArg(tracer_clk.kernel,4,sizeof(cl_mem),&bvh_mem);
+	err = clSetKernelArg(tracer_clk.kernel,4,sizeof(cl_mem),bvh_mem.ptr());
 	if (error_cl(err, "clSetKernelArg 4"))
 		return false;
 
         /********************** MultiBVH info ****************************/
 	err = clSetKernelArg(tracer_clk.kernel,5,
-                             sizeof(cl_mem),&scene_info.bvh_roots_mem());
+                             sizeof(cl_mem),scene.bvh_roots_mem().ptr());
 	if (error_cl(err, "clSetKernelArg 5"))
 		return false;
 
-        cl_int root_cant = scene_info.bvh_roots_cant;
+        cl_int root_cant = scene.bvh_roots.size();
 	err = clSetKernelArg(tracer_clk.kernel,6,sizeof(cl_int),&root_cant);
 	if (error_cl(err, "clSetKernelArg 6"))
 		return false;
@@ -108,7 +108,7 @@ Tracer::trace(SceneInfo& scene_info, cl_mem& bvh_mem, int32_t ray_count,
 }
 
 bool 
-Tracer::trace(SceneInfo& scene_info, int32_t ray_count, 
+Tracer::trace(Scene& scene, int32_t ray_count, 
 	      RayBundle& rays, HitBundle& hits, bool secondary)
 {
 	cl_int err;
@@ -124,26 +124,26 @@ Tracer::trace(SceneInfo& scene_info, int32_t ray_count,
 	if (error_cl(err, "clSetKernelArg 1"))
 		return false;
 
-	err = clSetKernelArg(tracer_clk.kernel,2,sizeof(cl_mem),&scene_info.vertex_mem());
+	err = clSetKernelArg(tracer_clk.kernel,2,sizeof(cl_mem),scene.vertex_mem().ptr());
 	if (error_cl(err, "clSetKernelArg 2"))
 		return false;
 
-	err = clSetKernelArg(tracer_clk.kernel,3,sizeof(cl_mem),&scene_info.index_mem());
+	err = clSetKernelArg(tracer_clk.kernel,3,sizeof(cl_mem),scene.triangle_mem().ptr());
 	if (error_cl(err, "clSetKernelArg 3"))
 		return false;
 
-	err = clSetKernelArg(tracer_clk.kernel,4,sizeof(cl_mem),&scene_info.bvh_mem());
+	err = clSetKernelArg(tracer_clk.kernel,4,sizeof(cl_mem),scene.bvh_nodes_mem().ptr());
 	if (error_cl(err, "clSetKernelArg 4"))
 		return false;
 
         /********************** Multi-BVH info ****************************/
         
 	err = clSetKernelArg(tracer_clk.kernel,5,
-                             sizeof(cl_mem),&scene_info.bvh_roots_mem());
+                             sizeof(cl_mem),scene.bvh_roots_mem().ptr());
 	if (error_cl(err, "clSetKernelArg 5"))
 		return false;
 
-        cl_int root_cant = scene_info.bvh_roots_cant;
+        cl_int root_cant = scene.bvh_roots.size();
 	err = clSetKernelArg(tracer_clk.kernel,6,sizeof(cl_int),&root_cant);
 	if (error_cl(err, "clSetKernelArg 6"))
 		return false;
@@ -187,7 +187,7 @@ Tracer::trace(SceneInfo& scene_info, int32_t ray_count,
 }
 
 bool 
-Tracer::shadow_trace(SceneInfo& si, int32_t ray_count, 
+Tracer::shadow_trace(Scene& scene, int32_t ray_count, 
 		     RayBundle& rays, HitBundle& hits, bool secondary)
 {
 	cl_int err;
@@ -203,19 +203,23 @@ Tracer::shadow_trace(SceneInfo& si, int32_t ray_count,
 	if (error_cl(err, "clSetKernelArg 1"))
 		return false;
 
-	err = clSetKernelArg(shadow_clk.kernel,2,sizeof(cl_mem),&si.vertex_mem());
+	err = clSetKernelArg(shadow_clk.kernel,2,sizeof(cl_mem),
+                             scene.vertex_mem().ptr());
 	if (error_cl(err, "clSetKernelArg 2"))
 		return false;
 
-	err = clSetKernelArg(shadow_clk.kernel,3,sizeof(cl_mem),&si.index_mem());
+	err = clSetKernelArg(shadow_clk.kernel,3,sizeof(cl_mem),
+                             scene.triangle_mem().ptr());
 	if (error_cl(err, "clSetKernelArg 3"))
 		return false;
 
-	err = clSetKernelArg(shadow_clk.kernel,4,sizeof(cl_mem),&si.bvh_mem());
+	err = clSetKernelArg(shadow_clk.kernel,4,sizeof(cl_mem),
+                             scene.bvh_nodes_mem().ptr());
 	if (error_cl(err, "clSetKernelArg 4"))
 		return false;
 
-	err = clSetKernelArg(shadow_clk.kernel,5,sizeof(cl_mem),&si.light_mem());
+	err = clSetKernelArg(shadow_clk.kernel,5,sizeof(cl_mem),
+                             scene.lights_mem().ptr());
 	if (error_cl(err, "clSetKernelArg 5"))
 		return false;
 
@@ -257,7 +261,7 @@ Tracer::shadow_trace(SceneInfo& si, int32_t ray_count,
 }
 
 bool 
-Tracer::shadow_trace(SceneInfo& si, cl_mem& bvh_mem, int32_t ray_count, 
+Tracer::shadow_trace(Scene& scene, DeviceMemory& bvh_mem, int32_t ray_count, 
 		     RayBundle& rays, HitBundle& hits, bool secondary)
 {
 	cl_int err;
@@ -273,19 +277,22 @@ Tracer::shadow_trace(SceneInfo& si, cl_mem& bvh_mem, int32_t ray_count,
 	if (error_cl(err, "clSetKernelArg 1"))
 		return false;
 
-	err = clSetKernelArg(shadow_clk.kernel,2,sizeof(cl_mem),&si.vertex_mem());
+	err = clSetKernelArg(shadow_clk.kernel,2,sizeof(cl_mem),
+                             scene.vertex_mem().ptr());
 	if (error_cl(err, "clSetKernelArg 2"))
 		return false;
 
-	err = clSetKernelArg(shadow_clk.kernel,3,sizeof(cl_mem),&si.index_mem());
+	err = clSetKernelArg(shadow_clk.kernel,3,sizeof(cl_mem),
+                             scene.triangle_mem().ptr());
 	if (error_cl(err, "clSetKernelArg 3"))
 		return false;
 
-	err = clSetKernelArg(shadow_clk.kernel,4,sizeof(cl_mem),&bvh_mem);
+	err = clSetKernelArg(shadow_clk.kernel,4,sizeof(cl_mem),bvh_mem.ptr());
 	if (error_cl(err, "clSetKernelArg 4"))
 		return false;
 
-	err = clSetKernelArg(shadow_clk.kernel,5,sizeof(cl_mem),&si.light_mem());
+	err = clSetKernelArg(shadow_clk.kernel,5,sizeof(cl_mem),
+                             scene.lights_mem().ptr());
 	if (error_cl(err, "clSetKernelArg 5"))
 		return false;
 
