@@ -137,41 +137,5 @@ private:
 };
 
 
-class SceneInfo {
-
-public:
-	bool initialize(Scene& scene, const CLInfo& cli);
-	bool initialize_multi(Scene& scene, const CLInfo& cli);
-
-        bool update_bvh_roots(Scene& scene);
-
-	cl_mem& vertex_mem(){return vert_m;}
-	cl_mem& index_mem(){return index_m;}
-	cl_mem& mat_map_mem(){return mat_map_m;}
-	cl_mem& mat_list_mem(){return mat_list_m;}
-	cl_mem& bvh_mem(){return bvh_m;}
-	cl_mem& light_mem(){return lights_m;}
-
-	cl_mem& bvh_roots_mem(){return bvh_roots_m;}
-
-	size_t size(); /* Size in bytes of the combined memory buffers */
-	bool set_dir_light(const directional_light_cl& dl);
-	bool set_ambient_light(const color_cl& color);
-
-        int bvh_roots_cant;
-
-private:
-
-	cl_mem  vert_m;
-	cl_mem  index_m;
-	cl_mem  mat_map_m;
-	cl_mem  mat_list_m;
-	cl_mem  bvh_m;
-	cl_mem  lights_m;
-	CLInfo  clinfo;
-	lights_cl lights;
-
-        cl_mem bvh_roots_m;
-};
 
 #endif /* RT_SCENE_HPP */

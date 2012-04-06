@@ -103,7 +103,6 @@ int32_t DeviceFunction::set_arg(int32_t arg_num, size_t arg_size, void* arg)
         std::stringstream err_str;
         err_str << "clSetKernelArg " << arg_num;
 
-
 	err = clSetKernelArg(m_kernel,arg_num,arg_size,arg);
 	if (error_cl(err, err_str.str()))
 		return -1;
@@ -120,7 +119,6 @@ int32_t DeviceFunction::set_arg(int32_t arg_num, DeviceMemory& mem)
 	cl_int err;
         std::stringstream err_str;
         err_str << "clSetKernelArg " << arg_num;
-
 
 	err = clSetKernelArg(m_kernel,arg_num,sizeof(cl_mem),mem.ptr());
 	if (error_cl(err, err_str.str()))

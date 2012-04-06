@@ -123,7 +123,7 @@ size_t DeviceMemory::write(size_t nbytes, const void* values, size_t offset)
 
 
 	err = clFinish(m_clinfo.command_queue);
-	if (error_cl(err, "clFinsish"))
+	if (error_cl(err, "clFinish"))
 		return -1;
 
 	return 0;
@@ -148,7 +148,7 @@ size_t DeviceMemory::read(size_t nbytes, void* buffer, size_t offset)
 	    return -1;
 
 	err = clFinish(m_clinfo.command_queue);
-	if (error_cl(err, "clFinsish"))
+	if (error_cl(err, "clFinish"))
 		return -1;
 
 	return 0;

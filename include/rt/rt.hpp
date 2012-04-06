@@ -35,12 +35,14 @@ public:
             log.close();
     }
 
-	bool initialize(std::string s = std::string("log"))
+	int32_t initialize(std::string s = std::string("log"))
 	{
         enabled = true;
         silent = false;
-		log.open(s.c_str(),std::fstream::out);
-		return log.is_open();
+        log.open(s.c_str(),std::fstream::out);
+        if (!log.is_open())
+                return -1;
+        return 0;
 	}
 
 	void out(std::string str)

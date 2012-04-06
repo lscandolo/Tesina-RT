@@ -4,42 +4,51 @@
 #include <rt/primary-ray-generator.hpp>
 
 
-bool
-PrimaryRayGenerator::initialize(CLInfo& clinfo)
+int32_t
+PrimaryRayGenerator::initialize(const CLInfo& clinfo)
 {
 
-	if (init_cl_kernel(&clinfo,"src/kernel/primary-ray-generator.cl", 
-			   "generate_primary_rays", &ray_clk))
-		return false;
+        if (m_initialized)
+                return -1;
+        if (device.initialize(clinfo))
+                return -1;
 
-	ray_clk.work_dim = 1;
-	ray_clk.arg_count = 9;
-	timing = false;
-	
-	spp = 1;
-	sample_cl single_sample = {0.f,0.f,1.f};
-	if (create_filled_cl_mem(clinfo, 
-				 CL_MEM_READ_ONLY,
-				 spp * sizeof(sample_cl),
-				 &single_sample,
-				 &samples_mem))
-		return false;
-	
+        generator_id = device.new_function();
+        DeviceFunction& generator = device.function(generator_id);
 
-	return true;
+        if (generator.initialize("src/kernel/primary-ray-generator.cl", 
+                                   "generate_primary_rays"))
+                return -1;
+
+        generator.set_dims(1);
+	m_timing = false;
+	m_spp = 1;
+
+        samples_id = device.new_memory();
+        DeviceMemory& samples_mem = device.memory(samples_id);
+        sample_cl single_sample = {0.f,0.f,1.f};
+        if (samples_mem.initialize(m_spp * sizeof(sample_cl), &single_sample, 
+                                   READ_ONLY_MEMORY))
+                return -1;
+
+        m_initialized = true;
+	return 0;
 	
 }
 
 
-bool 
-PrimaryRayGenerator::set_rays(const Camera& cam, RayBundle& bundle, uint32_t size[2],
-			      const int32_t ray_count, const int32_t offset)
+int32_t 
+PrimaryRayGenerator::set_rays(const Camera& cam, RayBundle& bundle, size_t size[2],
+			      const size_t ray_count, const size_t offset)
 {
 
-	cl_int err;
+        if (!m_initialized)
+                return -1;
 
-	if (timing)
-		timer.snap_time();
+	if (m_timing)
+		m_timer.snap_time();
+
+        DeviceFunction& generator = device.function(generator_id);
 
 	/*-------------- Set cam parameters as arguments ------------------*/
 	/*-- My OpenCL implementation cannot handle using float3 as arguments!--*/
@@ -48,120 +57,88 @@ PrimaryRayGenerator::set_rays(const Camera& cam, RayBundle& bundle, uint32_t siz
 	cl_float4 cam_right = vec3_to_float4(cam.right);
 	cl_float4 cam_up = vec3_to_float4(cam.up);
 
-	err = clSetKernelArg(ray_clk.kernel, 1, 
-			     sizeof(cl_float4), &cam_pos);
-	if (error_cl(err, "clSetKernelArg 1"))
-		return false;
+        if (generator.set_arg(0, bundle.mem()))
+                return -1;
 
-	err = clSetKernelArg(ray_clk.kernel, 2, 
-			     sizeof(cl_float4), &cam_dir);
-	if (error_cl(err, "clSetKernelArg 2"))
-		return false;
+        if (generator.set_arg(1,sizeof(cl_float4), &cam_pos))
+                return -1;
 
-	err = clSetKernelArg(ray_clk.kernel, 3, 
-			     sizeof(cl_float4), &cam_right);
-	if (error_cl(err, "clSetKernelArg 3"))
-		return false;
+        if (generator.set_arg(2,sizeof(cl_float4), &cam_dir))
+                return -1;
 
-	err = clSetKernelArg(ray_clk.kernel, 4, 
-			     sizeof(cl_float4), &cam_up);
-	if (error_cl(err, "clSetKernelArg 4"))
-		return false;
+        if (generator.set_arg(3,sizeof(cl_float4), &cam_right))
+                return -1;
+
+        if (generator.set_arg(4,sizeof(cl_float4), &cam_up))
+                return -1;
 
 	cl_int width = size[0];
-	err = clSetKernelArg(ray_clk.kernel, 5, 
-			     sizeof(cl_int), &width);
-	if (error_cl(err, "clSetKernelArg 5"))
-		return false;
+        if (generator.set_arg(5,sizeof(cl_int), &width))
+                return -1;
 
 	cl_int height = size[1];
-	err = clSetKernelArg(ray_clk.kernel, 6, 
-			     sizeof(cl_int), &height);
-	if (error_cl(err, "clSetKernelArg 6"))
-		return false;
+        if (generator.set_arg(6,sizeof(cl_int), &height))
+                return -1;
 
-	err = clSetKernelArg(ray_clk.kernel, 7, 
-			     sizeof(cl_int), &spp);
-	if (error_cl(err, "clSetKernelArg 7"))
-		return false;
+        if (generator.set_arg(7,sizeof(cl_int), &m_spp))
+                return -1;
 
-	err = clSetKernelArg(ray_clk.kernel, 8, 
-			     sizeof(cl_mem), &samples_mem);
-	if (error_cl(err, "clSetKernelArg 8"))
-		return false;
+        if (generator.set_arg(8, device.memory(samples_id)))
+                return -1;
 
-
-	ray_clk.global_work_size[0] = ray_count;
-	ray_clk.global_work_offset[0] = offset;
-
-	/*------------------ Set ray mem object as argument ------------*/
-
-	err = clSetKernelArg(ray_clk.kernel, 0,
-			     sizeof(cl_mem),&bundle.mem());
-
-	if (error_cl(err, "clSetKernelArg 4"))
-		return false;
+        size_t global_size[] = {ray_count, 0, 0};
+        size_t global_offset[] = {offset, 0, 0};
+        generator.set_global_size(global_size);
+        generator.set_global_offset(global_offset);
 
 	/*------------------- Execute kernel to create rays ------------*/
-	if (execute_cl(ray_clk))
-		return false;
+        int32_t ret = generator.execute();
 
-	if (timing)
-		time_ms = timer.msec_since_snap();
+	if (m_timing)
+		m_time_ms = m_timer.msec_since_snap();
 
-	return true;
+	return ret;
 }
 
-bool 
-PrimaryRayGenerator::set_spp(int _spp, sample_cl const* samples)
+int32_t 
+PrimaryRayGenerator::set_spp(size_t spp, sample_cl const* samples)
 {
-	cl_int err;
-	if (_spp < 1)
-		return false;
+        if (!m_initialized || !device.good() || spp < 1)
+                return -1;
 
-	spp = _spp;
+	m_spp = spp;
 
-	err = clReleaseMemObject(samples_mem);
-	if (error_cl(err, "clReleaseMemObject"))
-		return false;
+        DeviceMemory& samples_mem = device.memory(samples_id);
 
-	if (create_filled_cl_mem(*(ray_clk.clinfo), 
-				 CL_MEM_READ_ONLY,
-				 spp * sizeof(sample_cl),
-				 samples,
-				 &samples_mem))
-		return false;
-		
-	return true;
+        if (samples_mem.release())
+                return -1;
+
+        if (samples_mem.initialize(spp * sizeof(sample_cl), samples, READ_ONLY_MEMORY))
+                return -1;
+
+	return 0;
 }
 
-int
+size_t
 PrimaryRayGenerator::get_spp() const
 {
-	return spp;
+	return m_spp;
 }
 
-cl_mem&
+DeviceMemory&
 PrimaryRayGenerator::get_samples() 
 {
-	return samples_mem;
+	return device.memory(samples_id);
 }
-
-const cl_mem&
-PrimaryRayGenerator::get_samples() const
-{
-	return samples_mem;
-}
-
 
 void 
-PrimaryRayGenerator::enable_timing(bool b)
+PrimaryRayGenerator::timing(bool b)
 {
-	timing = b;
+	m_timing = b;
 }
 
 double 
 PrimaryRayGenerator::get_exec_time()
 {
-	return time_ms;
+	return m_time_ms;
 }

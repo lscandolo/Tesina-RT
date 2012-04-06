@@ -28,10 +28,10 @@ Camera                camera;
 
 GLuint gl_tex;
 rt_time_t rt_time;
-uint32_t window_size[] = {512, 512};
+size_t window_size[] = {512, 512};
 
-int32_t pixel_count = window_size[0] * window_size[1];
-int32_t best_tile_size;
+size_t pixel_count = window_size[0] * window_size[1];
+size_t best_tile_size;
 
 #define STEPS 16
 
@@ -96,19 +96,19 @@ void gl_key(unsigned char key, int x, int y)
 		gpu_mangling = false;
 		break;
 	case '1': /* Set 1 sample per pixel */
-		if (!prim_ray_gen.set_spp(1,samples1)){
+		if (prim_ray_gen.set_spp(1,samples1)){
 			std::cerr << "Error seting spp" << std::endl;
 			exit(1);
 		}
 		break;
 	case '4': /* Set 4 samples per pixel */
-		if (!prim_ray_gen.set_spp(4,samples4)){
+		if (prim_ray_gen.set_spp(4,samples4)){
 			std::cerr << "Error seting spp" << std::endl;
 			exit(1);
 		}
 		break;
 	case '9': /* Set 9 samples per pixel */
-		if (!prim_ray_gen.set_spp(9,samples9)){
+		if (prim_ray_gen.set_spp(9,samples9)){
 			std::cerr << "Error seting spp" << std::endl;
 			exit(1);
 		}
@@ -137,7 +137,7 @@ void gl_loop()
 
 	glClear(GL_COLOR_BUFFER_BIT);
 
-	if (!framebuffer.clear()) {
+	if (framebuffer.clear()) {
 		std::cerr << "Failed to clear framebuffer." << std::endl;
 		exit(1);
 	}
@@ -196,13 +196,13 @@ void gl_loop()
 	for (int32_t offset = 0; offset < sample_count; offset+= tile_size) {
 
 		
-		RayBundle* ray_in =  &ray_bundle_1;
+		RayBundle* ray_in  =  &ray_bundle_1;
 		RayBundle* ray_out = &ray_bundle_2;
 
 		if (sample_count - offset < tile_size)
 			tile_size = sample_count - offset;
 
-		if (!prim_ray_gen.set_rays(camera, ray_bundle_1, window_size,
+		if (prim_ray_gen.set_rays(camera, ray_bundle_1, window_size,
 					   tile_size, offset)) {
 			std::cerr << "Error seting primary ray bundle" << std::endl;
 			exit(1);
@@ -211,19 +211,19 @@ void gl_loop()
 
 		total_ray_count += tile_size;
 
-		if (!tracer.trace(scene, tile_size, *ray_in, hit_bundle)){
+		if (tracer.trace(scene, tile_size, *ray_in, hit_bundle)){
 			std::cerr << "Failed to trace." << std::endl;
 			exit(1);
 		}
 		prim_trace_time += tracer.get_trace_exec_time();
 
-		// if (!tracer.shadow_trace(scene, tile_size, *ray_in, hit_bundle)){
+		// if (tracer.shadow_trace(scene, tile_size, *ray_in, hit_bundle)){
 		// 	std::cerr << "Failed to shadow trace." << std::endl;
 		// 	exit(1);
 		// }
 		// prim_shadow_trace_time += tracer.get_shadow_exec_time();
 
-		if (!ray_shader.shade(*ray_in, hit_bundle, scene,
+		if (ray_shader.shade(*ray_in, hit_bundle, scene,
 				      cubemap, framebuffer, tile_size)){
 			std::cerr << "Failed to update framebuffer." << std::endl;
 			exit(1);
@@ -231,7 +231,7 @@ void gl_loop()
 		shader_time += ray_shader.get_exec_time();
 		
 
-		int32_t sec_ray_count = tile_size;
+		size_t sec_ray_count = tile_size;
 		for (uint32_t i = 0; i < MAX_BOUNCE; ++i) {
 
 			sec_ray_gen.generate(scene, *ray_in, sec_ray_count, 
@@ -243,7 +243,7 @@ void gl_loop()
 			if (!sec_ray_count)
 				break;
 			if (sec_ray_count == ray_bundle_1.count())
-				std::cerr << "Max sec rays reached!\n";
+				std::cerr << "Max sec rays reached!n";
 
 			total_ray_count += sec_ray_count;
 
@@ -256,7 +256,7 @@ void gl_loop()
 			// 		    *ray_in, hit_bundle, true);
 			// sec_shadow_trace_time += tracer.get_shadow_exec_time();
 
-			if (!ray_shader.shade(*ray_in, hit_bundle, scene,
+			if (ray_shader.shade(*ray_in, hit_bundle, scene,
 					      cubemap, framebuffer, sec_ray_count)){
 				std::cerr << "Ray shader failed execution." << std::endl;
 				exit(1);
@@ -266,7 +266,7 @@ void gl_loop()
 
 	}
 
-	if (!framebuffer.copy(device.memory(texture_id))){
+	if (framebuffer.copy(device.memory(texture_id))){
 		std::cerr << "Failed to copy framebuffer." << std::endl;
 		exit(1);
 	}
@@ -412,13 +412,13 @@ int main (int argc, char** argv)
 	/*---------------------- Initialize ray bundles -----------------------------*/
 	int32_t ray_bundle_size = best_tile_size * 3;
 
-	if (!ray_bundle_1.initialize(ray_bundle_size, clinfo)) {
+	if (ray_bundle_1.initialize(ray_bundle_size, clinfo)) {
 		std::cerr << "Error initializing ray bundle 1" << std::endl;
 		std::cerr.flush();
 		exit(1);
 	}
 
-	if (!ray_bundle_2.initialize(ray_bundle_size, clinfo)) {
+	if (ray_bundle_2.initialize(ray_bundle_size, clinfo)) {
 		std::cerr << "Error initializing ray bundle 2" << std::endl;
 		std::cerr.flush();
 		exit(1);
@@ -428,7 +428,7 @@ int main (int argc, char** argv)
 	/*---------------------- Initialize hit bundle -----------------------------*/
 	int32_t hit_bundle_size = ray_bundle_size;
 
-	if (!hit_bundle.initialize(hit_bundle_size, clinfo)) {
+	if (hit_bundle.initialize(hit_bundle_size, clinfo)) {
 		std::cerr << "Error initializing hit bundle" << std::endl;
 		std::cerr.flush();
 		exit(1);
@@ -437,7 +437,7 @@ int main (int argc, char** argv)
 
 	/*----------------------- Initialize cubemap ---------------------------*/
 	
-	if (!cubemap.initialize("textures/cubemap/Path/posx.jpg",
+	if (cubemap.initialize("textures/cubemap/Path/posx.jpg",
 				"textures/cubemap/Path/negx.jpg",
 				"textures/cubemap/Path/posy.jpg",
 				"textures/cubemap/Path/negy.jpg",
@@ -450,7 +450,7 @@ int main (int argc, char** argv)
 	std::cerr << "Initialized cubemap succesfully." << std::endl;
 
 	/*------------------------ Initialize FrameBuffer ---------------------------*/
-	if (!framebuffer.initialize(clinfo, window_size)) {
+	if (framebuffer.initialize(clinfo, window_size)) {
 		std::cerr << "Error initializing framebuffer." << std::endl;
 		exit(1);
 	}
@@ -458,7 +458,7 @@ int main (int argc, char** argv)
 
 	/* ------------------ Initialize ray tracer kernel ----------------------*/
 
-	if (!tracer.initialize(clinfo)){
+	if (tracer.initialize(clinfo)){
 		std::cerr << "Failed to initialize tracer." << std::endl;
 		return 0;
 	}
@@ -467,7 +467,7 @@ int main (int argc, char** argv)
 
 	/* ------------------ Initialize Primary Ray Generator ----------------------*/
 
-	if (!prim_ray_gen.initialize(clinfo)) {
+	if (prim_ray_gen.initialize(clinfo)) {
 		std::cerr << "Error initializing primary ray generator." << std::endl;
 		exit(1);
 	}
@@ -475,7 +475,7 @@ int main (int argc, char** argv)
 
 
 	/* ------------------ Initialize Secondary Ray Generator ----------------------*/
-	if (!sec_ray_gen.initialize(clinfo)) {
+	if (sec_ray_gen.initialize(clinfo)) {
 		std::cerr << "Error initializing secondary ray generator." << std::endl;
 		exit(1);
 	}
@@ -483,18 +483,18 @@ int main (int argc, char** argv)
 	std::cout << "Initialized secondary ray generator succesfully." << std::endl;
 
 	/*------------------------ Initialize RayShader ---------------------------*/
-	if (!ray_shader.initialize(clinfo)) {
+	if (ray_shader.initialize(clinfo)) {
 		std::cerr << "Error initializing ray shader." << std::endl;
 		exit(1);
 	}
 	std::cout << "Initialized ray shader succesfully." << std::endl;
 
 	/*----------------------- Enable timing in all clases -------------------*/
-	framebuffer.enable_timing(true);
-	prim_ray_gen.enable_timing(true);
-	sec_ray_gen.enable_timing(true);
-	tracer.enable_timing(true);
-	ray_shader.enable_timing(true);
+	framebuffer.timing(true);
+	prim_ray_gen.timing(true);
+	sec_ray_gen.timing(true);
+	tracer.timing(true);
+	ray_shader.timing(true);
 
 	/* ------------------------- Create vertex mangler -----------------------*/
         mangler_id = device.new_function();
@@ -521,8 +521,8 @@ int main (int argc, char** argv)
 	/*------------------------- Count mem usage -----------------------------------*/
 	int32_t total_cl_mem = 0;
 	total_cl_mem += pixel_count * 4; /* 4bpp texture */
-	total_cl_mem += cl_mem_size(ray_bundle_1.mem()) + cl_mem_size(ray_bundle_2.mem());
-	total_cl_mem += cl_mem_size(hit_bundle.mem());
+	total_cl_mem += ray_bundle_1.mem().size() + ray_bundle_2.mem().size();
+	total_cl_mem += hit_bundle.mem().size();
 	total_cl_mem += cubemap.positive_x_mem().size() * 6;
 	total_cl_mem += framebuffer.image_mem().size();
 
@@ -536,10 +536,10 @@ int main (int argc, char** argv)
 		  << (cubemap.positive_x_mem().size()*6)/1e6 
 		  << " MB."<< std::endl;
 	std::cout << "\tRay mem usage: " 
-		  << (cl_mem_size(ray_bundle_1.mem())*2)/1e6
+		  << (ray_bundle_1.mem().size()*2)/1e6
 		  << " MB."<< std::endl;
 	std::cout << "\tRay hit info mem usage: " 
-		  << cl_mem_size(hit_bundle.mem())/1e6
+		  << hit_bundle.mem().size()/1e6
 		  << " MB."<< std::endl;
 
         /* !! ---------------------- Test area ---------------- */

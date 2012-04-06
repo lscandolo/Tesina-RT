@@ -5,11 +5,13 @@
 #include <stdlib.h>
 #include <limits>
 
+#include <cl-gl/opencl-init.hpp>
+#include <gpu/interface.hpp>
+#include <rt/cl_aux.hpp>
+
 #include <rt/vector.hpp>
 #include <rt/math.hpp>
 
-#include <cl-gl/opencl-init.hpp>
-#include <rt/cl_aux.hpp>
 
 RT_ALIGN(16)
 class ray_cl
@@ -62,17 +64,19 @@ public:
 	RayBundle();
 	~RayBundle();
 
-	bool initialize(const int32_t rays,
+	int32_t initialize(const size_t rays,
 			const CLInfo& clinfo); // Create mem object
-	bool is_valid();                    // Check that it's correctly initialized 
+	bool    valid();                    // Check that it's correctly initialized 
 	int32_t count();                // Return number of rays in the bundle
-	cl_mem& mem();                      // Return mem object
+        DeviceMemory& mem();           // Return mem object
 
 private:
 
-	cl_mem  ray_mem;
-	int32_t ray_count;
-	bool    initialized;
+        DeviceInterface device;
+        memory_id ray_id;
+
+	int32_t m_ray_count;
+	bool    m_initialized;
 
 };
 
@@ -81,14 +85,16 @@ class HitBundle {
 public:
 
 	HitBundle();
-	bool initialize(const int32_t sz, const CLInfo& clinfo);
-	cl_mem& mem();
+	int32_t initialize(const size_t sz, const CLInfo& clinfo);
+	DeviceMemory& mem();
 
 private:
 	
-	cl_mem hit_mem;
-	int32_t size;
-	bool initialized;
+	DeviceInterface device;
+        memory_id hit_id;
+
+	size_t m_size;
+	bool m_initialized;
 };
 
 #endif /* RT_RAY_HPP */
