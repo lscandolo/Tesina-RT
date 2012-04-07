@@ -85,3 +85,46 @@ DeviceInterface::delete_function(function_id id)
                 return -1;
         return function_objects[id].release();
 }
+
+int32_t
+DeviceInterface::acquire_graphic_resource(memory_id tex_id)
+{
+        if (!good())
+                return -1;
+
+        cl_int err;
+        err = clEnqueueAcquireGLObjects(m_clinfo.command_queue,
+                1,
+                memory(tex_id).ptr(),
+                0,
+                NULL,
+                NULL);
+        if (error_cl(err, "clEnqueueAcquireGLObjects"))
+                return -1;
+
+        err = clFinish(m_clinfo.command_queue);
+        if (error_cl(err, "clFinish"))
+                return -1;
+        return 0;
+}
+int32_t
+DeviceInterface::release_graphic_resource(memory_id tex_id)
+{
+        if (!good())
+                return -1;
+
+        cl_int err;
+        err = clEnqueueReleaseGLObjects(m_clinfo.command_queue,
+                1,
+                memory(tex_id).ptr(),
+                0,
+                NULL,
+                NULL);
+        if (error_cl(err, "clEnqueueReleaseGLObjects"))
+                return -1;
+
+        err = clFinish(m_clinfo.command_queue);
+        if (error_cl(err, "clFinish"))
+                return -1;
+        return 0;
+}

@@ -32,6 +32,9 @@ public:
         bool valid_function_id(function_id id);
         bool valid_memory_id(memory_id id);
 
+        int32_t acquire_graphic_resource(memory_id tex_id);
+        int32_t release_graphic_resource(memory_id tex_id);
+
 private:
         CLInfo m_clinfo;
         bool m_initialized;

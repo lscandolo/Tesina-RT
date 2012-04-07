@@ -137,7 +137,12 @@ void gl_loop()
 
 	glClear(GL_COLOR_BUFFER_BIT);
 
-	if (framebuffer.clear()) {
+    if (device.acquire_graphic_resource(texture_id)) {
+            std::cerr << "Error acquiring texture resource." << std::endl;
+            exit(1);
+    }
+
+    if (framebuffer.clear()) {
 		std::cerr << "Failed to clear framebuffer." << std::endl;
 		exit(1);
 	}
@@ -273,7 +278,12 @@ void gl_loop()
 	fb_copy_time = framebuffer.get_copy_exec_time();
 	double total_msec = rt_time.msec_since_snap();
 
-	////////////////// Immediate mode textured quad
+    if (device.release_graphic_resource(texture_id)) {
+            std::cerr << "Error releasing texture resource." << std::endl;
+            exit(1);
+    }
+
+    ////////////////// Immediate mode textured quad
 	glBindTexture(GL_TEXTURE_2D, gl_tex);
 
 	glBegin(GL_TRIANGLE_STRIP);
