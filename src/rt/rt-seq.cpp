@@ -166,7 +166,7 @@ void gl_loop()
 	double fb_clear_time = 0;
 	double fb_copy_time = 0;
 
-        DeviceMemory& bvh_mem = flat_scene.bvh_nodes_mem();
+	DeviceMemory& bvh_mem = flat_scene.bvh_nodes_mem();
 
 	glClear(GL_COLOR_BUFFER_BIT);
 

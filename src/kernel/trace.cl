@@ -72,14 +72,13 @@ multiply_vector(float3 v, sqmat4 M)
 {
         float4 x = (float4)(v,0.f);
         float4 r;
-        int m_idx = 0;
 
         r.x = dot(M.row[0],x);
         r.y = dot(M.row[1],x);
         r.z = dot(M.row[2],x);
         r.w = dot(M.row[3],x);
 
-        if (fabs(r.w > 0.00001f))
+        if (fabs(r.w) > 0.00001f)
                 r = r / r.w;
         return r.xyz;
 }
@@ -89,14 +88,13 @@ multiply_point(float3 v, sqmat4 M)
 {
         float4 x = (float4)(v,1.f);
         float4 r;
-        int m_idx = 0;
 
         r.x = dot(M.row[0],x);
         r.y = dot(M.row[1],x);
         r.z = dot(M.row[2],x);
         r.w = dot(M.row[3],x);
 
-        if (fabs(r.w > 0.00001f))
+        if (fabs(r.w) > 0.00001f)
                 r = r / r.w;
         return r.xyz;
 }

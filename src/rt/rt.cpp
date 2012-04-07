@@ -594,7 +594,6 @@ int main (int argc, char** argv)
         /*------------------------- Count mem usage -----------------------------------*/
         int32_t total_cl_mem = 0;
         total_cl_mem += pixel_count * 4; /* 4bpp texture */
-        // total_cl_mem += scene_info.size();
         total_cl_mem += ray_bundle_1.mem().size() + ray_bundle_2.mem().size();
         total_cl_mem += hit_bundle.mem().size();
         total_cl_mem += cubemap.positive_x_mem().size() * 6;
@@ -603,7 +602,6 @@ int main (int argc, char** argv)
         std::cout << "\nMemory stats: " << std::endl;
         std::cout << "\tTotal opencl mem usage: " 
                   << total_cl_mem/1e6 << " MB." << std::endl;
-        // std::cout << "\tScene mem usage: " << scene_info.size()/1e6 << " MB." << std::endl;
         std::cout << "\tFramebuffer+Tex mem usage: " 
                   << (framebuffer.image_mem().size() + pixel_count * 4)/1e6
                   << " MB."<< std::endl;

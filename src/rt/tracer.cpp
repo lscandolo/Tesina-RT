@@ -1,3 +1,4 @@
+#include <iostream> //!!
 #include <rt/tracer.hpp>
 
 Tracer::Tracer()
@@ -75,9 +76,11 @@ Tracer::trace(Scene& scene, DeviceMemory& bvh_mem, int32_t ray_count,
         size_t leftover_local_size[]    = {0, 0, 0};
 
 	const size_t  sec_size = 64;
-        size_t leftover = ray_count%sec_size;
+	size_t leftover = ray_count%sec_size;
 
- 	if (secondary) {
+	bool do_leftover = false;
+
+	if (secondary) {
 		if (ray_count >= sec_size) {
                         global_size[0] = ray_count - leftover;
                         global_offset[0] = 0;
@@ -86,6 +89,7 @@ Tracer::trace(Scene& scene, DeviceMemory& bvh_mem, int32_t ray_count,
                                 leftover_global_size[0] = leftover;
                                 leftover_global_offset[0] = ray_count - leftover;
                                 leftover_local_size[0] = 0;
+								do_leftover = true;
 			}
 		} else {
                         global_size[0] = ray_count;
@@ -105,7 +109,7 @@ Tracer::trace(Scene& scene, DeviceMemory& bvh_mem, int32_t ray_count,
         if (tracer.execute())
                 return -1;
 
-        if (secondary && leftover) {
+        if (do_leftover) {
                 tracer.set_global_size(leftover_global_size);
                 tracer.set_global_offset(leftover_global_offset);
                 tracer.set_local_size(leftover_local_size);
@@ -161,38 +165,42 @@ Tracer::trace(Scene& scene, int32_t ray_count,
         size_t leftover_global_offset[] = {0, 0, 0};
         size_t leftover_local_size[]    = {0, 0, 0};
 
-	const size_t  sec_size = 64;
+		const size_t  sec_size = 64;
         size_t leftover = ray_count%sec_size;
 
- 	if (secondary) {
-		if (ray_count >= sec_size) {
-                        global_size[0] = ray_count - leftover;
-                        global_offset[0] = 0;
-                        local_size[0]  = sec_size;
-			if (leftover) {
-                                leftover_global_size[0] = leftover;
-                                leftover_global_offset[0] = ray_count - leftover;
-                                leftover_local_size[0] = 0;
+		bool do_leftover = false;
+
+		if (secondary) {
+			if (ray_count >= sec_size) {
+				global_size[0] = ray_count - leftover;
+				global_offset[0] = 0;
+				local_size[0]  = sec_size;
+				if (leftover) {
+					leftover_global_size[0] = leftover;
+					leftover_global_offset[0] = ray_count - leftover;
+					leftover_local_size[0] = 0;
+					do_leftover = true;
+				}
+			} else {
+				global_size[0] = ray_count;
+				global_offset[0] = 0;
+				local_size[0] = 0;
 			}
 		} else {
-                        global_size[0] = ray_count;
-                        global_offset[0] = 0;
-                        local_size[0] = 0;
+			global_size[0] = ray_count;
+			global_offset[0] = 0;
+			local_size[0] = 0;
 		}
-	} else {
-                global_size[0] = ray_count;
-                global_offset[0] = 0;
-                local_size[0] = 0;
-	}
-
-        tracer.set_global_size(global_size);
-        tracer.set_global_offset(global_offset);
-        tracer.set_local_size(local_size);
+		
+		
+		tracer.set_global_size(global_size);
+		tracer.set_global_offset(global_offset);
+		tracer.set_local_size(local_size);
 
         if (tracer.execute())
                 return -1;
 
-        if (secondary && leftover) {
+        if (do_leftover) {
                 tracer.set_global_size(leftover_global_size);
                 tracer.set_global_offset(leftover_global_offset);
                 tracer.set_local_size(leftover_local_size);
@@ -245,9 +253,11 @@ Tracer::shadow_trace(Scene& scene, int32_t ray_count,
         size_t leftover_local_size[]    = {0, 0, 0};
 
 	const size_t  sec_size = 64;
-        size_t leftover = ray_count%sec_size;
+	size_t leftover = ray_count%sec_size;
 
- 	if (secondary) {
+	bool do_leftover = false;
+
+	if (secondary) {
 		if (ray_count >= sec_size) {
                         global_size[0] = ray_count - leftover;
                         global_offset[0] = 0;
@@ -256,6 +266,7 @@ Tracer::shadow_trace(Scene& scene, int32_t ray_count,
                                 leftover_global_size[0] = leftover;
                                 leftover_global_offset[0] = ray_count - leftover;
                                 leftover_local_size[0] = 0;
+								do_leftover = true;
 			}
 		} else {
                         global_size[0] = ray_count;
@@ -268,7 +279,7 @@ Tracer::shadow_trace(Scene& scene, int32_t ray_count,
                 local_size[0] = 0;
 	}
 
-        
+
         shadow.set_global_size(global_size);
         shadow.set_global_offset(global_offset);
         shadow.set_local_size(local_size);
@@ -276,11 +287,11 @@ Tracer::shadow_trace(Scene& scene, int32_t ray_count,
         if (shadow.execute())
                 return -1;
 
-        if (secondary && leftover) {
+        if (do_leftover) {
                 shadow.set_global_size(leftover_global_size);
                 shadow.set_global_offset(leftover_global_offset);
                 shadow.set_local_size(leftover_local_size);
-                if (shadow.execute())
+				if (shadow.execute())
                         return -1;
         }                
 
@@ -330,9 +341,11 @@ Tracer::shadow_trace(Scene& scene, DeviceMemory& bvh_mem, int32_t ray_count,
         size_t leftover_local_size[]    = {0, 0, 0};
 
 	const size_t  sec_size = 64;
-        size_t leftover = ray_count%sec_size;
+	size_t leftover = ray_count%sec_size;
 
- 	if (secondary) {
+	bool do_leftover = false;
+
+	if (secondary) {
 		if (ray_count >= sec_size) {
                         global_size[0] = ray_count - leftover;
                         global_offset[0] = 0;
@@ -341,6 +354,7 @@ Tracer::shadow_trace(Scene& scene, DeviceMemory& bvh_mem, int32_t ray_count,
                                 leftover_global_size[0] = leftover;
                                 leftover_global_offset[0] = ray_count - leftover;
                                 leftover_local_size[0] = 0;
+								do_leftover = true;
 			}
 		} else {
                         global_size[0] = ray_count;
@@ -361,7 +375,7 @@ Tracer::shadow_trace(Scene& scene, DeviceMemory& bvh_mem, int32_t ray_count,
         if (shadow.execute())
                 return -1;
 
-        if (secondary && leftover) {
+        if (do_leftover) {
                 shadow.set_global_size(leftover_global_size);
                 shadow.set_global_offset(leftover_global_offset);
                 shadow.set_local_size(leftover_local_size);
