@@ -9,8 +9,6 @@
 #include <rt/vector.hpp>
 #include <rt/cl_aux.hpp>
 
-typedef uint32_t index_t;
-
 struct BBox {
 
 	BBox();
@@ -89,11 +87,11 @@ public:
 	size_t nodeArraySize()
 		{return m_nodes.size();}
 
-	const tri_id* orderedTrianglesArray()
-		{return &(m_ordered_triangles[0]);}
+	const tri_id* triangle_order_array()
+		{return &(m_triangle_order[0]);}
 
-	size_t orderedTrianglesArraySize()
-		{return m_ordered_triangles.size();}
+	size_t triangle_order_array_size()
+		{return m_triangle_order.size();}
 
 	static const uint32_t MIN_PRIMS_PER_NODE = 4;
 	static const uint32_t SAH_BUCKETS = 32;
@@ -101,9 +99,8 @@ public:
 // private:
 
         uint32_t start_node;
-
         std::vector<BVHNode> m_nodes;
-	std::vector<tri_id> m_ordered_triangles;
+        std::vector<tri_id>  m_triangle_order;
 };
 
 

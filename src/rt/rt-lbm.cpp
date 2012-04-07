@@ -21,18 +21,18 @@ extern "C" {
 }
 
 #define MAX_BOUNCE 5
-#define WAVE_HEIGHT 0.5
+#define WAVE_HEIGHT 0.3
 
 void rainEvent();
 
 Scene scene;
 
-bool gpu_mangling = false;
-
 int loging_state = 0;
 
 DeviceInterface device;
 memory_id texture_id;
+mesh_id   grid_id;
+object_id boat_id;
 
 RayBundle             ray_bundle_1,ray_bundle_2;
 HitBundle             hit_bundle;
@@ -46,8 +46,8 @@ Camera                camera;
 
 GLuint gl_tex;
 rt_time_t rt_time;
-size_t window_size[] = {512, 512};
-
+//size_t window_size[] = {512, 512};
+size_t window_size[] = {256, 256};
 size_t pixel_count = window_size[0] * window_size[1];
 size_t best_tile_size;
 Log rt_log;
@@ -56,11 +56,11 @@ Log rt_log;
 
 void gl_mouse(int x, int y)
 {
-	float delta = 0.001f;
+	float delta = 0.005f;
 	float d_inc = delta * (window_size[1]*0.5f - y);/* y axis points downwards */
 	float d_yaw = delta * (x - window_size[0]*0.5f);
 
-	float max_motion = 0.05f;
+	float max_motion = 0.3f;
 
 	d_inc = std::min(std::max(d_inc, -max_motion), max_motion);
 	d_yaw = std::min(std::max(d_yaw, -max_motion), max_motion);
@@ -76,6 +76,8 @@ void gl_mouse(int x, int y)
 void gl_key(unsigned char key, int x, int y)
 {
 	float delta = 2.f;
+    static vec3 boat_pos = makeVector(0.f,-9.f,0.f);
+    Object& boat_obj = scene.geometry.object(boat_id);
 	const sample_cl samples1[] = {{ 0.f , 0.f, 1.f}};
 	const sample_cl samples4[] = {{ 0.25f , 0.25f, 0.25f},
 				      { 0.25f ,-0.25f, 0.25f},
@@ -106,13 +108,27 @@ void gl_key(unsigned char key, int x, int y)
 		loging_state = 1;
 		rt_log.enabled = true;
 		rt_log << "SPP: " << prim_ray_gen.get_spp() << std::endl;
-	case 'g':
-		gpu_mangling = true;
-		break;
-	case 'c':
-		gpu_mangling = false;
-		break;
-	case 'r':
+    case 'u':
+            boat_pos[2] += 1.f;
+            boat_obj.geom.setPos(boat_pos);
+            scene.update_bvh_roots();
+            break;
+    case 'j':
+            boat_pos[2] -= 1.f;
+            boat_obj.geom.setPos(boat_pos);
+            scene.update_bvh_roots();
+            break;
+    case 'h':
+            boat_pos[0] -= 1.f;
+            boat_obj.geom.setPos(boat_pos);
+            scene.update_bvh_roots();
+            break;
+    case 'k':
+            boat_pos[0] += 1.f;
+            boat_obj.geom.setPos(boat_pos);
+            scene.update_bvh_roots();
+            break;
+    case 'r':
 		LBM_addEvent(50,50,53,53,0.035f);
 		break;
 	case '1': /* Set 1 sample per pixel */
@@ -198,11 +214,11 @@ void gl_loop()
 	rainEvent();
 	LBM_update();
 	/////
-	Mesh& mesh = scene.get_aggregate_mesh();
-	for (size_t v = 0; v < mesh.vertexCount(); ++ v) {
+	Mesh& mesh = scene.get_mesh(grid_id);
+    for (size_t v = 0; v < mesh.vertexCount(); ++ v) {
 		Vertex& vert = mesh.vertex(v);
-		float x = (vert.position.s[0] - 50.f)/100.f;
-		float z = (vert.position.s[2] - 50.f)/100.f;
+		float x = (vert.position.s[0] - 5.f)/10.f;
+		float z = (vert.position.s[2] - 5.f)/10.f;
 		
 		x = (x + 1) * GRID_SIZE_X;
 		z = (z + 1) * GRID_SIZE_Y;
@@ -212,7 +228,8 @@ void gl_loop()
 		if (z < 1.f)
 			z = 1.f;
 
-		const float DROP_HEIGHT = 20.f;
+		const float DROP_HEIGHT = 18.f;
+		//const float DROP_HEIGHT = 10.f;
 		
 		float y = LBM_getRho((int)x,(int)z);
 		
@@ -220,22 +237,21 @@ void gl_loop()
 		y = y * DROP_HEIGHT;
 		
 		vert.position.s[1] = y;
-		
-		vec3 normal;
-		normal[0] = -(LBM_getRho(x+1,z) - LBM_getRho(x-1,z))  * 0.5 * DROP_HEIGHT;
-		normal[1] = 1.f;
-		normal[2] = -(LBM_getRho(x,z+1) - LBM_getRho(x,z-1))  * 0.5 * DROP_HEIGHT;
-		
+
+		vec3 normalx = makeVector(0.f,1.f,0.f);
+        vec3 normalz = makeVector(0.f,1.f,0.f);
+        
+        normalx[0] = -(LBM_getRho(x+1,z) - LBM_getRho(x-1,z))  * 0.5f * DROP_HEIGHT;
+		normalz[2] = -(LBM_getRho(x,z+1) - LBM_getRho(x,z-1))  * 0.5f * DROP_HEIGHT;
+
+        vec3 normal = (normalx.normalized() + normalz.normalized());
+
 		vert.normal = vec3_to_float3(normal.normalized());
 		
 		if (fabsf(y) > WAVE_HEIGHT)
 			std::cerr << "y: " << y << std::endl;
 	}
-	DeviceMemory& vert_mem = scene.vertex_mem();
-	if (vert_mem.write(mesh.vertexCount() * sizeof(Vertex),mesh.vertexArray())) {
-		std::cerr << "Error updating vertex information." << std::endl;
-		exit(1);
-	}
+    scene.update_mesh_vertices(grid_id);
 		
 	/*--------------------------------------*/
 	double mangle_time = mangle_timer.msec_since_snap();
@@ -429,7 +445,8 @@ int main (int argc, char** argv)
 	}
 
 	/*---------------------- Initialize lbm simulator ----------------------*/
-	LBM_initialize(GRID_SIZE_X, GRID_SIZE_Y, 0.05f, 0.77f);
+    LBM_initialize(GRID_SIZE_X, GRID_SIZE_Y, 0.05f, 0.7f);
+    //LBM_initialize(GRID_SIZE_X, GRID_SIZE_Y, 0.05f, 0.77f);
 	//LBM_initialize(GRID_SIZE_X, GRID_SIZE_Y, 0.01f, 0.2f);
 
 	/*---------------------- Create shared GL-CL texture ----------------------*/
@@ -448,55 +465,50 @@ int main (int argc, char** argv)
 	}
 	std::cout << "Initialized scene succesfully." << std::endl;
 
-	mesh_id floor_mesh_id = scene.load_obj_file("models/obj/grid100.obj");
-	object_id floor_obj_id  = scene.geometry.add_object(floor_mesh_id);
+    mesh_id floor_mesh_id = scene.load_obj_file("models/obj/grid100.obj");
+    object_id floor_obj_id  = scene.geometry.add_object(floor_mesh_id);
 	Object& floor_obj = scene.geometry.object(floor_obj_id);
+    floor_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
  	floor_obj.geom.setScale(10.f);
-	// floor_obj.geom.setPos(makeVector(0.f,0.f,0.f));
 	floor_obj.mat.diffuse = Blue;
 	floor_obj.mat.reflectiveness = 0.95f;
 	floor_obj.mat.refractive_index = 1.5f;
-	floor_obj.slack = makeVector(0.f,WAVE_HEIGHT,0.f);
+    /*Set slack for bvh*/
+    vec3 slack = makeVector(0.f,WAVE_HEIGHT,0.f);
+    scene.get_mesh(floor_mesh_id).set_global_slack(slack);
 
-	if (scene.create_aggregate_mesh()) {
-		std::cerr << "Failed to create aggregate mesh" << std::endl;
-		exit(1);
-	} else {
-		std::cout << "Created aggregate mesh succesfully" << std::endl;
-	}
-	
-	rt_time.snap_time();
-	if (scene.create_aggregate_bvh()) {
-		std::cerr << "Failed to create aggregate bvh" << std::endl;
-		exit(1);
-	} else {
-		std::cout << "Created aggregate bvh succesfully" << std::endl;
-	}
+    mesh_id boat_mesh_id = scene.load_obj_file("models/obj/frame_boat1.obj");
+    object_id boat_obj_id = scene.geometry.add_object(boat_mesh_id);
+    Object& boat_obj = scene.geometry.object(boat_obj_id);
+    boat_id = boat_obj_id; 
+    boat_obj.geom.setPos(makeVector(0.f,-9.f,0.f));
+    boat_obj.geom.setRpy(makeVector(0.0f,0.f,0.f));
+    boat_obj.geom.setScale(2.f);
+    boat_obj.mat.diffuse = Red;
+    boat_obj.mat.shininess = 1.f;
+    boat_obj.mat.reflectiveness = 0.0f;
 
-	BVH& scene_bvh   = scene.get_aggregate_bvh ();
-	double bvh_build_time = rt_time.msec_since_snap();
-	std::cout << "Created BVH succesfully (build time: " 
-		  << bvh_build_time << " msec, " 
-		  << scene_bvh.nodeArraySize() << " nodes)." << std::endl;
+    if (scene.create_bvhs()) {
+            std::cerr << "Failed to create bvhs." << std::endl;
+            exit(1);
+    }
+    std::cout << "Created bvhs" << std::endl;
+    
+    if (scene.transfer_meshes_to_device()) {
+            std::cerr << "Failed to transfer meshes to device." 
+                      << std::endl;
+            exit(1);
+    }
+    std::cout << "Transfered meshes to device" << std::endl;
 
-	if (scene.transfer_aggregate_mesh_to_device()) {
-		std::cerr << "Failed to transfer aggregate meshe to device memory"
-			<< std::endl;
-		exit(1);
-	} else {
-		std::cout << "Transfered aggregate meshe to device succesfully"
-			<< std::endl;
-	}
-	
-	if (scene.transfer_aggregate_bvh_to_device()) {
-		std::cerr << "Failed to transfer aggregate bvh to device memory"
-			<< std::endl;
-		exit(1);
-	} else {
-		std::cout << "Transfered aggregate bvh to device succesfully"
-			<< std::endl;
-	}
-	
+    if (scene.transfer_bvhs_to_device()) {
+            std::cerr << "Failed to transfer bvhs to device." 
+                      << std::endl;
+            exit(1);
+    }
+    std::cout << "Transfered bvhs to device" << std::endl;
+    grid_id = floor_mesh_id;
+
 	/*---------------------- Set initial Camera paramaters -----------------------*/
 	camera.set(makeVector(0,3,-30), makeVector(0,0,1), makeVector(0,1,0), M_PI/4.,
 		   window_size[0] / (float)window_size[1]);
@@ -595,10 +607,10 @@ int main (int argc, char** argv)
 	ray_shader.timing(true);
 
 	/*---------------------- Print scene data ----------------------*/
-	Mesh& scene_mesh = scene.get_aggregate_mesh();
-	std::cerr << "\nScene stats: " << std::endl;
-	std::cerr << "\tTriangle count: " << scene_mesh.triangleCount() << std::endl;
-	std::cerr << "\tVertex count: " << scene_mesh.vertexCount() << std::endl;
+	//Mesh& scene_mesh = scene.get_aggregate_mesh();
+	//std::cerr << "\nScene stats: " << std::endl;
+	//std::cerr << "\tTriangle count: " << scene_mesh.triangleCount() << std::endl;
+	//std::cerr << "\tVertex count: " << scene_mesh.vertexCount() << std::endl;
 
 	/*------------------------- Count mem usage -----------------------------------*/
 	size_t total_cl_mem = 0;
@@ -684,5 +696,6 @@ void rainEvent(){
 
     size = int(XMin + r*(XMax - XMin)); // transform to wanted range
 
-	LBM_addEvent(x,y,x+size,y+size,0.035f);
+    LBM_addEvent(x,y,x+size,y+size,0.035f);
+	//LBM_addEvent(x,y,x+size,y+size,0.035f);
 }

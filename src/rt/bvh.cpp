@@ -147,10 +147,10 @@ BVH::construct(Mesh& mesh, int32_t node_offset, int32_t tri_offset)
 {
 
 	/*------------------- Initialize members ----------------------------------*/
-        size_t tris = mesh.triangleCount();
-	m_ordered_triangles.resize(tris);
+    size_t tris = mesh.triangleCount();
+	m_triangle_order.resize(tris);
 	for (uint32_t i = 0 ; i  < tris ; ++i)
-		m_ordered_triangles[i] = i;
+		m_triangle_order[i] = i;
 
 	if (tris == 0) {
 		m_nodes.resize(1);
@@ -177,13 +177,13 @@ BVH::construct(Mesh& mesh, int32_t node_offset, int32_t tri_offset)
 	m_nodes.resize(1);
 	BVHNode root;
 	root.setBounds(0, uint32_t(mesh.triangleCount()));
-	root.sort(bboxes, m_ordered_triangles, m_nodes, node_offset, 
+	root.sort(bboxes, m_triangle_order, m_nodes, node_offset, 
                   node_offset, tri_offset);
 	m_nodes[0] = root;
 
 
 	/*------------------ Reorder triangles in mesh now ----------------*/
-	mesh.reorderTriangles(m_ordered_triangles);
+	mesh.reorderTriangles(m_triangle_order);
 
         start_node = node_offset;
 	return true;
@@ -196,9 +196,9 @@ BVH::construct_and_map(Mesh& mesh, std::vector<cl_int>& map,
 {
 	/*------------------- Initialize members ----------------------------------*/
 	size_t tris = mesh.triangleCount();
-	m_ordered_triangles.resize(tris);
+	m_triangle_order.resize(tris);
 	for (uint32_t i = 0 ; i  < tris ; ++i)
-		m_ordered_triangles[i] = i;
+		m_triangle_order[i] = i;
 
 	if (tris == 0) {
 		m_nodes.resize(1);
@@ -224,17 +224,17 @@ BVH::construct_and_map(Mesh& mesh, std::vector<cl_int>& map,
 	m_nodes.resize(1);
 	BVHNode root;
 	root.setBounds(0, uint32_t(mesh.triangleCount()));
-	root.sort(bboxes, m_ordered_triangles, m_nodes, node_offset, 
+	root.sort(bboxes, m_triangle_order, m_nodes, node_offset, 
                   node_offset, tri_offset);
 	m_nodes[0] = root;
 
 	/*------------------ Reorder triangles in mesh now ----------------*/
-	mesh.reorderTriangles(m_ordered_triangles);
+	mesh.reorderTriangles(m_triangle_order);
 
 	/*------------------ Reorder map ----------------------------------*/
 	std::vector<cl_int> new_map = map;
-	for (uint32_t i = 0; i < m_ordered_triangles.size(); ++i) {
-		map[i] = new_map[m_ordered_triangles[i]];
+	for (uint32_t i = 0; i < m_triangle_order.size(); ++i) {
+		map[i] = new_map[m_triangle_order[i]];
 	}
 
         start_node = node_offset;

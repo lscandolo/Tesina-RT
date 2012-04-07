@@ -497,7 +497,7 @@ int main (int argc, char** argv)
 		
 		scenes[i].create_aggregate_mesh();
 		Mesh& scene_mesh = scenes[i].get_aggregate_mesh();
-		scenes[i].reorderTriangles(flat_scene_bvh.m_ordered_triangles);
+		scenes[i].reorderTriangles(flat_scene_bvh.m_triangle_order);
                 if (scenes[i].transfer_aggregate_mesh_to_device())
                         std::cerr << "Failed to transfer scene bvh to device" << std::endl;
 

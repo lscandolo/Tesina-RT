@@ -12,13 +12,13 @@ sqmat<N-1,F> removeRowCol(const sqmat<N,F>& M, int32_t r, int32_t c)
 {
         sqmat<N-1,F> retmat;
         uint32_t col = 0;
-        for (uint32_t i = 0; i < N; ++i) { 
+        for (int32_t i = 0; i < N; ++i) { 
                 if (i == c)
                         continue;
                 vec<N,F> coli = M.col(i);
                 vec<N-1,F> new_coli;
 
-                for (uint32_t j = 0; j < N-1; ++j)
+                for (int32_t j = 0; j < N-1; ++j)
                         if (j < r)
                                 new_coli[j] = coli[j];
                         else
@@ -32,8 +32,8 @@ sqmat<N-1,F> removeRowCol(const sqmat<N,F>& M, int32_t r, int32_t c)
 template <int N, typename F>
 void printMat(const sqmat<N,F>& M)
 {
-        for (uint32_t i = 0; i < N; ++i){
-                for (uint32_t j = 0; j < N; ++j){
+        for (int32_t i = 0; i < N; ++i){
+                for (int32_t j = 0; j < N; ++j){
                         std::cout << M.val(i,j) << "\t";
                 }
                 std::cout << std::endl;

@@ -33,7 +33,7 @@ Triangle Mesh::triangle(tri_id tri) const
 { return triangles[tri]; }
 
 /* Accessor for a triangle vertex */
-index_t Mesh::triangleVertexIndex(tri_id tri, index_t which) const 
+vtx_id Mesh::triangleVertexIndex(tri_id tri, uint32_t which) const 
 { return triangles[tri].v[which]; }
 
 /* Accesor for the triangle array */
@@ -53,4 +53,9 @@ void Mesh::reorderTriangles(const std::vector<uint32_t>& order){
 	}
 }
 
+/* Set a global slack for all triangles */
+void Mesh::set_global_slack(vec3 slack) 
+{
+        slacks = std::vector<vec3>(triangles.size(),slack);
+}
 

@@ -35,7 +35,7 @@ Object::clone()
 object_id 
 SceneGeometry::add_object(mesh_id mid)
 {
-	uint32_t oid = uint32_t(objects.size());
+	object_id oid = object_id(objects.size());
 	objects.push_back(Object(mid));
 	return oid;
 }
@@ -43,7 +43,7 @@ SceneGeometry::add_object(mesh_id mid)
 void 
 SceneGeometry::remove_object(object_id id)
 {
-	if (id < objects.size())
+	if (id < (object_id)objects.size())
 		objects[id].set_mesh_id(invalid_mesh_id());
 }
 
@@ -143,7 +143,7 @@ Scene::transfer_aggregate_mesh_to_device()
         if (mat_map_mem.initialize(mat_map_size, mat_map_ptr, READ_ONLY_MEMORY))
                 return -1;
 
-        /********************** !!STUB multi-BVH info ****************************/
+        /********************** Single bvh root ****************************/
         
         BVHRoot root;
         root.node = 0;
@@ -238,9 +238,9 @@ Scene::create_aggregate_mesh()
 		}
 		for (uint32_t t = 0; t < mesh.triangleCount(); ++t) {
 			Triangle tri = mesh.triangle(t);
-			tri.v[0] += index_t(base_vertex);
-			tri.v[1] += index_t(base_vertex);
-			tri.v[2] += index_t(base_vertex);
+            tri.v[0] += vtx_id(base_vertex);
+			tri.v[1] += vtx_id(base_vertex);
+			tri.v[2] += vtx_id(base_vertex);
 			aggregate_mesh.triangles.push_back(tri);
 			aggregate_mesh.slacks.push_back(obj.slack);
 		}
@@ -280,13 +280,6 @@ Scene::reorderTriangles(const std::vector<uint32_t>& new_order) {
 	}
 
     return true;	
-}
-
-
-uint32_t
-Scene::create_multiple_bvhs()
-{
-        return create_bvhs();
 }
 
 uint32_t 
@@ -395,13 +388,12 @@ Scene::transfer_meshes_to_device()
 	if (!m_initialized)
 		return -1;
 
-        typedef std::vector<index_t>::iterator index_iterator_t;
+        typedef std::vector<mesh_id>::iterator index_iterator_t;
 
 	/*---------------------- Move model data to OpenCL device -----------------*/
 
         std::vector<Vertex> vertices;
         std::vector<Triangle> triangles;
-        std::vector<vec3> slacks;
 
         int32_t vtx_count = 0;
         int32_t tri_count = 0;
@@ -465,13 +457,13 @@ Scene::transfer_bvhs_to_device()
 	if (!m_initialized || !m_bvhs_built)
 		return -1;
 
-        typedef std::vector<index_t>::iterator index_iterator_t;
+        typedef std::vector<mesh_id>::iterator index_iterator_t;
 
 	/*--------------------- Move bvh nodes to device memory ---------------------*/
         /* First put them adjacent in order to move them 
          TODO: Copy them individually */
         std::vector<BVHNode> bvh_nodes;
-        for(index_iterator_t id = bvh_order.begin(); id < bvh_order.end(); id++) { 
+        for(index_iterator_t id = bvh_order.begin(); id < bvh_order.end(); id++) {
                 BVH& bvh = bvhs[*id];
                 bvh_nodes.insert(bvh_nodes.end(), bvh.m_nodes.begin(), bvh.m_nodes.end());
         }
@@ -497,7 +489,57 @@ Scene::transfer_bvhs_to_device()
         return 0;
 }
 
+Mesh&
+Scene::get_mesh(mesh_id mid)
+{
+        ASSERT(mid < mesh_atlas.size() && mid >= 0);
+        return mesh_atlas[mid];
+}
+
+BVH&
+Scene::get_object_bvh(object_id oid)
+{
+        ASSERT(bvhs.find(oid) != bvhs.end());
+        return bvhs[oid];
+}
+
 int32_t 
+Scene::update_mesh_vertices(mesh_id mid)
+{
+	if (!m_initialized || bvhs.find(mid) == bvhs.end())
+            return -1;
+
+    typedef std::vector<mesh_id>::iterator mesh_iterator_t;
+
+	/*---------------------- Move model data to OpenCL device -----------------*/
+
+    std::vector<Vertex> vertices;
+    std::vector<Triangle> triangles;
+
+    int32_t vtx_count = 0;
+    int32_t tri_count = 0;
+
+    size_t vertex_offset = 0;
+
+    for (mesh_iterator_t it = bvh_order.begin(); it < bvh_order.end(); it++) { 
+
+            if (*it != mid) {
+                    Mesh& it_mesh = mesh_atlas[*it];
+                    vertex_offset += it_mesh.vertexCount();
+            }
+            else {
+                    Mesh& mesh = mesh_atlas[mid];
+                    if (vertex_mem().write(mesh.vertexCount() *sizeof(Vertex),
+                                         mesh.vertexArray(),
+                                         vertex_offset))
+                                         return -1;
+                    return 0;
+            }
+    }
+    return -1;
+}   
+
+int32_t
 Scene::set_dir_light(const directional_light_cl& dl)
 {
         if (!m_initialized)
