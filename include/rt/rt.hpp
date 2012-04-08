@@ -7,7 +7,9 @@
 #include <sstream>
 
 #include <misc/log.hpp>
+#include <gpu/interface.hpp>
 #include <rt/math.hpp>
+#include <rt/lu.hpp>
 #include <rt/ray.hpp>
 #include <rt/light.hpp>
 #include <rt/timing.hpp>

@@ -9,8 +9,6 @@
 #include <rt/vector.hpp>
 #include <rt/cl_aux.hpp>
 
-typedef uint32_t index_t;
-
 struct BBox {
 
 	BBox();
@@ -33,15 +31,28 @@ public:
 	void setBounds(uint32_t s, uint32_t e){
 		m_start_index = s;
 		m_end_index = e;
-		m_parent = 0;
+	}
+
+	void offsetBounds(uint32_t offset){
+		m_start_index += offset;
+		m_end_index += offset;
 	}
 
 	void sort(const std::vector<BBox>& bboxes,
-		std::vector<tri_id>& ordered_triangles,
-		std::vector<BVHNode>& nodes,
-		uint32_t node_index);
+                  std::vector<tri_id>& ordered_triangles,
+                  std::vector<BVHNode>& nodes,
+                  uint32_t parent_index,
+                  uint32_t node_offset = 0,
+                  uint32_t tri_offset = 0);
 
-//!!private:
+        void set_empty(int32_t node_offset = 0){
+                m_leaf = true;
+                m_start_index = 0;
+                m_end_index = 0;
+                m_parent = node_offset;
+      }
+
+private:
 
 	BBox m_bbox;
 	cl_uint m_l_child, m_r_child;
@@ -66,8 +77,9 @@ class BVH {
 
 public:
 
-	bool construct(Mesh& m_mesh, vec3 slack = vec3_zero);
-	bool construct_and_map(Mesh& m_mesh, std::vector<cl_int>& map, vec3 slack = vec3_zero);
+	bool construct(Mesh& m_mesh, int32_t node_offset = 0, int32_t tri_offset = 0);
+	bool construct_and_map(Mesh& m_mesh, std::vector<cl_int>& map, 
+                               int32_t node_offset = 0, int32_t tri_offset = 0);
 
 	BVHNode* nodeArray()
 		{return &(m_nodes[0]);}
@@ -75,19 +87,20 @@ public:
 	size_t nodeArraySize()
 		{return m_nodes.size();}
 
-	const tri_id* orderedTrianglesArray()
-		{return &(m_ordered_triangles[0]);}
+	const tri_id* triangle_order_array()
+		{return &(m_triangle_order[0]);}
 
-	size_t orderedTrianglesArraySize()
-		{return m_ordered_triangles.size();}
+	size_t triangle_order_array_size()
+		{return m_triangle_order.size();}
 
 	static const uint32_t MIN_PRIMS_PER_NODE = 4;
 	static const uint32_t SAH_BUCKETS = 32;
 
 // private:
 
-    std::vector<BVHNode> m_nodes;
-	std::vector<tri_id> m_ordered_triangles;
+        uint32_t start_node;
+        std::vector<BVHNode> m_nodes;
+        std::vector<tri_id>  m_triangle_order;
 };
 
 

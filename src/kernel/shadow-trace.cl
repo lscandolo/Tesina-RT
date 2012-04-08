@@ -1,3 +1,14 @@
+typedef struct 
+{
+        float4 row[4];
+} sqmat4;
+
+typedef struct {
+        int node;
+        sqmat4 tr;
+        sqmat4 trInv;
+} BVHRoot;
+
 typedef struct
 {
 	float3 ori;
@@ -51,6 +62,7 @@ typedef struct {
 	int id;
 	float2 uv;
 	float3 n;
+        float3 hit_point;
   
 } RayHitInfo;
 
@@ -79,6 +91,52 @@ typedef struct {
 	DirectionalLight directional;
 
 } Lights;
+
+float3 __attribute__((always_inline)) 
+multiply_vector(float3 v, sqmat4 M)
+{
+        float4 x = (float4)(v,0.f);
+        float4 r;
+
+        r.x = dot(M.row[0],x);
+        r.y = dot(M.row[1],x);
+        r.z = dot(M.row[2],x);
+        r.w = dot(M.row[3],x);
+
+        if (fabs(r.w) > 0.00001f)
+                r = r / r.w;
+        return r.xyz;
+}
+
+float3 __attribute__((always_inline)) 
+multiply_point(float3 v, sqmat4 M)
+{
+        float4 x = (float4)(v,1.f);
+        float4 r;
+
+        r.x = dot(M.row[0],x);
+        r.y = dot(M.row[1],x);
+        r.z = dot(M.row[2],x);
+        r.w = dot(M.row[3],x);
+
+        if (fabs(r.w) > 0.00001f)
+                r = r / r.w;
+        return r.xyz;
+}
+
+Ray transform_ray(Ray ray, sqmat4 tr)
+{
+        ray.dir = multiply_vector(ray.dir, tr);
+        ray.ori = multiply_point(ray.ori, tr);
+        ray.invDir = 1.f / ray.dir;
+        return ray;
+}
+
+RayHitInfo transform_hit_info(RayHitInfo hit_info, sqmat4 tr)
+{
+        hit_info.n = multiply_vector(hit_info.n, tr);
+        return hit_info;
+}
 
 bool __attribute__((always_inline))
 bbox_hit(BBox bbox,
@@ -213,13 +271,14 @@ triangle_reflect(global Vertex* vertex_buffer,
 bool trace_shadow_ray(Ray ray,
 		      global Vertex* vertex_buffer,
 		      global int* index_buffer,
-		      global BVHNode* bvh_nodes)
+		      global BVHNode* bvh_nodes,
+                      int bvh_root)
 {
 	bool shadow_ray_hit = false;
 
 	bool going_up = false;
-	unsigned int last = 0;
-	unsigned int curr = 0;
+	unsigned int last = bvh_root;
+	unsigned int curr = bvh_root;
 
 	private BVHNode current_node;
 
@@ -259,7 +318,7 @@ bool trace_shadow_ray(Ray ray,
 
 		if (going_up) {
 			// I'm going up from the root, so break
-			if (last == 0) {
+			if (last == bvh_root) {
 				break;
 				
 			// I'm going up from my first child, do the right one
@@ -323,12 +382,14 @@ shadow_trace(global RayHitInfo* trace_info,
 	     global RayPlus* rays,
 	     global Vertex* vertex_buffer,
 	     global int* index_buffer,
+             int    root_count,
+             global BVHRoot* roots,
 	     global BVHNode* bvh_nodes,
 	     global Lights* lights)
 {
 	int index = get_global_id(0);
 
-	Ray original_ray = rays[index].ray;
+	/* Ray original_ray = rays[index].ray; */
 
 	RayHitInfo info  = trace_info[index];
 
@@ -339,12 +400,24 @@ shadow_trace(global RayHitInfo* trace_info,
 	Ray ray;
 	ray.dir = -lights->directional.dir;
 	ray.invDir = 1.f/ray.dir;
-	ray.ori = original_ray.ori + original_ray.dir * info.t;
+        ray.ori = info.hit_point;
+	/* ray.ori = original_ray.ori + original_ray.dir * info.t; */
   	ray.tMin = 0.0001f; ray.tMax = 1e37f;
 
-	bool hit = trace_shadow_ray(ray, vertex_buffer, index_buffer, bvh_nodes);
+        trace_info[index].shadow_hit = false;
+        for (int i = 0; i < root_count; ++i) {
 
-	if (hit)
-		trace_info[index].shadow_hit = true;
+                Ray tr_ray = transform_ray(ray, roots[i].trInv);
+                bool hit = trace_shadow_ray(tr_ray, 
+                                            vertex_buffer, 
+                                            index_buffer, 
+                                            bvh_nodes,
+                                            roots[i].node);
 
+                if (hit) {
+                        trace_info[index].shadow_hit = true;
+                        return;
+                }
+        }
+        return;
 }

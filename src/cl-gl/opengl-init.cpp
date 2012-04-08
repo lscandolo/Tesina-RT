@@ -6,7 +6,7 @@
 #include <iostream>
 
 GLint init_gl(int argc, char** argv, GLInfo* glinfo, 
-	      const uint32_t* window_size, const std::string title)
+	      const size_t* window_size, const std::string title)
 {
 
 	if (window_size[0] <= 0 || window_size[1] <= 0)

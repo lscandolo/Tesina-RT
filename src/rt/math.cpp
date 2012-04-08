@@ -4,11 +4,13 @@
 #include <rt/math.hpp>
 
 
+#define F_M_PI (float)M_PI
+
 float normalize_angle(float a)
 {
-	float mod_a = fmodf(a,2*M_PI) + 2 * M_PI;
-	mod_a = fmodf(mod_a,2*M_PI);
-	return mod_a > M_PI? mod_a - 2*M_PI : mod_a;
+	float mod_a = fmodf(a,2*F_M_PI) + 2 * F_M_PI;
+	mod_a = fmodf(mod_a,2*F_M_PI);
+	return mod_a > F_M_PI? mod_a - 2*F_M_PI : mod_a;
 }
 
 float lerp( const float& a, const float& b, const float& t )

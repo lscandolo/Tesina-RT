@@ -1,98 +1,91 @@
 #include <rt/ray-shader.hpp>
 
-bool 
+int32_t 
 RayShader::initialize(CLInfo& clinfo)
 
 		
 {
-	/*------------------------ Set up ray shading kernel info ---------------------*/
-	if (init_cl_kernel(&clinfo,"src/kernel/ray-shader.cl", "shade", 
-			   &shade_clk))
-		return false;
+        if (device.initialize(clinfo))
+                return -1;
 
-	shade_clk.work_dim = 1;
-	shade_clk.arg_count = 12;
-	timing = false;
-	
-	return true;
+	/*------------------------ Set up ray shading kernel info ---------------------*/
+        shade_id = device.new_function();
+        DeviceFunction& shade_function = device.function(shade_id);
+
+        if (shade_function.initialize("src/kernel/ray-shader.cl", "shade"))
+                return -1;
+
+        shade_function.set_dims(1);
+
+	m_timing = false;
+	return 0;
 }
 
-bool 
-RayShader::shade(RayBundle& rays, HitBundle& hb, SceneInfo& scene_info, 
-		 Cubemap& cm, FrameBuffer& fb, int32_t size)
+int32_t 
+RayShader::shade(RayBundle& rays, HitBundle& hb, Scene& scene, 
+		 Cubemap& cm, FrameBuffer& fb, size_t size)
 {
-	cl_int err;
+	if (m_timing)
+		m_timer.snap_time();
 
-	if (timing)
-		timer.snap_time();
+        DeviceFunction& shade_function = device.function(shade_id);
+        
+        if (shade_function.set_arg(0, fb.image_mem()))
+            return -1;
 
-	err = clSetKernelArg(shade_clk.kernel,0,sizeof(cl_mem), &fb.image_mem());
-	if (error_cl(err, "clSetKernelArg 0"))
-		return false;
+        if (shade_function.set_arg(1,hb.mem()))
+		return -1;
 
-	err = clSetKernelArg(shade_clk.kernel,1,sizeof(cl_mem),&hb.mem());
-	if (error_cl(err, "clSetKernelArg 1"))
-		return false;
+        if (shade_function.set_arg(2,rays.mem()))
+		return -1;
 
-	err = clSetKernelArg(shade_clk.kernel,2,sizeof(cl_mem),&rays.mem());
-	if (error_cl(err, "clSetKernelArg 2"))
-		return false;
+        if (shade_function.set_arg(3,scene.material_list_mem()))
+		return -1;
 
-	err = clSetKernelArg(shade_clk.kernel,3,sizeof(cl_mem),&scene_info.mat_list_mem());
-	if (error_cl(err, "clSetKernelArg 3"))
-		return false;
+        if (shade_function.set_arg(4,scene.material_map_mem()))
+		return -1;
 
-	err = clSetKernelArg(shade_clk.kernel,4,sizeof(cl_mem),&scene_info.mat_map_mem());
-	if (error_cl(err, "clSetKernelArg 4"))
-		return false;
+        if (shade_function.set_arg(5,cm.positive_x_mem()))
+		return -1;
 
-	err = clSetKernelArg(shade_clk.kernel,5,sizeof(cl_mem),&cm.positive_x_mem());
-	if (error_cl(err, "clSetKernelArg 5"))
-		return false;
+        if (shade_function.set_arg(6,cm.negative_x_mem()))
+		return -1;
 
-	err = clSetKernelArg(shade_clk.kernel,6,sizeof(cl_mem),&cm.negative_x_mem());
-	if (error_cl(err, "clSetKernelArg 6"))
-		return false;
+        if (shade_function.set_arg(7,cm.positive_y_mem()))
+		return -1;
 
-	err = clSetKernelArg(shade_clk.kernel,7,sizeof(cl_mem),&cm.positive_y_mem());
-	if (error_cl(err, "clSetKernelArg 7"))
-		return false;
+        if (shade_function.set_arg(8,cm.negative_y_mem()))
+		return -1;
 
-	err = clSetKernelArg(shade_clk.kernel,8,sizeof(cl_mem),&cm.negative_y_mem());
-	if (error_cl(err, "clSetKernelArg 8"))
-		return false;
+        if (shade_function.set_arg(9,cm.positive_z_mem()))
+		return -1;
 
-	err = clSetKernelArg(shade_clk.kernel,9,sizeof(cl_mem),&cm.positive_z_mem());
-	if (error_cl(err, "clSetKernelArg 9"))
-		return false;
+        if (shade_function.set_arg(10,cm.negative_z_mem()))
+		return -1;
 
-	err = clSetKernelArg(shade_clk.kernel,10,sizeof(cl_mem),&cm.negative_z_mem());
-	if (error_cl(err, "clSetKernelArg 10"))
-		return false;
+        if (shade_function.set_arg(11,scene.lights_mem()))
+		return -1;
 
-	err = clSetKernelArg(shade_clk.kernel,11,sizeof(cl_mem),&scene_info.light_mem());
-	if (error_cl(err, "clSetKernelArg 11"))
-		return false;
+        size_t shade_work_size[] = {size, 0, 0};
+        shade_function.set_global_size(shade_work_size);
 
-	shade_clk.global_work_size[0] = size;
+	if (shade_function.execute())
+		return -1;
 
-	if (execute_cl(shade_clk))
-		return false;
+	if (m_timing)
+		m_time_ms = m_timer.msec_since_snap();
 
-	if (timing)
-		time_ms = timer.msec_since_snap();
-
-	return true;
+	return 0;
 }
 
 void
-RayShader::enable_timing(bool b)
+RayShader::timing(bool b)
 {
-	timing = b;
+	m_timing = b;
 }
 
 double 
 RayShader::get_exec_time()
 {
-	return time_ms;
+	return m_time_ms;
 }

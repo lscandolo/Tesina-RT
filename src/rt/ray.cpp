@@ -28,84 +28,89 @@ bool ray_cl::validT(float t) const
 { return ( t >= tMin && t < tMax ); };
 
 
-// RayBundle methods 
+/* --------------------------------- RayBundle methods ----------------------------*/
 
 RayBundle::RayBundle()
 {
-	initialized = false;
-	ray_count = 0;
+	m_initialized = false;
+	m_ray_count = 0;
 }
 
 RayBundle::~RayBundle()
 {
-	if (initialized) {
-		clReleaseMemObject(ray_mem);
+	if (m_initialized) {
+		device.memory(ray_id).release();
 	}
 }
 
-bool 
-RayBundle::initialize(const int32_t rays, const CLInfo& clinfo)
+int32_t 
+RayBundle::initialize(const size_t rays, const CLInfo& clinfo)
 {
-	if (rays <= 0)
-		return false;
+	if (rays <= 0 || m_initialized)
+		return -1;
 
-	if (create_empty_cl_mem(clinfo, 
-				CL_MEM_READ_WRITE,
-				rays * sizeof(ray_plus_cl),
-				&ray_mem))
-		return false;
+        if (device.initialize(clinfo))
+                return -1;
 
-	initialized = true;
-	ray_count = rays;
-	return true;
+        ray_id = device.new_memory();
+        DeviceMemory& ray_mem = device.memory(ray_id);
+        if (ray_mem.initialize(rays * sizeof(ray_plus_cl), READ_WRITE_MEMORY))
+                return -1;
+
+	m_initialized = true;
+	m_ray_count = rays;
+	return 0;
 }
 
 bool 
-RayBundle::is_valid()
+RayBundle::valid()
 {
-	return initialized;
+	return m_initialized && device.good();
 }
 
 int32_t 
 RayBundle::count()
 {
-	return ray_count;
+	return m_ray_count;
 }
 
-cl_mem&
+DeviceMemory&
 RayBundle::mem()
 {
-	return ray_mem;
+	return device.memory(ray_id);
 }
 
-// HitBundle methods 
+/* --------------------------------- HitBundle methods ----------------------------*/
 
  
 HitBundle::HitBundle()
 {
-	size = 0;
-	initialized = false;
+	m_size = 0;
+	m_initialized = false;
 }
 
-bool 
-HitBundle::initialize(const int32_t sz, const CLInfo& clinfo)
+int32_t 
+HitBundle::initialize(const size_t sz, const CLInfo& clinfo)
 {
-	if (sz <= 0 || initialized == true)
-		return false;
+	if (m_initialized)
+		return -1;
 
-	if (create_empty_cl_mem(clinfo, 
-				CL_MEM_READ_WRITE,
-				sz * sizeof(ray_hit_info_cl),
-				&hit_mem))
-		return false;
+        if (device.initialize(clinfo))
+                return -1;
 
-	initialized = true;
-	size = sz;
-	return true;
+        hit_id = device.new_memory();
+        DeviceMemory& hit_mem = device.memory(hit_id);
+        if (hit_mem.initialize(sz * sizeof(ray_hit_info_cl), READ_WRITE_MEMORY))
+                return -1;
+
+
+        m_initialized = true;
+        m_size = sz;
+	return 0;
 }
 
-cl_mem& 
+DeviceMemory& 
 HitBundle::mem()
 {
-	return hit_mem;
+	return device.memory(hit_id);
 }

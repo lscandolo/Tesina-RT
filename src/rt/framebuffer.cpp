@@ -1,110 +1,109 @@
 #include <rt/framebuffer.hpp>
 #include <rt/material.hpp>
 
-bool 
-FrameBuffer::initialize(CLInfo& clinfo, uint32_t sz[2])
+int32_t 
+FrameBuffer::initialize(CLInfo& clinfo, size_t sz[2])
 {
-	cl_int err;
-
-	size[0] = sz[0];
-	size[1] = sz[1];
-
-	if (size[0] <= 0 || size[1] <= 0)
-		return false;
+        if (device.initialize(clinfo))
+                return -1;
 
 	/*---------------------- Create image mem ----------------------*/
+	size[0] = sz[0];
+	size[1] = sz[1];
+	if (size[0] <= 0 || size[1] <= 0)
+		return -1;
 
-	int32_t mem_size = sizeof(color_int_cl) * size[0] * size[1];
+	int32_t img_mem_size = sizeof(color_int_cl) * size[0] * size[1];
 
-	if (create_empty_cl_mem(clinfo, 
-				CL_MEM_READ_WRITE,
-				mem_size,
-				&img_mem))
-		return false;
-
+        img_mem_id = device.new_memory();
+        
+        DeviceMemory& img_mem = device.memory(img_mem_id);
+        if (img_mem.initialize(img_mem_size, READ_WRITE_MEMORY))
+                return -1;
 
 	/*------------------------ Set up image init kernel info ---------------------*/
-	if (init_cl_kernel(&clinfo,"src/kernel/framebuffer.cl", "init", 
-			   &init_clk))
-		return false;
+        init_id = device.new_function();
+        DeviceFunction& init_function = device.function(init_id);
 
-	init_clk.work_dim = 1;
-	init_clk.arg_count = 1;
-	init_clk.global_work_size[0] = size[0] * size[1];
+        if (init_function.initialize("src/kernel/framebuffer.cl", "init"))
+                return -1;
+        
+        init_function.set_dims(1);
+        size_t init_work_size[] = {size[0] * size[1], 0, 0};
+        init_function.set_global_size(init_work_size);
 
 	/* Arguments */
 
-	err = clSetKernelArg(init_clk.kernel,0,sizeof(cl_mem), &img_mem);
-	if (error_cl(err, "clSetKernelArg 0"))
-		return false;
-
+        if (init_function.set_arg(0, img_mem))
+                return -1;
 
 	/*------------------------ Set up image copy kernel info ---------------------*/
-	if (init_cl_kernel(&clinfo,"src/kernel/framebuffer.cl", "copy", 
-			   &copy_clk))
-		return false;
+        copy_id = device.new_function();
+        DeviceFunction& copy_function = device.function(copy_id);
 
-	copy_clk.work_dim = 1;
-	copy_clk.arg_count = 2;
-	copy_clk.global_work_size[0] = size[0] * size[1];
-	
+        if (copy_function.initialize("src/kernel/framebuffer.cl", "copy"))
+            return -1;
+            
+        copy_function.set_dims(1);
+        size_t copy_work_size[] = {size[0] * size[1], 0, 0};
+        copy_function.set_global_size(copy_work_size);
+
+
 	/* Arguments */
-	err = clSetKernelArg(copy_clk.kernel,0,sizeof(cl_mem),&img_mem);
-	if (error_cl(err, "clSetKernelArg 0"))
-		return false;
+        if (copy_function.set_arg(0, img_mem))
+                return -1;
 
-	timing = false;
-	return true;
+	m_timing = false;
+	return 0;
 }
 
-bool 
+int32_t
 FrameBuffer::clear()
 {
-	if (timing)
-		clear_timer.snap_time();
+	if (m_timing)
+		m_clear_timer.snap_time();
 
-	bool ret = !execute_cl(init_clk);
+	int32_t ret = device.function(init_id).execute();
 
-	if (timing)
-		clear_time_ms= clear_timer.msec_since_snap();
+	if (m_timing)
+		m_clear_time_ms= m_clear_timer.msec_since_snap();
 
 	return ret;
 }
 
 
-bool 
-FrameBuffer::copy(cl_mem& tex_mem)
+int32_t 
+FrameBuffer::copy(DeviceMemory& tex_mem)
 {
-	cl_int err;
 
-	if (timing)
-		copy_timer.snap_time();
+	if (m_timing)
+		m_copy_timer.snap_time();
 
-	err = clSetKernelArg(copy_clk.kernel,1,sizeof(cl_mem),&tex_mem);
-	if (error_cl(err, "clSetKernelArg 1"))
-		return false;
+        
+        if (device.function(copy_id).set_arg(1, tex_mem))
+                return -1;
 
-	bool ret = !execute_cl(copy_clk);
+	int32_t ret = device.function(copy_id).execute();
 	
-	if (timing)
-		copy_time_ms= copy_timer.msec_since_snap();
+	if (m_timing)
+		m_copy_time_ms= m_copy_timer.msec_since_snap();
 
 	return ret;
 }
 
 void 
-FrameBuffer::enable_timing(bool b)
+FrameBuffer::timing(bool b)
 {
-	timing = b;
+	m_timing = b;
 }
 
 double
 FrameBuffer::get_clear_exec_time()
 {
-	return clear_time_ms;
+	return m_clear_time_ms;
 }
 double
 FrameBuffer::get_copy_exec_time()
 {
-	return copy_time_ms;
+	return m_copy_time_ms;
 }

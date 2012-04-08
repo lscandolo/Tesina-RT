@@ -47,6 +47,15 @@ vec4 float3_to_vec4(const cl_float3& f, float w)
 	return makeVector(f.s[0],f.s[1],f.s[2],w);
 }
 
+cl_sqmat4 mat4x4_to_cl_sqmat4(const mat4x4& M){
+        cl_sqmat4 cl_M;
+        for (uint32_t i = 0; i < 4; ++i) {
+                cl_M.row[i] = vec4_to_float4(M.row(i));
+        }
+        return cl_M;
+}
+
+
 cl_float2 makeFloat2(const float x, const float y)
 {
 	cl_float2 f;

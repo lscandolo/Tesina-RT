@@ -2,6 +2,7 @@
 #define RT_RAY_SHADER_HPP
 
 #include <cl-gl/opencl-init.hpp>
+#include <gpu/interface.hpp>
 #include <rt/timing.hpp>
 #include <rt/ray.hpp>
 #include <rt/scene.hpp>
@@ -12,21 +13,21 @@ class RayShader {
 
 public:
 	
-	bool initialize(CLInfo& clinfo);
-	bool shade(RayBundle& rays, HitBundle& hb, SceneInfo& scene_info, 
-		   Cubemap& cm, FrameBuffer& fb, int32_t size);
+	int32_t initialize(CLInfo& clinfo);
+	int32_t shade(RayBundle& rays, HitBundle& hb, Scene& scene, 
+		   Cubemap& cm, FrameBuffer& fb, size_t size);
 
-	void enable_timing(bool b);
+	void timing(bool b);
 	double get_exec_time();
 
 private:
 
-	CLKernelInfo shade_clk;
-	CLKernelInfo aggregate_clk;
+        DeviceInterface device;
+        function_id shade_id;
 
-	bool         timing;
-	rt_time_t    timer;
-	double       time_ms;
+	bool         m_timing;
+	rt_time_t    m_timer;
+	double       m_time_ms;
 };
 
 #endif /* RT_RAY-SHADER_HPP */

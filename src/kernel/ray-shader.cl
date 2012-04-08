@@ -49,6 +49,7 @@ typedef struct {
 	int id;
 	float2 uv;
 	float3 n;
+        float3 hit_point;
   
 } RayHitInfo;
 

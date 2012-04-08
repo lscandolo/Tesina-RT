@@ -23,6 +23,9 @@ public:
 
 	void transform(Vertex& v);
 
+
+        mat4x4 getTransformMatrix(){return M;}
+        mat4x4 getTransformMatrixInv(){return Minv;}
 private:
 
 	void updateTransform();
@@ -32,6 +35,7 @@ private:
 	vec3 scale;
 
 	mat4x4 M;
+	mat4x4 Minv;
 };
 
 #endif /* RT_GEOM_HPP */

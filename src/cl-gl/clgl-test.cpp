@@ -135,7 +135,7 @@ int main(int argc, char** argv)
 {
 	CLInfo clinfo;
 	GLInfo glinfo;
-	uint32_t window_size[] = {TEX_WIDTH, TEX_HEIGHT};
+	size_t window_size[] = {TEX_WIDTH, TEX_HEIGHT};
 	cl_int err;
 
 	if (init_gl(argc,argv,&glinfo, window_size, "OpenCL-OpenGL interop test") != 0){

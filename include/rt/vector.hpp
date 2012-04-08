@@ -7,34 +7,34 @@
 #include <rt/assert.hpp>
 
 
-template <int N>
+template <int N, typename F>
 class vec
 {
 public:
 
         float v[N];
 
-	inline vec<N> () {}
+	inline vec<N,F> () {}
 
 	// inline vec3 (const float& _x, 
 	// 	     const float& _y, 
 	// 	     const float& _z ) : x(_x), y(_y), z(_z) {}
-	// inline vec<N> (const vec<N>& _v) : v(_v.v){}
+	// inline vec<N,F> (const vec<N,F>& _v) : v(_v.v){}
 
-	inline vec<N> (const float& val) {
+	inline vec<N,F> (const float& val) {
 		for (uint32_t i = 0; i < N; ++i)
 			v[i] = val;
 	}
-	inline vec<N> (const float* vals) {
+	inline vec<N,F> (const float* vals) {
 		for (uint32_t i = 0; i < N; ++i)
 			v[i] = vals[i];
 	}
 
 /* Operators */
-	// inline const vec<N>& operator=(const vec<N>& rhs ) 
+	// inline const vec<N,F>& operator=(const vec<N,F>& rhs ) 
 	// 	{ x = rhs.x; y = rhs.y; z = rhs.z; return *this; }
 
-	inline bool operator==(const vec<N>& rhs ) const 
+	inline bool operator==(const vec<N,F>& rhs ) const 
 		{
 			bool ret = true;
 			for (uint32_t i = 0; i < N; ++i)
@@ -42,42 +42,42 @@ public:
 			return ret;
 		}
 					
-	inline bool operator!=(const vec<N>& rhs ) const 
+	inline bool operator!=(const vec<N,F>& rhs ) const 
 		{return !((*this)==rhs);}
 
-	inline const vec<N> operator-() const 
+	inline const vec<N,F> operator-() const 
 		{
-			vec<N> r;
+			vec<N,F> r;
 			for (uint32_t i = 0; i < N; ++i)
 				r.v[i] = this->v[i];
 			return r;
 		}
 					
-	inline const vec<N> operator+( const vec<N>& rhs ) const 
+	inline const vec<N,F> operator+( const vec<N,F>& rhs ) const 
 		{
-			vec<N> r;
+			vec<N,F> r;
 			for (uint32_t i = 0; i < N; ++i)
 				r.v[i] = this->v[i] + rhs.v[i];
 			return r;
 		}
 
-	inline const vec<N> operator-( const vec<N>& rhs ) const 
+	inline const vec<N,F> operator-( const vec<N,F>& rhs ) const 
 		{ 
-			vec<N> r;
+			vec<N,F> r;
 			for (uint32_t i = 0; i < N; ++i)
 				r.v[i] = this->v[i] - rhs.v[i];
 			return r;
 		}
 
-	inline const vec<N> operator*( const float& rhs ) const 
+	inline const vec<N,F> operator*( const float& rhs ) const 
 		{
-			vec<N> r;
+			vec<N,F> r;
 			for (uint32_t i = 0; i < N; ++i)
 				r.v[i] = this->v[i] * rhs;
 			return r;
 		}
 
-	inline const float operator*( const vec<N>& rhs ) const 
+	inline const float operator*( const vec<N,F>& rhs ) const 
 		{
 			float r = 0;
 			for (uint32_t i = 0; i < N; ++i)
@@ -85,44 +85,44 @@ public:
 			return r;
 		}
 
-	inline const vec<N> operator/( const float& rhs ) const
+	inline const vec<N,F> operator/( const float& rhs ) const
 		{
 			ASSERT(v != 0.f);
 			float rhs_inv = 1.f / rhs;
-			vec<N> r;
+			vec<N,F> r;
 			for (uint32_t i = 0; i < N; ++i)
 				r.v[i] = this->v[i] * rhs_inv;
 			return r;
 		}
 
-	// const vec<N> operator/( const vec<N>& rhs ) const 
+	// const vec<N,F> operator/( const vec<N,F>& rhs ) const 
 	// 	{
 	// 		ASSERT(rhs.x != 0.f && rhs.y != 0.f &&rhs.z != 0.f);
-	// 		return vec<N>( x/rhs.x, y/rhs.y, z/rhs.z ); 
+	// 		return vec<N,F>( x/rhs.x, y/rhs.y, z/rhs.z ); 
 	// 	};
 
-	inline vec<N>& operator+= ( const vec<N>& rhs ) 
+	inline vec<N,F>& operator+= ( const vec<N,F>& rhs ) 
 		{
 			for (uint32_t i = 0; i < N; ++i)
 				this->v[i] += rhs.v[i];
 			return *this;
 		}
     
-	inline vec<N>& operator-= ( const vec<N>& rhs ) 
+	inline vec<N,F>& operator-= ( const vec<N,F>& rhs ) 
 		{
 			for (uint32_t i = 0; i < N; ++i)
 				this->v[i] -= rhs.v[i];
 			return *this;
 		}
 
-	inline vec<N>& operator*= ( const float& rhs ) 
+	inline vec<N,F>& operator*= ( const float& rhs ) 
 		{
 			for (uint32_t i = 0; i < N; ++i)
 				this->v[i] *= rhs;
 			return *this;
 		}
 
-	inline vec<N>& operator/= ( const float& rhs ) 
+	inline vec<N,F>& operator/= ( const float& rhs ) 
 		{
 			ASSERT(rhs != 0.f);
 			float rhs_inv = 1.f / rhs;
@@ -131,7 +131,7 @@ public:
 			return *this;
 		}
 
-	// inline vec<N>& operator/= ( const vec<N>& v ) 
+	// inline vec<N,F>& operator/= ( const vec<N,F>& v ) 
 	// 	{x /= v.x; y /= v.y; z /= v.z; return *this; };
 
 	inline float& operator[] (const uint8_t i) 
@@ -164,7 +164,7 @@ public:
 			return n;
 		}
 	
-	vec<N>& normalize()
+	vec<N,F>& normalize()
 		{
 			float n = norm();
 			ASSERT(n != 0.f);
@@ -172,9 +172,9 @@ public:
 			return *this;
 		};
 
-	vec<N> normalized() const
+	vec<N,F> normalized() const
 		{
-			vec<N> n;
+			vec<N,F> n;
 			for (uint32_t i = 0; i < N; ++i)
 				n[i] = v[i];
 			n.normalize();
@@ -194,35 +194,35 @@ public:
 	// 	}
 
 	// /* Constructors */
-        // inline vec<N> ();
-        // inline vec<N> (const float& _x, 
+        // inline vec<N,F> ();
+        // inline vec<N,F> (const float& _x, 
 	// 	     const float& _y, 
 	// 	     const float& _z );
-        // inline vec<N> (const vec<N>& v);
-        // inline vec<N> (const float& val);
-        // inline vec<N> (const float* vals);
+        // inline vec<N,F> (const vec<N,F>& v);
+        // inline vec<N,F> (const float& val);
+        // inline vec<N,F> (const float* vals);
 
         // /* Operators */
-        // inline const vec<N>& operator=(const vec<N>& rhs );
-	// inline bool operator==(const vec<N>& rhs ) const;
-        // inline bool operator!=(const vec<N>& rhs ) const; 
-        // inline const vec<N> operator-() const;
-        // inline const vec<N> operator+( const vec<N>& rhs ) const;
-        // inline const vec<N> operator-( const vec<N>& rhs ) const;
-        // inline const vec<N> operator*( const float& v ) const;
-        // inline const float operator*( const vec<N>& v ) const;
-        // inline const vec<N> operator/( const float& v ) const;
-        // const vec<N> operator/( const vec<N>& rhs ) const;
-        // inline vec<N>& operator+= ( const vec<N>& rhs );
-        // inline vec<N>& operator-= ( const vec<N>& rhs );
-        // inline vec<N>& operator*= ( const float& v );
-        // inline vec<N>& operator/= ( const float& v );
-        // inline vec<N>& operator/= ( const vec<N>& v );
+        // inline const vec<N,F>& operator=(const vec<N,F>& rhs );
+	// inline bool operator==(const vec<N,F>& rhs ) const;
+        // inline bool operator!=(const vec<N,F>& rhs ) const; 
+        // inline const vec<N,F> operator-() const;
+        // inline const vec<N,F> operator+( const vec<N,F>& rhs ) const;
+        // inline const vec<N,F> operator-( const vec<N,F>& rhs ) const;
+        // inline const vec<N,F> operator*( const float& v ) const;
+        // inline const float operator*( const vec<N,F>& v ) const;
+        // inline const vec<N,F> operator/( const float& v ) const;
+        // const vec<N,F> operator/( const vec<N,F>& rhs ) const;
+        // inline vec<N,F>& operator+= ( const vec<N,F>& rhs );
+        // inline vec<N,F>& operator-= ( const vec<N,F>& rhs );
+        // inline vec<N,F>& operator*= ( const float& v );
+        // inline vec<N,F>& operator/= ( const float& v );
+        // inline vec<N,F>& operator/= ( const vec<N,F>& v );
 };
 
-typedef vec<2> vec2;
-typedef vec<3> vec3;
-typedef vec<4> vec4;
+typedef vec<2,float> vec2;
+typedef vec<3,float> vec3;
+typedef vec<4,float> vec4;
 
 /*------------ Special helper funcs ------------------*/
 vec2 makeVector(const float& v0, const float& v1);
