@@ -25,7 +25,9 @@ extern "C" {
 
 void rainEvent();
 
-Scene scene;
+CLInfo clinfo;
+GLInfo glinfo;
+
 
 int loging_state = 0;
 
@@ -36,6 +38,7 @@ object_id boat_id;
 
 RayBundle             ray_bundle_1,ray_bundle_2;
 HitBundle             hit_bundle;
+Scene                 scene;
 PrimaryRayGenerator   prim_ray_gen;
 SecondaryRayGenerator sec_ray_gen;
 RayShader             ray_shader;
