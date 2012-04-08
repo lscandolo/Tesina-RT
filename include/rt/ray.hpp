@@ -55,6 +55,7 @@ class ray_hit_info_cl {
 	cl_int id;
 	cl_float2 uv;
 	cl_float3 n;
+        cl_float3 hit_info;
 };
 
 class RayBundle {

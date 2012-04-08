@@ -190,8 +190,10 @@ void gl_loop()
 	
 
 	directional_light_cl light;
-	light.set_dir(0.05f * (arg - 8.f) , -0.6f, 0.2f);
-	light.set_color(0.05f * (fabsf(arg)) + 0.1f, 0.2f, 0.05f * fabsf(arg+4.f));
+        light.set_dir(1.f,-1.f,0.f);
+        light.set_color(1.f,1.f,1.f);
+	// light.set_dir(0.05f * (arg - 8.f) , -0.6f, 0.2f);
+	// light.set_color(0.05f * (fabsf(arg)) + 0.1f, 0.2f, 0.05f * fabsf(arg+4.f));
 	scene.set_dir_light(light);
 	color_cl ambient;
 	ambient[0] = ambient[1] = ambient[2] = 0.1f;
@@ -222,11 +224,11 @@ void gl_loop()
 		}
 		prim_trace_time += tracer.get_trace_exec_time();
 
-		// if (tracer.shadow_trace(scene, tile_size, *ray_in, hit_bundle)){
-		// 	std::cerr << "Failed to shadow trace." << std::endl;
-		// 	exit(1);
-		// }
-		// prim_shadow_trace_time += tracer.get_shadow_exec_time();
+		if (tracer.shadow_trace(scene, tile_size, *ray_in, hit_bundle)){
+			std::cerr << "Failed to shadow trace." << std::endl;
+			exit(1);
+		}
+		prim_shadow_trace_time += tracer.get_shadow_exec_time();
 
 		if (ray_shader.shade(*ray_in, hit_bundle, scene,
 				      cubemap, framebuffer, tile_size)){
@@ -252,14 +254,19 @@ void gl_loop()
 
 			total_ray_count += sec_ray_count;
 
-			tracer.trace(scene, sec_ray_count, 
-				     *ray_in, hit_bundle, true);
-			sec_trace_time += tracer.get_trace_exec_time();
+			if (tracer.trace(scene, sec_ray_count, 
+                                         *ray_in, hit_bundle, true)) {
+                                std::cerr << "Failed to trace." << std::endl;
+                                exit(1);
+                        }
+                        sec_trace_time += tracer.get_trace_exec_time();
 
-
-			// tracer.shadow_trace(scene, sec_ray_count, 
-			// 		    *ray_in, hit_bundle, true);
-			// sec_shadow_trace_time += tracer.get_shadow_exec_time();
+			if (tracer.shadow_trace(scene, sec_ray_count, 
+                                                *ray_in, hit_bundle, true)) {
+                                std::cerr << "Failed to shadow trace." << std::endl;
+                                exit(1);
+                        }
+			sec_shadow_trace_time += tracer.get_shadow_exec_time();
 
 			if (ray_shader.shade(*ray_in, hit_bundle, scene,
 					      cubemap, framebuffer, sec_ray_count)){

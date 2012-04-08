@@ -516,9 +516,6 @@ Scene::update_mesh_vertices(mesh_id mid)
     std::vector<Vertex> vertices;
     std::vector<Triangle> triangles;
 
-    int32_t vtx_count = 0;
-    int32_t tri_count = 0;
-
     size_t vertex_offset = 0;
 
     for (mesh_iterator_t it = bvh_order.begin(); it < bvh_order.end(); it++) { 

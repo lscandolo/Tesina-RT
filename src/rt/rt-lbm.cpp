@@ -297,11 +297,11 @@ void gl_loop()
 		}
 		prim_trace_time += tracer.get_trace_exec_time();
 
-		//if (tracer.shadow_trace(scene, tile_size, *ray_in, hit_bundle)){
-		//	std::cerr << "Failed to shadow trace." << std::endl;
-		//	exit(1);
-		//}
-		//prim_shadow_trace_time += tracer.get_shadow_exec_time();
+		if (tracer.shadow_trace(scene, tile_size, *ray_in, hit_bundle)){
+			std::cerr << "Failed to shadow trace." << std::endl;
+			exit(1);
+		}
+		prim_shadow_trace_time += tracer.get_shadow_exec_time();
 
 		if (ray_shader.shade(*ray_in, hit_bundle, scene,
 				      cubemap, framebuffer, tile_size)){
@@ -327,14 +327,20 @@ void gl_loop()
 
 			total_ray_count += sec_ray_count;
 
-			tracer.trace(scene, sec_ray_count, 
-				     *ray_in, hit_bundle, true);
+			if (tracer.trace(scene, sec_ray_count, 
+                                         *ray_in, hit_bundle, true)) {
+                                std::cerr << "Failed to trace." << std::endl;
+                                exit(1);
+                        }
 			sec_trace_time += tracer.get_trace_exec_time();
 
 
-			//tracer.shadow_trace(scene, sec_ray_count, 
-			//		    *ray_in, hit_bundle, true);
-			//sec_shadow_trace_time += tracer.get_shadow_exec_time();
+			if (tracer.shadow_trace(scene, sec_ray_count, 
+                                                *ray_in, hit_bundle, true)) {
+                                std::cerr << "Failed to shadow trace." << std::endl;
+                                exit(1);
+                        }
+			sec_shadow_trace_time += tracer.get_shadow_exec_time();
 
 			if (ray_shader.shade(*ray_in, hit_bundle, scene,
 					      cubemap, framebuffer, sec_ray_count)){

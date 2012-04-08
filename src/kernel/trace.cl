@@ -63,9 +63,15 @@ typedef struct {
         int id;
         float2 uv;
         float3 n;
+        float3 hit_point;
  
 } RayHitInfo;
 
+
+float3 compute_normal(global Vertex* vertex_buffer,
+                      global int* index_buffer,
+                      int id,
+                      float2 uv);
 
 float3 __attribute__((always_inline)) 
 multiply_vector(float3 v, sqmat4 M)
@@ -107,9 +113,35 @@ Ray transform_ray(Ray ray, sqmat4 tr)
         return ray;
 }
 
-RayHitInfo transform_hit_info(RayHitInfo hit_info, sqmat4 tr)
+RayHitInfo __attribute__((always_inline))
+transform_hit_info(Ray ray, 
+                   Ray tr_ray, 
+                   RayHitInfo hit_info, 
+                   sqmat4 tr,
+                   global Vertex* vertex_buffer,
+                   global int* index_buffer)
 {
-        hit_info.n = multiply_vector(hit_info.n, tr);
+
+        if (hit_info.hit) {
+                
+                hit_info.n = compute_normal(vertex_buffer, 
+                                            index_buffer,
+                                            hit_info.id, 
+                                            hit_info.uv);
+                hit_info.n =
+                        normalize(multiply_vector(hit_info.n,tr));
+                
+                /* If the normal is pointing out, 
+                   invert it and note it in the flags */
+                if (dot(hit_info.n,ray.dir) > 0) {
+                        hit_info.inverse_n = true;
+                        hit_info.n *= -1.f;
+                }
+                hit_info.hit_point = tr_ray.ori + tr_ray.dir * hit_info.t;
+                hit_info.hit_point = multiply_point(hit_info.hit_point, tr);
+                hit_info.t = distance(hit_info.hit_point, ray.ori); 
+        }
+        
         return hit_info;
 }
 
@@ -370,7 +402,7 @@ trace(global RayHitInfo* trace_info,
       global int* index_buffer,
       global BVHNode* bvh_nodes,
       global BVHRoot* roots,
-      int root_cant)
+      int root_count)
       
 {
         int index = get_global_id(0);
@@ -380,35 +412,20 @@ trace(global RayHitInfo* trace_info,
         RayHitInfo hit_info;
         hit_info.hit = false;
 
-        for (int i = 0; i < root_cant; ++i) {
+        for (int i = 0; i < root_count; ++i) {
                 
                 Ray tr_ray = transform_ray(ray, roots[i].trInv);
                 RayHitInfo root_hit_info = trace_ray(tr_ray,vertex_buffer,index_buffer,
                                                      bvh_nodes, roots[i].node);
-                root_hit_info = transform_hit_info(root_hit_info, roots[i].tr);
-
-                
-                /* Compute normal at hit point if it hit*/
-                if (root_hit_info.hit) {
-
-                        root_hit_info.n = compute_normal(vertex_buffer, index_buffer,
-                                                         root_hit_info.id, 
-                                                         root_hit_info.uv);
-                        root_hit_info.n =
-                                normalize(multiply_vector(root_hit_info.n,roots[i].tr));
-                        
-                        /* If the normal is pointing out, 
-                           invert it and note it in the flags */
-                        if (dot(root_hit_info.n,ray.dir) > 0) {
-                                root_hit_info.inverse_n = true;
-                                root_hit_info.n *= -1.f;
-                        }
-                }
+                root_hit_info = transform_hit_info(ray,
+                                                   tr_ray,
+                                                   root_hit_info, 
+                                                   roots[i].tr,
+                                                   vertex_buffer,
+                                                   index_buffer);
 
                 merge_hit_info (&hit_info, &root_hit_info);
-
         }
-
 
         /* Save hit info*/
         trace_info[index] = hit_info;

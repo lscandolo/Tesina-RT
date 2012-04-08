@@ -1,4 +1,3 @@
-#include <iostream> //!!
 #include <rt/tracer.hpp>
 
 Tracer::Tracer()
@@ -238,10 +237,17 @@ Tracer::shadow_trace(Scene& scene, int32_t ray_count,
         if (shadow.set_arg(3, scene.triangle_mem()))
                 return -1;
 
-        if (shadow.set_arg(4, scene.bvh_nodes_mem()))
+        cl_int root_count = scene.object_count();
+        if (shadow.set_arg(4, sizeof(cl_int), &root_count))
                 return -1;
 
-        if (shadow.set_arg(5, scene.lights_mem()))
+        if (shadow.set_arg(5, scene.bvh_roots_mem()))
+                return -1;
+
+        if (shadow.set_arg(6, scene.bvh_nodes_mem()))
+                return -1;
+
+        if (shadow.set_arg(7, scene.lights_mem()))
                 return -1;
 
         size_t global_size[]   = {0, 0, 0};
@@ -326,10 +332,17 @@ Tracer::shadow_trace(Scene& scene, DeviceMemory& bvh_mem, int32_t ray_count,
         if (shadow.set_arg(3, scene.triangle_mem()))
                 return -1;
 
-        if (shadow.set_arg(4, bvh_mem))
+        cl_int root_count = scene.object_count();
+        if (shadow.set_arg(4, sizeof(cl_int), &root_count))
                 return -1;
 
-        if (shadow.set_arg(5, scene.lights_mem()))
+        if (shadow.set_arg(5, scene.bvh_roots_mem()))
+                return -1;
+
+        if (shadow.set_arg(6, bvh_mem))
+                return -1;
+
+        if (shadow.set_arg(7, scene.lights_mem()))
                 return -1;
 
         size_t global_size[]   = {0, 0, 0};
