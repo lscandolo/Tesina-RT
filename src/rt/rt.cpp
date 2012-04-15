@@ -656,6 +656,29 @@ int main (int argc, char** argv)
                   << sizeof(ray_hit_info_cl)
                   << std::endl;
 
+        std::cerr << "sizeof(bvh_root): " << sizeof(BVHRoot) << std::endl;
+
+        std::cerr << "bvh_root_mem_size: " << scene.bvh_roots_mem().size() << std::endl
+                  << "object_count * sizeof(bvhroot): " 
+                  << scene.object_count()*sizeof(BVHRoot) 
+                  << std::endl;
+
+
+        std::map<mesh_id, BVH>& bvhs = scene.bvhs;
+        std::vector<mesh_id>& bvh_order = scene.bvh_order;
+
+        // int node_count = 0;
+        // for (int i = 0; i < bvh_order.size(); ++i){
+        //         BVH& bvh = bvhs[bvh_order[i]];
+        //         std::cerr << "BVH " << bvh_order[i] << " size: " << bvh.nodeArraySize()
+        //                   << std::endl;
+        //         node_count += bvh.nodeArraySize();
+        //         std::cerr << "First node: " << bvh.m_nodes[0].m_parent << std::endl;
+        // }
+        // std::cerr << "bvh nodes: " << node_count << std::endl;
+        // std::cerr << "Size in bytes: " << sizeof(BVHNode) * node_count << std::endl;
+        // std::cerr << "Device memory size: " << scene.bvh_nodes_mem().size() << std::endl;
+
         /*------------------------ Set GLUT and misc functions -----------------------*/
         rt_time.snap_time();
         rt_log.enabled = false;

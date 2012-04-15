@@ -220,7 +220,7 @@ int32_t DeviceFunction::execute()
 
 	/* finish command queue */
 	err = clFinish(m_clinfo.command_queue);
-	if (error_cl(err, "clFinsish"))
+	if (error_cl(err, "clFinish"))
 		return -1;
 
 	return 0;	

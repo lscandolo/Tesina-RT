@@ -28,12 +28,12 @@ class BVHNode {
 
 public:
 
-	void setBounds(uint32_t s, uint32_t e){
+	void set_bounds(uint32_t s, uint32_t e){
 		m_start_index = s;
 		m_end_index = e;
 	}
 
-	void offsetBounds(uint32_t offset){
+	void offset_bounds(uint32_t offset){
 		m_start_index += offset;
 		m_end_index += offset;
 	}
@@ -51,6 +51,10 @@ public:
                 m_end_index = 0;
                 m_parent = node_offset;
       }
+
+        void set_parent(int32_t parent){
+                m_parent = parent;
+        }
 
 private:
 

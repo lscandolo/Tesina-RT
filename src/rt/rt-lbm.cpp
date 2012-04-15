@@ -262,7 +262,6 @@ void gl_loop()
         //std::cerr << "Simulation time: "  << mangle_time << " msec." << std::endl;
         last_mangler_arg = mangler_arg;
 	
-	
         directional_light_cl light;
         light.set_dir(0.05f * (arg - 8.f) , -0.6f, 0.2f);
         //light.set_color(0.05f * (fabsf(arg)) + 0.1f, 0.2f, 0.05f * fabsf(arg+4.f));

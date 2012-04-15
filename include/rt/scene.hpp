@@ -101,7 +101,7 @@ public:
 
         SceneGeometry geometry;
 
-private:
+public:
 
         std::vector<Mesh> mesh_atlas;
         Mesh aggregate_mesh;

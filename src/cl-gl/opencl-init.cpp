@@ -273,7 +273,7 @@ int32_t execute_cl(const CLKernelInfo& clkernelinfo){
 
 	/* finish command queue */
 	err = clFinish(clinfo.command_queue);
-	if (error_cl(err, "clFinsish"))
+	if (error_cl(err, "clFinish"))
 		return 1;
 
 	return 0;	

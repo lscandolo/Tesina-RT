@@ -92,7 +92,7 @@ BVHNode::sort(const std::vector<BBox>& bboxes,
 
 	/* ----------------- Check if it's small enough ---------------*/
 	if (m_end_index - m_start_index  <= BVH::MIN_PRIMS_PER_NODE) {
-                offsetBounds(tri_offset);
+                offset_bounds(tri_offset);
 		m_leaf = true;
 		return;
 	}
@@ -106,7 +106,7 @@ BVHNode::sort(const std::vector<BBox>& bboxes,
 	uint32_t split_location = chooseSplitLocationSAH(bboxes, ordered_triangles);
 
 	if (split_location == m_start_index || split_location == m_end_index) {
-                offsetBounds(tri_offset);
+                offset_bounds(tri_offset);
 		m_leaf = true;
 		return;
 	}
@@ -126,17 +126,17 @@ BVHNode::sort(const std::vector<BBox>& bboxes,
 	m_r_child = r_child_index + node_offset;
 	
 	/*---------------------- Left node creation -------------------*/
-	lnode.setBounds(m_start_index, split_location);
+	lnode.set_bounds(m_start_index, split_location);
 	lnode.sort(bboxes, ordered_triangles, nodes, m_l_child, node_offset, tri_offset);
 	lnode.m_parent = node_index;
 	
 	/*--------------------- Right node creation -------------------*/
-	rnode.setBounds(split_location, m_end_index);
+	rnode.set_bounds(split_location, m_end_index);
 	rnode.sort(bboxes, ordered_triangles, nodes, m_r_child, node_offset, tri_offset);
 	rnode.m_parent = node_index;
 
         /*----------------- Save created nodex -------------------------*/
-        offsetBounds(tri_offset);
+        offset_bounds(tri_offset);
 	nodes[l_child_index] = lnode;
 	nodes[r_child_index] = rnode;
 	return;
@@ -176,7 +176,8 @@ BVH::construct(Mesh& mesh, int32_t node_offset, int32_t tri_offset)
 	// m_nodes.reserve(2*mesh.triangleCount());
 	m_nodes.resize(1);
 	BVHNode root;
-	root.setBounds(0, uint32_t(mesh.triangleCount()));
+        root.set_parent(node_offset);
+	root.set_bounds(0, uint32_t(mesh.triangleCount()));
 	root.sort(bboxes, m_triangle_order, m_nodes, node_offset, 
                   node_offset, tri_offset);
 	m_nodes[0] = root;
@@ -223,7 +224,8 @@ BVH::construct_and_map(Mesh& mesh, std::vector<cl_int>& map,
 	/*------------------------ Initialize root and sort it ----------------------*/
 	m_nodes.resize(1);
 	BVHNode root;
-	root.setBounds(0, uint32_t(mesh.triangleCount()));
+        root.set_parent(node_offset);
+	root.set_bounds(0, uint32_t(mesh.triangleCount()));
 	root.sort(bboxes, m_triangle_order, m_nodes, node_offset, 
                   node_offset, tri_offset);
 	m_nodes[0] = root;

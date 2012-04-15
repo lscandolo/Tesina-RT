@@ -5,6 +5,7 @@
 #include <rt/math.hpp>
 #include <rt/cl_aux.hpp>
 
+RT_ALIGN(16)
 struct BVHRoot {
         cl_int node;
         cl_sqmat4 tr;
