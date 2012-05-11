@@ -143,8 +143,25 @@ Scene::transfer_aggregate_mesh_to_device()
         if (mat_map_mem.initialize(mat_map_size, mat_map_ptr, READ_ONLY_MEMORY))
                 return -1;
 
-        return 0;
+        /*------------ Attempt to move single bvh_root data to device ------------*/
+        DeviceMemory& bvh_roots_mem = device.memory(bvh_roots_id);
+        if (!bvh_roots_mem.valid()) {
 
+                BVHRoot root;
+                root.node = 0;
+                root.tr = root.trInv = mat4x4_to_cl_sqmat4(scaleMatrix4x4(1.f));
+                bvh_roots.clear();
+                bvh_roots.push_back(root);
+                const void* bvh_roots_ptr = &root;
+                size_t bvh_roots_size = sizeof(root);
+                if (bvh_roots_mem.initialize(bvh_roots_size, 
+                                             bvh_roots_ptr, 
+                                             READ_ONLY_MEMORY))
+                        return -1;
+        }
+        
+
+        return 0;
 }
 
 int32_t 
@@ -162,22 +179,27 @@ Scene::transfer_aggregate_bvh_to_device()
         if (bvh_mem.initialize(bvh_size, bvh_ptr, READ_ONLY_MEMORY))
             return -1;
 
-        /********************** Single bvh root ****************************/
+        /*------------ Attempt to move single bvh_root data to device ------------*/
         
-        BVHRoot root;
-        root.node = 0;
-        root.tr = root.trInv = mat4x4_to_cl_sqmat4(scaleMatrix4x4(1.f));
-        bvh_roots.clear();
-        bvh_roots.push_back(root);
         DeviceMemory& bvh_roots_mem = device.memory(bvh_roots_id);
-        const void* bvh_roots_ptr = &root;
-        size_t bvh_roots_size = sizeof(root);
-        if (bvh_roots_mem.initialize(bvh_roots_size, bvh_roots_ptr, READ_ONLY_MEMORY))
-                return -1;
+        if (!bvh_roots_mem.valid()) {
+
+                BVHRoot root;
+                root.node = 0;
+                root.tr = root.trInv = mat4x4_to_cl_sqmat4(scaleMatrix4x4(1.f));
+                bvh_roots.clear();
+                bvh_roots.push_back(root);
+                const void* bvh_roots_ptr = &root;
+                size_t bvh_roots_size = sizeof(root);
+                if (bvh_roots_mem.initialize(bvh_roots_size, 
+                                             bvh_roots_ptr, 
+                                             READ_ONLY_MEMORY))
+                        return -1;
+        }
         
+
         return 0;
 }
-
 
 mesh_id
 Scene::load_obj_file(std::string filename)

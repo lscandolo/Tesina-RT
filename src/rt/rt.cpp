@@ -5,7 +5,7 @@
 #include <cl-gl/opencl-init.hpp>
 #include <rt/rt.hpp>
 
-#define MAX_BOUNCE 1
+#define MAX_BOUNCE 0
 
 CLInfo clinfo;
 GLInfo glinfo;
@@ -80,6 +80,9 @@ void gl_key(unsigned char key, int x, int y)
                 break;
         case 'd':
                 camera.panRight(delta);
+                break;
+        case 'l':
+                rt_log.silent = !rt_log.silent;
                 break;
         case '1': /* Set 1 sample per pixel */
                 if (prim_ray_gen.set_spp(1,samples1)){

@@ -445,11 +445,11 @@ int main (int argc, char** argv)
 	// }
 
 	// mesh_id teapot_mesh_id = flat_scene.load_obj_file("models/obj/teapot2.obj");
-	mesh_id teapot_mesh_id = flat_scene.load_obj_file("models/obj/teapot-low_res.obj");
-	object_id teapot_obj_id = flat_scene.geometry.add_object(teapot_mesh_id);
-	Object& teapot_obj = flat_scene.geometry.object(teapot_obj_id);
-	teapot_obj.geom.setPos(makeVector(-1.f,0.f,0.f));
-	teapot_obj.geom.setScale(makeVector(3.f,3.f,3.f));
+	// mesh_id teapot_mesh_id = flat_scene.load_obj_file("models/obj/teapot-low_res.obj");
+	// object_id teapot_obj_id = flat_scene.geometry.add_object(teapot_mesh_id);
+	// Object& teapot_obj = flat_scene.geometry.object(teapot_obj_id);
+	// teapot_obj.geom.setPos(makeVector(-1.f,0.f,0.f));
+	// teapot_obj.geom.setScale(makeVector(3.f,3.f,3.f));
 
 	/* ------------------*/
 
@@ -499,13 +499,13 @@ int main (int argc, char** argv)
 		// }
 
 		// mesh_id teapot_mesh_id = scenes[i].load_obj_file("models/obj/teapot2.obj");
-		mesh_id teapot_mesh_id = scenes[i].load_obj_file("models/obj/teapot-low_res.obj");
-		object_id teapot_obj_id = scenes[i].geometry.add_object(teapot_mesh_id);
-		Object& teapot_obj = scenes[i].geometry.object(teapot_obj_id);
-		teapot_obj.geom.setPos(makeVector(-1.f,0.f,0.f));
-		teapot_obj.geom.setScale(makeVector(3.f,3.f,3.f));
-		teapot_obj.mat.diffuse = Green;
-		teapot_obj.mat.shininess = 1.f;
+		// mesh_id teapot_mesh_id = scenes[i].load_obj_file("models/obj/teapot-low_res.obj");
+		// object_id teapot_obj_id = scenes[i].geometry.add_object(teapot_mesh_id);
+		// Object& teapot_obj = scenes[i].geometry.object(teapot_obj_id);
+		// teapot_obj.geom.setPos(makeVector(-1.f,0.f,0.f));
+		// teapot_obj.geom.setScale(makeVector(3.f,3.f,3.f));
+		// teapot_obj.mat.diffuse = Green;
+		// teapot_obj.mat.shininess = 1.f;
 		// teapot_obj.mat.reflectiveness = 0.3f;
 
 		/* ------------------*/
@@ -562,12 +562,12 @@ int main (int argc, char** argv)
 	std::cout << "Initialized hit bundle succesfully" << std::endl;
 
 	/*----------------------- Initialize cubemap ---------------------------*/
-	if (cubemap.initialize("textures/cubemap/Sky/posx.jpg",
-                               "textures/cubemap/Sky/negx.jpg",
-                               "textures/cubemap/Sky/posy.jpg",
-                               "textures/cubemap/Sky/negy.jpg",
-                               "textures/cubemap/Sky/posz.jpg",
-                               "textures/cubemap/Sky/negz.jpg",
+	if (cubemap.initialize("textures/cubemap/Path/posx.jpg",
+                               "textures/cubemap/Path/negx.jpg",
+                               "textures/cubemap/Path/posy.jpg",
+                               "textures/cubemap/Path/negy.jpg",
+                               "textures/cubemap/Path/posz.jpg",
+                               "textures/cubemap/Path/negz.jpg",
                                clinfo)) {
 		std::cerr << "Failed to initialize cubemap." << std::endl;
 		exit(1);

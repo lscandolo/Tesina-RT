@@ -63,6 +63,7 @@ Tracer::trace(Scene& scene, DeviceMemory& bvh_mem, int32_t ray_count,
                     return -1;
 
         cl_int root_cant = scene.object_count();
+        root_cant = 1; //!!!!!
         if (tracer.set_arg(6, sizeof(cl_int), &root_cant))
                     return -1;
 
