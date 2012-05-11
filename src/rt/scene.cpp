@@ -325,6 +325,14 @@ Scene::update_bvh_roots()
         return 0;
 }
 
+size_t
+Scene::root_count(){
+        if (m_aggregate_mesh_built)
+                return 1;
+        else
+                return object_count();
+}
+
 int32_t 
 Scene::create_bvhs()
 {

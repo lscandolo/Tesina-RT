@@ -62,8 +62,7 @@ Tracer::trace(Scene& scene, DeviceMemory& bvh_mem, int32_t ray_count,
         if (tracer.set_arg(5, scene.bvh_roots_mem()))
                     return -1;
 
-        cl_int root_cant = scene.object_count();
-        root_cant = 1; //!!!!!
+        cl_int root_cant = scene.root_count();
         if (tracer.set_arg(6, sizeof(cl_int), &root_cant))
                     return -1;
 
@@ -153,7 +152,7 @@ Tracer::trace(Scene& scene, int32_t ray_count,
         if (tracer.set_arg(5, scene.bvh_roots_mem()))
                     return -1;
 
-        cl_int root_cant = scene.object_count();
+        cl_int root_cant = scene.root_count();
         if (tracer.set_arg(6, sizeof(cl_int), &root_cant))
                     return -1;
 
@@ -238,7 +237,7 @@ Tracer::shadow_trace(Scene& scene, int32_t ray_count,
         if (shadow.set_arg(3, scene.triangle_mem()))
                 return -1;
 
-        cl_int root_count = scene.object_count();
+        cl_int root_count = scene.root_count();
         if (shadow.set_arg(4, sizeof(cl_int), &root_count))
                 return -1;
 
@@ -333,7 +332,7 @@ Tracer::shadow_trace(Scene& scene, DeviceMemory& bvh_mem, int32_t ray_count,
         if (shadow.set_arg(3, scene.triangle_mem()))
                 return -1;
 
-        cl_int root_count = scene.object_count();
+        cl_int root_count = scene.root_count();
         if (shadow.set_arg(4, sizeof(cl_int), &root_count))
                 return -1;
 

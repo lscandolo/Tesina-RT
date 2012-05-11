@@ -74,12 +74,14 @@ public:
         int32_t transfer_meshes_to_device();
         int32_t transfer_bvhs_to_device();
 
-        Mesh&   get_mesh(mesh_id mid);
-        BVH&    get_object_bvh(object_id oid);
+        Mesh&    get_mesh(mesh_id mid);
+        BVH&     get_object_bvh(object_id oid);
         int32_t  update_mesh_vertices(mesh_id mid);
         uint32_t update_bvh_roots();
         
-        size_t  object_count(){return bvh_roots.size();}
+        size_t   root_count();
+
+        size_t   object_count(){return bvh_roots.size();}
 
         int32_t set_dir_light(const directional_light_cl& dl);
         int32_t set_ambient_light(const color_cl& color);
@@ -122,8 +124,6 @@ private:
         bool m_aggregate_mesh_built;
         bool m_aggregate_bvh_built;
         bool m_bvhs_built;
-
-        bool m_multi_bvh;
 
         lights_cl lights;
 
