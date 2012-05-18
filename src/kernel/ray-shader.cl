@@ -59,7 +59,7 @@ typedef struct
 	float shininess;
 	float reflectiveness;
 	float refractive_index;
-
+        unsigned int texture;
 } Material;
 
 /* int __attribute__((always_inline)) */
@@ -101,6 +101,7 @@ shade(global ColorInt* image,
       read_only image2d_t y_neg,
       read_only image2d_t z_pos,
       read_only image2d_t z_neg,
+      read_only image2d_t texture_0,
       global Lights* lights)
 
 {
@@ -125,8 +126,12 @@ shade(global ColorInt* image,
 		int material_index = material_map[info.id];
 		Material mat = material_list[material_index];
 
-		float3 diffuse_rgb = mat.diffuse;
-		float3 specular_rgb = (float3)(1.0f,1.0f,1.0f);
+                float3 diffuse_rgb;
+                /* if (mat.texture == -1) */
+                /*         diffuse_rgb = mat.diffuse; */
+                /* else */
+                        diffuse_rgb = read_imagef(texture_0, sampler, info.uv).xyz;
+		/* float3 specular_rgb = (float3)(1.0f,1.0f,1.0f); */
 
 		float3 ambient_rgb = lights->ambient * diffuse_rgb;
 
@@ -150,7 +155,7 @@ shade(global ColorInt* image,
 			/*Diffuse*/
 			valrgb += dir_rgb * diffuse_rgb * cosL;
 			/*Specular*/
-			valrgb += dir_rgb * specular_rgb * spec;
+			valrgb += dir_rgb * /* specular_rgb * */ spec;
 		}
 
 		valrgb *= (1.f-mat.reflectiveness);
@@ -214,8 +219,11 @@ shade(global ColorInt* image,
 		}
 
 
-		valrgb = final_val.xyz;
+		/* valrgb = final_val.xyz; */
+		valrgb = (float3)(0.f,0.f,0.f);
 	}
+
+        /* valrgb +=  (float3)(0.f,info.uv.s0,0.f) * 0.05f; */
 
 	const float3 minrgb = (float3)(0.f,0.f,0.f);
 	const float3 maxrgb = (float3)(1.f,1.f,1.f);
@@ -235,5 +243,9 @@ shade(global ColorInt* image,
 	atomic_add(r_ptr, rgb.r);
 	atomic_add(g_ptr, rgb.g);
 	atomic_add(b_ptr, rgb.b);
-	
+
+        // No atomics (don't do this!)
+        /* *r_ptr += rgb.r; */
+        /* *g_ptr += rgb.g; */
+        /* *b_ptr += rgb.b; */
 }

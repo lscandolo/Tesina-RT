@@ -13,7 +13,7 @@ bool DeviceMemory::valid() const
 
 int32_t DeviceMemory::initialize(size_t size, DeviceMemoryMode mode)
 {
-        if (!m_clinfo.initialized)
+        if (!m_clinfo.initialized || m_initialized)
                 return -1;
 
         cl_mem_flags flags;
@@ -48,7 +48,7 @@ int32_t DeviceMemory::initialize(size_t size, DeviceMemoryMode mode)
 }
 int32_t DeviceMemory::initialize(size_t size, const void* values, DeviceMemoryMode mode)
 {
-        if (!m_clinfo.initialized)
+        if (!m_clinfo.initialized || m_initialized)
                 return -1;
 
         cl_mem_flags flags;
@@ -85,7 +85,7 @@ int32_t DeviceMemory::initialize(size_t size, const void* values, DeviceMemoryMo
 
 int32_t DeviceMemory::initialize_from_gl_texture(const GLuint gl_tex)
 {
-        if (!m_clinfo.initialized)
+        if (!m_clinfo.initialized || m_initialized)
                 return -1;
 
         cl_int err;

@@ -1,3 +1,5 @@
+#include <iostream> //!!
+
 #include <rt/scene.hpp>
 #include <rt/vector.hpp>
 #include <rt/cl_aux.hpp>
@@ -201,6 +203,29 @@ Scene::transfer_aggregate_bvh_to_device()
         return 0;
 }
 
+void
+Scene::load_obj_file_and_make_objs(std::string filename) 
+{
+	ModelOBJ obj;
+	if (!obj.import(filename.c_str())){
+		return;
+	}
+
+        std::vector<Mesh> meshes;
+        std::vector<material_cl> materials;
+
+        obj.get_meshes(meshes,materials);
+
+        for (uint32_t i = 0; i < meshes.size(); ++i) {
+                mesh_atlas.push_back(meshes[i]);
+                uint32_t mesh_id = mesh_atlas.size() - 1;
+                object_id obj_id = geometry.add_object(mesh_id);
+                Object& obj = geometry.object(obj_id);
+                obj.mat = materials[i];
+        }
+        
+}
+
 mesh_id
 Scene::load_obj_file(std::string filename)
 {
@@ -313,12 +338,12 @@ Scene::update_bvh_roots()
 	/*--------------------- Move bvh roots to device memory ---------------------*/
 
         DeviceMemory& bvh_roots_mem = device.memory(bvh_roots_id);
+        if (!bvh_roots_mem.valid()) return -1;
         size_t bvh_roots_size = bvh_roots.size() * sizeof(BVHRoot);
         const void* bvh_roots_ptr = &(bvh_roots[0]);
 	if (bvh_roots.size()) {
-                if (bvh_roots_mem.initialize(bvh_roots_size, bvh_roots_ptr, 
-                                             READ_ONLY_MEMORY))
-			return -1;
+                if (bvh_roots_mem.write(bvh_roots_size, bvh_roots_ptr,0))
+                        return -1;
         }
         
         
@@ -626,6 +651,42 @@ Scene::lights_mem()
 }
 
 
+size_t 
+Scene::triangle_count()
+{
+        
+        if (!m_initialized)
+                return 0;
+
+        size_t vtx_count = 0;
+        std::vector<Object>::iterator obj;
+        for (obj = geometry.objects.begin(); obj != geometry.objects.end(); obj++) {
+                if (!obj->is_valid())
+                        continue;
+                Mesh& mesh = mesh_atlas[obj->id];
+                vtx_count += mesh.triangleCount();
+        }
+        return vtx_count;
+
+}
+
+size_t 
+Scene::vertex_count()
+{
+        if (!m_initialized)
+                return 0;
+
+        size_t vtx_count = 0;
+        std::vector<Object>::iterator obj;
+        for (obj = geometry.objects.begin(); obj != geometry.objects.end(); obj++) {
+                if (!obj->is_valid())
+                        continue;
+                Mesh& mesh = mesh_atlas[obj->id];
+                vtx_count += mesh.vertexCount();
+        }
+        return vtx_count;
+}
+
 /*---------------------------- Misc functions ---------------------------*/
 
 static mesh_id invalid_mesh_id(){return -1;}
@@ -640,3 +701,4 @@ bool is_valid_object_id(object_id id)
 {
 	return id>=0;
 }
+

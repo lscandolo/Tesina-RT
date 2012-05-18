@@ -22,6 +22,7 @@ typedef struct
 	float shininess;
 	float reflectiveness;
 	float refractive_index;
+        unsigned int texture;
 
 } Material;
 

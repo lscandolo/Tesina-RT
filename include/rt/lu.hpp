@@ -4,7 +4,7 @@
 #include <rt/matrix.hpp>
 #include <iostream> 
 
-#define EPS 1e-5f
+#define EPS 1e-26f
 
 
 template <int N, typename F>

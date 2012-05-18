@@ -21,7 +21,7 @@ typedef struct
 typedef struct 
 {
 	Ray   ray;
-	int2   pixel;
+	int   pixel;
 	float contribution;
 } RayPlus;
 
@@ -189,7 +189,8 @@ triangle_hit(global Vertex* vertex_buffer,
 	float3 h = cross(d, e2);
 	float  a = dot(e1,h);
 	
-	if (a > -0.000001f && a < 0.00001f)
+        if (a > -1e-26f && a < 1e-26f)
+	/* if (a > -0.000001f && a < 0.00001f) */
 		return false;
 
 	float  f = 1.f/a;
@@ -402,7 +403,7 @@ shadow_trace(global RayHitInfo* trace_info,
 	ray.invDir = 1.f/ray.dir;
         ray.ori = info.hit_point;
 	/* ray.ori = original_ray.ori + original_ray.dir * info.t; */
-  	ray.tMin = 0.0001f; ray.tMax = 1e37f;
+  	ray.tMin = 0.01f; ray.tMax = 1e37f;
 
         trace_info[index].shadow_hit = false;
         for (int i = 0; i < root_count; ++i) {

@@ -60,12 +60,14 @@ struct material_cl {
 	cl_float shininess;
 	cl_float reflectiveness;
 	cl_float refractive_index;
+        cl_int   texture;
 
 	material_cl(){
 		diffuse = Black;
 		shininess = 0.f;
 		reflectiveness = 0.f;
 		refractive_index = 0.f;
+                texture = -1;
 	}
 }; 
 

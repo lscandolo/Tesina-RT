@@ -1,3 +1,4 @@
+#include <iostream> //!!
 //-----------------------------------------------------------------------------
 // Copyright (c) 2007 dhpoware. All Rights Reserved.
 //
@@ -1283,7 +1284,71 @@ bool ModelOBJ::importMaterials(const char *pszFilename)
 }
 
 
-void ModelOBJ::toMesh(Mesh* mesh) const
+void ModelOBJ::get_meshes(std::vector<Mesh>& meshes, 
+                          std::vector<material_cl>& materials) const
+{
+        std::cout << "Number of meshes: " << getNumberOfModelMeshes() << std::endl;
+        for (int32_t i = 0; i < getNumberOfModelMeshes(); ++i) {
+                std::cout << "Mesh: " << i << std::endl;
+                Mesh mesh;
+                std::vector<Vertex>& verts = mesh.vertices;
+                std::map<int32_t,int32_t> vertex_map;
+                std::map<int32_t,int32_t>::iterator map_it;
+
+                material_cl material;
+                const ModelOBJ::ModelMesh& obj_mesh = getModelMesh(i);
+                const ModelOBJ::Material* obj_mat = obj_mesh.pMaterial;
+                /* Copy triangle data */
+                std::cout << "triangle count: " << obj_mesh.triangleCount << std::endl;
+                std::cout << "start index: " << obj_mesh.startIndex << std::endl;
+
+                mesh.triangles.resize(obj_mesh.triangleCount);
+                int32_t min_index = m_indexBuffer[obj_mesh.startIndex];
+                int32_t max_index = min_index;
+                for (int32_t j = 0; j < obj_mesh.triangleCount; ++j) {
+                        Triangle t;
+                        int32_t k = j*3 + obj_mesh.startIndex;
+                        
+                        for (uint32_t x = 0; x < 3; ++x) {
+                                int32_t index = m_indexBuffer[k+x];
+                                if (vertex_map.find(index) == vertex_map.end()){
+                                        int32_t vertex_idx = verts.size();
+                                        t.v[x] = vertex_idx;
+                                        vertex_map[index] = vertex_idx;
+                                        Vertex v;
+                                        const ObjLoaderVertex& obj_v =m_vertexBuffer[index];
+                                        v.position  = makeFloat3(obj_v.position);
+                                        v.normal    = makeFloat3(obj_v.normal);
+                                        v.tangent   = makeFloat4(obj_v.tangent);
+                                        v.bitangent = makeFloat3(obj_v.bitangent);
+                                        v.texCoord  = makeFloat2(obj_v.texCoord);
+                                        verts.push_back(v);
+                                } else {
+                                        t.v[x] = vertex_map[index];
+                                }
+                        }
+                        mesh.triangles.push_back(t);
+                }
+                if (mesh.triangles.size() < 100) continue;
+                meshes.push_back(mesh);
+
+                std::cout << "Saved vertices: " << verts.size() << std::endl;
+
+                if (obj_mesh.pMaterial != NULL) {
+                        ModelOBJ::Material obj_mat = *obj_mesh.pMaterial;
+                        for (int32_t j = 0; j < 3; ++j) {
+                                material.diffuse[j] = obj_mat.diffuse[j];
+                                material.shininess = obj_mat.shininess;
+                                material.reflectiveness = 0.f;
+                                material.refractive_index = 0.f;
+                        }
+                }
+                materials.push_back(material);
+        }
+
+}
+
+        void ModelOBJ::toMesh(Mesh* mesh) const
 {
 	/* Copy vertex data */
 	mesh->vertices.resize(getNumberOfVertices());
@@ -1306,3 +1371,4 @@ void ModelOBJ::toMesh(Mesh* mesh) const
 	}
 
 }
+

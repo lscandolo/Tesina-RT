@@ -63,7 +63,10 @@ RayShader::shade(RayBundle& rays, HitBundle& hb, Scene& scene,
         if (shade_function.set_arg(10,cm.negative_z_mem()))
 		return -1;
 
-        if (shade_function.set_arg(11,scene.lights_mem()))
+        if (shade_function.set_arg(11,cm.positive_x_mem()))
+		return -1;
+
+        if (shade_function.set_arg(12,scene.lights_mem()))
 		return -1;
 
         size_t shade_work_size[] = {size, 0, 0};

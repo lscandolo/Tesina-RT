@@ -147,7 +147,7 @@ BVH::construct(Mesh& mesh, int32_t node_offset, int32_t tri_offset)
 {
 
 	/*------------------- Initialize members ----------------------------------*/
-    size_t tris = mesh.triangleCount();
+        size_t tris = mesh.triangleCount();
 	m_triangle_order.resize(tris);
 	for (uint32_t i = 0 ; i  < tris ; ++i)
 		m_triangle_order[i] = i;

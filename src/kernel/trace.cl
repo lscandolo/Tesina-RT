@@ -72,6 +72,10 @@ float3 compute_normal(global Vertex* vertex_buffer,
                       global int* index_buffer,
                       int id,
                       float2 uv);
+float2 compute_texCoord(global Vertex* vertex_buffer,
+                        global int* index_buffer,
+                        int id,
+                        float2 uv);
 
 float3 __attribute__((always_inline)) 
 multiply_vector(float3 v, sqmat4 M)
@@ -84,7 +88,7 @@ multiply_vector(float3 v, sqmat4 M)
         r.z = dot(M.row[2],x);
         r.w = dot(M.row[3],x);
 
-        if (fabs(r.w) > 0.00001f)
+        if (fabs(r.w) > 1e-26f)
                 r = r / r.w;
         return r.xyz;
 }
@@ -100,7 +104,7 @@ multiply_point(float3 v, sqmat4 M)
         r.z = dot(M.row[2],x);
         r.w = dot(M.row[3],x);
 
-        if (fabs(r.w) > 0.00001f)
+        if (fabs(r.w) > 1e-26f)
                 r = r / r.w;
         return r.xyz;
 }
@@ -113,36 +117,50 @@ Ray transform_ray(Ray ray, sqmat4 tr)
         return ray;
 }
 
-RayHitInfo __attribute__((always_inline))
+void __attribute__((always_inline))
 transform_hit_info(Ray ray, 
                    Ray tr_ray, 
-                   RayHitInfo hit_info, 
+                   RayHitInfo* hit_info, 
                    sqmat4 tr,
                    global Vertex* vertex_buffer,
                    global int* index_buffer)
 {
 
-        if (hit_info.hit) {
+        if (hit_info->hit) {
                 
-                hit_info.n = compute_normal(vertex_buffer, 
+                hit_info->hit_point = tr_ray.ori + tr_ray.dir * hit_info->t;
+                hit_info->hit_point = multiply_point(hit_info->hit_point, tr);
+                hit_info->t = distance(hit_info->hit_point, ray.ori); 
+        }
+       
+}
+
+void __attribute__((always_inline))
+complete_hit_info(Ray ray, 
+                  RayHitInfo* hit_info, 
+                  global Vertex* vertex_buffer,
+                  global int* index_buffer)
+{
+
+        if (hit_info->hit) {
+                
+                hit_info->n = compute_normal(vertex_buffer, 
                                             index_buffer,
-                                            hit_info.id, 
-                                            hit_info.uv);
-                hit_info.n =
-                        normalize(multiply_vector(hit_info.n,tr));
-                
+                                            hit_info->id, 
+                                            hit_info->uv);
                 /* If the normal is pointing out, 
                    invert it and note it in the flags */
-                if (dot(hit_info.n,ray.dir) > 0) {
-                        hit_info.inverse_n = true;
-                        hit_info.n *= -1.f;
+                if (dot(hit_info->n,ray.dir) > 0) { 
+                        hit_info->inverse_n = true;
+                        hit_info->n *= -1.f;
                 }
-                hit_info.hit_point = tr_ray.ori + tr_ray.dir * hit_info.t;
-                hit_info.hit_point = multiply_point(hit_info.hit_point, tr);
-                hit_info.t = distance(hit_info.hit_point, ray.ori); 
+
+                hit_info->uv = compute_texCoord(vertex_buffer, 
+                                               index_buffer,
+                                               hit_info->id, 
+                                               hit_info->uv);
         }
         
-        return hit_info;
 }
 
 void __attribute__((always_inline))
@@ -168,13 +186,13 @@ bbox_hit(BBox bbox,
         float3 axis_t_max = fmax(axis_t_lo, axis_t_hi);
         float3 axis_t_min = fmin(axis_t_lo, axis_t_hi);
 
-        if (fabs(ray.invDir.x) > 0.0001f) {
+        if (fabs(ray.invDir.x) > 1e-26f) {
                 tMin = fmax(tMin, axis_t_min.x); tMax = fmin(tMax, axis_t_max.x);
         }
-        if (fabs(ray.invDir.y) > 0.0001f) {
+        if (fabs(ray.invDir.y) > 1e-26f) {
                 tMin = fmax(tMin, axis_t_min.y); tMax = fmin(tMax, axis_t_max.y);
         }
-        if (fabs(ray.invDir.z) > 0.0001f) {
+        if (fabs(ray.invDir.z) > 1e-26f) {
             tMin = fmax(tMin, axis_t_min.z); tMax = fmin(tMax, axis_t_max.z);
         }
 
@@ -193,6 +211,26 @@ float3 compute_normal(global Vertex* vertex_buffer,
         float3 n0 = normalize(vx0->normal);
         float3 n1 = normalize(vx1->normal);
         float3 n2 = normalize(vx2->normal);
+
+        float u = uv.s0;
+        float v = uv.s1;
+        float w = 1.f - (u+v);
+
+        return w * n0 + v * n2 + u * n1;
+}
+
+float2 compute_texCoord(global Vertex* vertex_buffer,
+                        global int* index_buffer,
+                        int id,
+                        float2 uv)
+{
+        global Vertex* vx0 = &vertex_buffer[index_buffer[3*id]];
+        global Vertex* vx1 = &vertex_buffer[index_buffer[3*id+1]];
+        global Vertex* vx2 = &vertex_buffer[index_buffer[3*id+2]];
+
+        float2 n0 = vx0->texCoord;
+        float2 n1 = vx1->texCoord;
+        float2 n2 = vx2->texCoord;
 
         float u = uv.s0;
         float v = uv.s1;
@@ -229,7 +267,8 @@ triangle_hit(global Vertex* vertex_buffer,
         float3 h = cross(d, e2);
         float  a = dot(e1,h);
         
-        if (a > -0.00001f && a < 0.00001f)
+        if (a > -1e-26f && a < 1e-26f)
+	/* if (a > -0.000001f && a < 0.00001f) */
                 return info;
 
         float  f = 1.f/a;
@@ -244,7 +283,8 @@ triangle_hit(global Vertex* vertex_buffer,
                 return info;
 
         info.t = f * dot(e2,q);
-        bool t_is_within_bounds = (info.t < ray.tMax && info.t > ray.tMin);
+        /* bool t_is_within_bounds = (info.t < ray.tMax && info.t > ray.tMin); */
+        bool t_is_within_bounds = info.t > 0;
 
         if (t_is_within_bounds) {
                 info.hit = true;
@@ -309,7 +349,10 @@ RayHitInfo trace_ray(Ray ray,
         float max_dir_val = fmax(adir.x, fmax(adir.y,adir.z)) - 0.00001f;
         adir = fdim(adir, (float3)(max_dir_val,max_dir_val,max_dir_val));
 
+        /* int depth = 0; */
+        /* int maxdepth = 0; */
         while (true) {
+                /* maxdepth = max(depth,maxdepth); */
                 current_node = bvh_nodes[curr];
 
                 /* Compute node children traversal order if its an interior node*/
@@ -344,6 +387,7 @@ RayHitInfo trace_ray(Ray ray,
                                 last = curr;
                                 curr = second_child;
                                 going_up = false;
+                                /* depth++; */
                                 continue;
 
                         // I'm going up from my second child, go up one more level
@@ -351,6 +395,7 @@ RayHitInfo trace_ray(Ray ray,
                                 last = curr;
                                 curr = current_node.parent;
                                 going_up = true;
+                                /* depth--; */
                                 continue;
                         }
                 }
@@ -380,6 +425,7 @@ RayHitInfo trace_ray(Ray ray,
                                 last = curr;
                                 curr = first_child;
                                 going_up = false;
+                                /* depth++; */
                                 continue;
                         }
                 
@@ -388,9 +434,11 @@ RayHitInfo trace_ray(Ray ray,
                         last = curr;
                         curr = current_node.parent;
                         going_up = true;
+                        /* depth--; */
                         continue;
                 }
         }
+        /* best_hit_info.n.s0 = maxdepth; */
         return best_hit_info;
 }
 
@@ -413,20 +461,24 @@ trace(global RayHitInfo* trace_info,
         hit_info.hit = false;
 
         for (int i = 0; i < root_count; ++i) {
-                
+
                 Ray tr_ray = transform_ray(ray, roots[i].trInv);
                 RayHitInfo root_hit_info = trace_ray(tr_ray,vertex_buffer,index_buffer,
                                                      bvh_nodes, roots[i].node);
-                root_hit_info = transform_hit_info(ray,
-                                                   tr_ray,
-                                                   root_hit_info, 
-                                                   roots[i].tr,
-                                                   vertex_buffer,
-                                                   index_buffer);
-
+                /* float depth = root_hit_info.n.s0; */
+                /*Compute real t and hit point to compare which hit is closest*/
+                transform_hit_info(ray,
+                                   tr_ray,
+                                   &root_hit_info,
+                                   roots[i].tr,
+                                   vertex_buffer,
+                                   index_buffer);
+                /* root_hit_info.uv.s0 = depth; */
                 merge_hit_info (&hit_info, &root_hit_info);
         }
 
+        /*Compute normal and texCoord at hit point*/
+        complete_hit_info(ray, &hit_info, vertex_buffer, index_buffer);
         /* Save hit info*/
         trace_info[index] = hit_info;
 }

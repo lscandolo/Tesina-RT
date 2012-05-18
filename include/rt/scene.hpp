@@ -87,6 +87,7 @@ public:
         int32_t set_ambient_light(const color_cl& color);
 
         mesh_id load_obj_file(std::string filename);
+        void    load_obj_file_and_make_objs(std::string filename);
 
         DeviceMemory& vertex_mem();
         DeviceMemory& triangle_mem();
@@ -102,6 +103,9 @@ public:
         bool reorderTriangles(const std::vector<uint32_t>& new_order);
 
         SceneGeometry geometry;
+
+        size_t triangle_count();
+        size_t vertex_count();
 
 public:
 

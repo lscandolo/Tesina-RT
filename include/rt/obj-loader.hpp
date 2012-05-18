@@ -29,6 +29,7 @@
 #include <vector>
 
 #include <rt/mesh.hpp>
+#include <rt/material.hpp>
 
 //-----------------------------------------------------------------------------
 // Alias|Wavefront OBJ file loader.
@@ -174,6 +175,8 @@ private:
     std::map<int, std::vector<int> > m_vertexCache;
 
 public:
+    void get_meshes(std::vector<Mesh>& meshes, 
+                    std::vector<material_cl>& materials) const;
     void toMesh(Mesh* mesh) const;
 };
 
