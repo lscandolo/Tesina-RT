@@ -1284,23 +1284,20 @@ bool ModelOBJ::importMaterials(const char *pszFilename)
 }
 
 
-void ModelOBJ::get_meshes(std::vector<Mesh>& meshes, 
-                          std::vector<material_cl>& materials) const
+void ModelOBJ::get_meshes(std::vector<Mesh>& meshes) const
 {
-        std::cout << "Number of meshes: " << getNumberOfModelMeshes() << std::endl;
+        // std::cout << "Number of meshes: " << getNumberOfModelMeshes() << std::endl;
         for (int32_t i = 0; i < getNumberOfModelMeshes(); ++i) {
-                std::cout << "Mesh: " << i << std::endl;
+                // std::cout << "Mesh: " << i << std::endl;
                 Mesh mesh;
                 std::vector<Vertex>& verts = mesh.vertices;
                 std::map<int32_t,int32_t> vertex_map;
                 std::map<int32_t,int32_t>::iterator map_it;
-
-                material_cl material;
                 const ModelOBJ::ModelMesh& obj_mesh = getModelMesh(i);
                 const ModelOBJ::Material* obj_mat = obj_mesh.pMaterial;
                 /* Copy triangle data */
-                std::cout << "triangle count: " << obj_mesh.triangleCount << std::endl;
-                std::cout << "start index: " << obj_mesh.startIndex << std::endl;
+                // std::cout << "triangle count: " << obj_mesh.triangleCount << std::endl;
+                // std::cout << "start index: " << obj_mesh.startIndex << std::endl;
 
                 mesh.triangles.resize(obj_mesh.triangleCount);
                 int32_t min_index = m_indexBuffer[obj_mesh.startIndex];
@@ -1329,26 +1326,27 @@ void ModelOBJ::get_meshes(std::vector<Mesh>& meshes,
                         }
                         mesh.triangles.push_back(t);
                 }
-                if (mesh.triangles.size() < 100) continue;
-                meshes.push_back(mesh);
 
-                std::cout << "Saved vertices: " << verts.size() << std::endl;
-
+                MeshMaterial mesh_material;
+                mesh_material.start_index = 0;
+                mesh_material.end_index = obj_mesh.triangleCount;
+                material_cl& material = mesh_material.material;
                 if (obj_mesh.pMaterial != NULL) {
                         ModelOBJ::Material obj_mat = *obj_mesh.pMaterial;
-                        for (int32_t j = 0; j < 3; ++j) {
+                        for (int32_t j = 0; j < 3; ++j) 
                                 material.diffuse[j] = obj_mat.diffuse[j];
-                                material.shininess = obj_mat.shininess;
-                                material.reflectiveness = 0.f;
-                                material.refractive_index = 0.f;
-                        }
+                        material.shininess = obj_mat.shininess;
+                        material.reflectiveness = 0.f;
+                        material.refractive_index = 0.f;
+                        mesh_material.texture_filename = obj_mat.colorMapFilename;
                 }
-                materials.push_back(material);
+                mesh.original_materials.push_back(mesh_material);
+                meshes.push_back(mesh);
         }
 
 }
 
-        void ModelOBJ::toMesh(Mesh* mesh) const
+void ModelOBJ::get_aggregate_mesh(Mesh* mesh) const
 {
 	/* Copy vertex data */
 	mesh->vertices.resize(getNumberOfVertices());
@@ -1370,5 +1368,22 @@ void ModelOBJ::get_meshes(std::vector<Mesh>& meshes,
 		mesh->triangles[i] = t;
 	}
 
+        for (int32_t i = 0; i < getNumberOfModelMeshes(); ++i) {
+                const ModelOBJ::ModelMesh& obj_mesh = getModelMesh(i);
+                const ModelOBJ::Material* obj_mat = obj_mesh.pMaterial;
+                MeshMaterial mesh_material;
+                mesh_material.start_index = obj_mesh.startIndex;
+                mesh_material.end_index = obj_mesh.startIndex + obj_mesh.triangleCount;
+                material_cl& material = mesh_material.material;
+                if (obj_mat != NULL) {
+                        for (int32_t j = 0; j < 3; ++j)
+                                material.diffuse[j] = obj_mat->diffuse[j];
+                        material.shininess = obj_mat->shininess;
+                        material.reflectiveness = 0.f;
+                        material.refractive_index = 0.f;
+                        mesh_material.texture_filename = obj_mat->colorMapFilename;
+                }
+                mesh->original_materials.push_back(mesh_material);
+        }
 }
 

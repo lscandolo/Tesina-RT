@@ -382,61 +382,59 @@ RayHitInfo trace_ray(Ray ray,
                         if (last == bvh_root) {
                                 break;
 
-                        // I'm going up from my first child, do the second one
+                                // I'm going up from my first child, do the second one
                         } else if (last == first_child) {
                                 last = curr;
                                 curr = second_child;
                                 going_up = false;
                                 /* depth++; */
-                                continue;
 
-                        // I'm going up from my second child, go up one more level
+                                // I'm going up from my second child, go up one more level
                         } else if (last == second_child) {
                                 last = curr;
                                 curr = current_node.parent;
                                 going_up = true;
                                 /* depth--; */
-                                continue;
                         }
                 }
-                        
-                test_bbox = current_node.bbox;
-                bool hit = bbox_hit(test_bbox, ray);
+                else {
+                        test_bbox = current_node.bbox;
+                        bool hit = bbox_hit(test_bbox, ray);
 
-                // If it hit, and closer to the closest hit up to now, check it
-                if (hit) {
-                        // If it's a leaf, check all primitives in the leaf, then go up
-                        if (current_node.leaf) {
-                                // Check all primitives in leaf
-                                RayHitInfo leaf_info = leaf_hit(current_node,
-                                                              vertex_buffer,
-                                                              index_buffer,
-                                                              ray);
-                                merge_hit_info(&best_hit_info, &leaf_info);
-                                if (best_hit_info.hit)
-                                        ray.tMax = best_hit_info.t;
+                        // If it hit, and closer to the closest hit up to now, check it
+                        if (hit) {
+                                // If it's a leaf, check all primitives in the leaf, 
+                                // then go up
+                                if (current_node.leaf) {
+                                        // Check all primitives in leaf
+                                        RayHitInfo leaf_info = leaf_hit(current_node,
+                                                                        vertex_buffer,
+                                                                        index_buffer,
+                                                                        ray);
+                                        merge_hit_info(&best_hit_info, &leaf_info);
+                                        if (best_hit_info.hit)
+                                                ray.tMax = best_hit_info.t;
+                                        last = curr;
+                                        curr = current_node.parent;
+                                        going_up = true;
+
+                                        // If it hit and it isn't a leaf, 
+                                        // go to the first child
+                                } else {
+                                        last = curr;
+                                        curr = first_child;
+                                        going_up = false;
+                                        /* depth++; */
+                                }
+                
+                                // If it didn't hit, go up
+                        } else {
                                 last = curr;
                                 curr = current_node.parent;
                                 going_up = true;
-                                continue;
-
-                        // If it hit and it isn't a leaf, go to the first child
-                        } else {
-                                last = curr;
-                                curr = first_child;
-                                going_up = false;
-                                /* depth++; */
-                                continue;
+                                /* depth--; */
                         }
-                
-                // If it didn't hit, go up
-                } else {
-                        last = curr;
-                        curr = current_node.parent;
-                        going_up = true;
-                        /* depth--; */
-                        continue;
-                }
+                }        
         }
         /* best_hit_info.n.s0 = maxdepth; */
         return best_hit_info;

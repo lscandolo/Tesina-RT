@@ -44,7 +44,8 @@ struct GLInfo
 GLint init_gl(int argc, char** argv, GLInfo* glinfo, 
 	      const size_t* window_size, const std::string title = std::string());
 GLuint create_tex_gl(uint32_t width, uint32_t height);
-GLuint create_tex_gl_from_jpeg(uint32_t& width, uint32_t& height, const char* file);
+int32_t create_tex_gl_from_file(uint32_t& width, uint32_t& height, 
+                                const char* file, GLuint* tex_id);
 GLuint create_buf_gl(uint32_t buf_size);
 void print_gl_info();
 void print_gl_tex_2d_info(GLuint tex);

@@ -72,6 +72,9 @@ Scene::initialize(CLInfo& clinfo)
         if (device.initialize(clinfo))
                 return -1;
 
+        if (texture_atlas.initialize(clinfo))
+                return -1;
+
         vert_id = device.new_memory();
         tri_id = device.new_memory();
         mat_map_id = device.new_memory();
@@ -212,18 +215,19 @@ Scene::load_obj_file_and_make_objs(std::string filename)
 	}
 
         std::vector<Mesh> meshes;
-        std::vector<material_cl> materials;
+        // std::vector<material_cl> materials;
 
-        obj.get_meshes(meshes,materials);
+        obj.get_meshes(meshes);
 
         for (uint32_t i = 0; i < meshes.size(); ++i) {
                 mesh_atlas.push_back(meshes[i]);
                 uint32_t mesh_id = mesh_atlas.size() - 1;
                 object_id obj_id = geometry.add_object(mesh_id);
                 Object& obj = geometry.object(obj_id);
-                obj.mat = materials[i];
+                MeshMaterial& mesh_mat = meshes[i].original_materials[0];
+                obj.mat = mesh_mat.material;
+                obj.mat.texture = texture_atlas.load_texture(mesh_mat.texture_filename);
         }
-        
 }
 
 mesh_id
@@ -235,7 +239,7 @@ Scene::load_obj_file(std::string filename)
 	}
 
 	Mesh mesh;
-	obj.toMesh(&mesh);
+	obj.get_aggregate_mesh(&mesh);
 	mesh_atlas.push_back(mesh);
 	return uint32_t(mesh_atlas.size() - 1);
 }
@@ -279,7 +283,7 @@ Scene::create_aggregate_mesh()
 			aggregate_mesh.slacks.push_back(obj.slack);
 		}
 		base_triangle += uint32_t(mesh.triangleCount());
-		
+                
 	}
         
         m_aggregate_mesh_built = true;
@@ -319,6 +323,8 @@ Scene::reorderTriangles(const std::vector<uint32_t>& new_order) {
 uint32_t 
 Scene::update_bvh_roots()
 {
+        if (!m_bvhs_built)
+                return -1;
         uint32_t root_idx = 0;
 
 	/*--------------------- Update roots from object info ---------------------*/
@@ -345,8 +351,6 @@ Scene::update_bvh_roots()
                 if (bvh_roots_mem.write(bvh_roots_size, bvh_roots_ptr,0))
                         return -1;
         }
-        
-        
         return 0;
 }
 

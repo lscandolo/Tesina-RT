@@ -275,8 +275,6 @@ bool trace_shadow_ray(Ray ray,
 		      global BVHNode* bvh_nodes,
                       int bvh_root)
 {
-	bool shadow_ray_hit = false;
-
 	bool going_up = false;
 	unsigned int last = bvh_root;
 	unsigned int curr = bvh_root;
@@ -320,61 +318,55 @@ bool trace_shadow_ray(Ray ray,
 		if (going_up) {
 			// I'm going up from the root, so break
 			if (last == bvh_root) {
-				break;
+				return false;
 				
-			// I'm going up from my first child, do the right one
+                                // I'm going up from my first child, do the right one
 			} else if (last == first_child) {
 				last = curr;
 				curr = second_child;
 				going_up = false;
-				continue;
 
-			// I'm going up from my second child, go up one more level
+                                // I'm going up from my second child, go up one more level
 			} else if (last == second_child) {
 				last = curr;
 				curr = current_node.parent;
 				going_up = true;
-				continue;
 			}
 
 		}
-			
-		// If it hit, and closer to the closest hit up to now, check it
- 		if (bbox_hit(current_node.bbox,ray)) {
-			// If it's a leaf, check all primitives in the leaf, then go up
-			if (current_node.leaf) {
- 				// Check all primitives in leaf
-				if(leaf_hit_any(current_node,
-						vertex_buffer,
-						index_buffer,
-						ray)) {
-					shadow_ray_hit = true;
-					break;
-				}
+		else {	
+                        // If it hit, and closer to the closest hit up to now, check it
+                        if (bbox_hit(current_node.bbox,ray)) {
+                                // If it's a leaf, check all primitives in the leaf, 
+                                // then go up
+                                if (current_node.leaf) {
+                                        // Check all primitives in leaf
+                                        if(leaf_hit_any(current_node,
+                                                        vertex_buffer,
+                                                        index_buffer,
+                                                        ray)) 
+                                                return true;
 
-				last = curr;
-				curr = current_node.parent;
-				going_up = true;
-				continue;
-
-			// If it hit and it isn't a leaf, go to the first child
-			} else {
-				last = curr;
-				curr = first_child;
-				going_up = false;
-				continue;
-			}
+                                        last = curr;
+                                        curr = current_node.parent;
+                                        going_up = true;
+                                        // If it hit and it isn't a leaf, 
+                                        //go to the first child
+                                } else {
+                                        last = curr;
+                                        curr = first_child;
+                                        going_up = false;
+                                }
 		
-                // If it didn't hit, go up
-		} else {
-			last = curr;
-			curr = current_node.parent;
-			going_up = true;
-			continue;
-		}
-	}
-
-	return shadow_ray_hit;
+                                // If it didn't hit, go up
+                        } else {
+                                last = curr;
+                                curr = current_node.parent;
+                                going_up = true;
+                        }
+                }
+        }
+	return false;
 }
 
 

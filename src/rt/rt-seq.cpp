@@ -16,7 +16,7 @@ uint32_t motion_rate = 1;
 CLInfo clinfo;
 GLInfo glinfo;
 DeviceInterface device;
-memory_id texture_id;
+memory_id tex_id;
 
 RayBundle                ray_bundle_1,ray_bundle_2;
 HitBundle                hit_bundle;
@@ -172,7 +172,7 @@ void gl_loop()
 
 	glClear(GL_COLOR_BUFFER_BIT);
 
-        if (device.acquire_graphic_resource(texture_id)) {
+        if (device.acquire_graphic_resource(tex_id)) {
                 std::cerr << "Error acquiring texture resource." << std::endl;
                 exit(1);
         }
@@ -278,7 +278,7 @@ void gl_loop()
 
 	}
 
-	if (framebuffer.copy(device.memory(texture_id))){
+	if (framebuffer.copy(device.memory(tex_id))){
 		std::cerr << "Failed to copy framebuffer." << std::endl;
 		exit(1);
 	}
@@ -295,7 +295,7 @@ void gl_loop()
 	else
 		max_time = std::max(max_time,total_msec);
 
-        if (device.release_graphic_resource(texture_id)) {
+        if (device.release_graphic_resource(tex_id)) {
                 std::cerr << "Error releasing texture resource." << std::endl;
                 exit(1);
         }
@@ -401,8 +401,8 @@ int main (int argc, char** argv)
 
 	/*---------------------- Create shared GL-CL texture ----------------------*/
 	gl_tex = create_tex_gl(window_size[0],window_size[1]);
-        texture_id = device.new_memory();
-        DeviceMemory& tex_mem = device.memory(texture_id);
+        tex_id = device.new_memory();
+        DeviceMemory& tex_mem = device.memory(tex_id);
         if (tex_mem.initialize_from_gl_texture(gl_tex)) {
                 std::cerr << "Failed to create memory object from gl texture" << std::endl;
                 exit(1);

@@ -11,7 +11,7 @@ CLInfo clinfo;
 GLInfo glinfo;
 
 DeviceInterface device;
-memory_id texture_id;
+memory_id tex_id;
 
 object_id item_id;
 object_id boat_id;
@@ -113,7 +113,7 @@ void gl_key(unsigned char key, int x, int y)
         case 't':
                 tilt -= 0.01f;
                 scale *= 1.5f;
-                item_obj.geom.setScale(scale);
+                // item_obj.geom.setScale(scale);
                 // boat_obj.geom.setRpy(makeVector(tilt,0.f,0.f));
                 // floor_obj.geom.setRpy(makeVector(0.f,0.f,tilt));
                 scene.update_bvh_roots();
@@ -121,7 +121,7 @@ void gl_key(unsigned char key, int x, int y)
         case 'y':
                 tilt += 0.01f;
                 scale /= 1.5f;
-                item_obj.geom.setScale(scale);
+                // item_obj.geom.setScale(scale);
                 // boat_obj.geom.setRpy(makeVector(tilt,0.f,0.f));
                 // floor_obj.geom.setRpy(makeVector(0.f,0.f,tilt));
                 scene.update_bvh_roots();
@@ -154,7 +154,7 @@ void gl_loop()
 
         glClear(GL_COLOR_BUFFER_BIT);
 
-        if (device.acquire_graphic_resource(texture_id)) {
+        if (device.acquire_graphic_resource(tex_id)) {
                 std::cerr << "Error acquiring texture resource." << std::endl;
                 exit(1);
         }
@@ -263,14 +263,14 @@ void gl_loop()
 
         }
 
-        if (framebuffer.copy(device.memory(texture_id))){
+        if (framebuffer.copy(device.memory(tex_id))){
                 std::cerr << "Failed to copy framebuffer." << std::endl;
                 exit(1);
         }
         fb_copy_time = framebuffer.get_copy_exec_time();
         double total_msec = rt_time.msec_since_snap();
 
-    if (device.release_graphic_resource(texture_id)) {
+    if (device.release_graphic_resource(tex_id)) {
             std::cerr << "Error releasing texture resource." << std::endl;
             exit(1);
     }
@@ -369,8 +369,8 @@ int main (int argc, char** argv)
         /*---------------------- Create shared GL-CL texture ----------------------*/
         gl_tex = create_tex_gl(window_size[0],window_size[1]);
         
-        texture_id = device.new_memory();
-        DeviceMemory& tex_mem = device.memory(texture_id);
+        tex_id = device.new_memory();
+        DeviceMemory& tex_mem = device.memory(tex_id);
         if (tex_mem.initialize_from_gl_texture(gl_tex)) {
                 std::cerr << "Failed to create memory object from gl texture" << std::endl;
                 exit(1);
@@ -417,8 +417,15 @@ int main (int argc, char** argv)
          // boat_obj.mat.shininess = 1.f;
          // boat_obj.mat.reflectiveness = 0.0f;
 
+
+        // scene.load_obj_file_and_make_objs("models/obj/hand/hand_00.obj");
+        scene.load_obj_file_and_make_objs("models/obj/ben/ben_00.obj");
+        // scene.load_obj_file_and_make_objs("models/obj/fairy_forest/f000.obj");
+        // scene.load_obj_file_and_make_objs("models/obj/marbles/marbles000.obj");
+
+/*
         // mesh_id item_mesh_id = scene.load_obj_file("models/obj/teapot2.obj");
-        mesh_id item_mesh_id = scene.load_obj_file("models/obj/hand_00.obj");
+        mesh_id item_mesh_id = scene.load_obj_file("models/obj/hand/hand_00.obj");
         // mesh_id item_mesh_id = scene.load_obj_file("models/obj/ben_00.obj");
         // mesh_id item_mesh_id = scene.load_obj_file("models/obj/f000.obj");
         // mesh_id item_mesh_id = scene.load_obj_file("models/obj/marbles000.obj");
@@ -432,6 +439,9 @@ int main (int argc, char** argv)
         item_obj.mat.shininess = 1.f;
         item_obj.mat.reflectiveness = 0.1f;
         item_id = item_obj_id;
+*/
+        // texture_id hand_tex_id = scene.texture_atlas.load_texture("textures/hand/hand.ppm");
+        // item_obj.mat.texture = hand_tex_id;
 
         // object_id item_obj_id_2 = scene.geometry.add_object(item_mesh_id);
         // Object& item_obj_2 = scene.geometry.object(item_obj_id_2);

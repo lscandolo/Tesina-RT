@@ -63,10 +63,49 @@ RayShader::shade(RayBundle& rays, HitBundle& hb, Scene& scene,
         if (shade_function.set_arg(10,cm.negative_z_mem()))
 		return -1;
 
-        if (shade_function.set_arg(11,cm.positive_x_mem()))
+        /*Texture_0 to Texture_19*/
+        if (shade_function.set_arg(11,scene.texture_atlas.texture_mem(0)))
+		return -1;
+        if (shade_function.set_arg(12,scene.texture_atlas.texture_mem(1)))
+		return -1;
+        if (shade_function.set_arg(13,scene.texture_atlas.texture_mem(2)))
+		return -1;
+        if (shade_function.set_arg(14,scene.texture_atlas.texture_mem(3)))
+		return -1;
+        if (shade_function.set_arg(15,scene.texture_atlas.texture_mem(4)))
+		return -1;
+        if (shade_function.set_arg(16,scene.texture_atlas.texture_mem(5)))
+		return -1;
+        if (shade_function.set_arg(17,scene.texture_atlas.texture_mem(6)))
+		return -1;
+        if (shade_function.set_arg(18,scene.texture_atlas.texture_mem(7)))
+		return -1;
+        if (shade_function.set_arg(19,scene.texture_atlas.texture_mem(8)))
+		return -1;
+        if (shade_function.set_arg(20,scene.texture_atlas.texture_mem(9)))
+		return -1;
+        if (shade_function.set_arg(21,scene.texture_atlas.texture_mem(10)))
+		return -1;
+        if (shade_function.set_arg(22,scene.texture_atlas.texture_mem(11)))
+		return -1;
+        if (shade_function.set_arg(23,scene.texture_atlas.texture_mem(12)))
+		return -1;
+        if (shade_function.set_arg(24,scene.texture_atlas.texture_mem(13)))
+		return -1;
+        if (shade_function.set_arg(25,scene.texture_atlas.texture_mem(14)))
+		return -1;
+        if (shade_function.set_arg(26,scene.texture_atlas.texture_mem(15)))
+		return -1;
+        if (shade_function.set_arg(27,scene.texture_atlas.texture_mem(16)))
+		return -1;
+        if (shade_function.set_arg(28,scene.texture_atlas.texture_mem(17)))
+		return -1;
+        if (shade_function.set_arg(29,scene.texture_atlas.texture_mem(18)))
+		return -1;
+        if (shade_function.set_arg(30,scene.texture_atlas.texture_mem(19)))
 		return -1;
 
-        if (shade_function.set_arg(12,scene.lights_mem()))
+        if (shade_function.set_arg(31,scene.lights_mem()))
 		return -1;
 
         size_t shade_work_size[] = {size, 0, 0};

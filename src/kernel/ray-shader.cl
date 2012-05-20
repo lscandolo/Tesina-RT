@@ -102,8 +102,26 @@ shade(global ColorInt* image,
       read_only image2d_t z_pos,
       read_only image2d_t z_neg,
       read_only image2d_t texture_0,
+      read_only image2d_t texture_1,
+      read_only image2d_t texture_2,
+      read_only image2d_t texture_3,
+      read_only image2d_t texture_4,
+      read_only image2d_t texture_5,
+      read_only image2d_t texture_6,
+      read_only image2d_t texture_7,
+      read_only image2d_t texture_8,
+      read_only image2d_t texture_9,
+      read_only image2d_t texture_10,
+      read_only image2d_t texture_11,
+      read_only image2d_t texture_12,
+      read_only image2d_t texture_13,
+      read_only image2d_t texture_14,
+      read_only image2d_t texture_15,
+      read_only image2d_t texture_16,
+      read_only image2d_t texture_17,
+      read_only image2d_t texture_18,
+      read_only image2d_t texture_19,
       global Lights* lights)
-
 {
 
 	const sampler_t sampler = 
@@ -127,10 +145,50 @@ shade(global ColorInt* image,
 		Material mat = material_list[material_index];
 
                 float3 diffuse_rgb;
-                /* if (mat.texture == -1) */
-                /*         diffuse_rgb = mat.diffuse; */
-                /* else */
+                if (mat.texture == -1)
+                        diffuse_rgb = mat.diffuse;
+                else if (mat.texture == 0)
                         diffuse_rgb = read_imagef(texture_0, sampler, info.uv).xyz;
+                else if (mat.texture == 1)
+                        diffuse_rgb = read_imagef(texture_1, sampler, info.uv).xyz;
+                else if (mat.texture == 2)
+                        diffuse_rgb = read_imagef(texture_2, sampler, info.uv).xyz;
+                else if (mat.texture == 3)
+                        diffuse_rgb = read_imagef(texture_3, sampler, info.uv).xyz;
+                else if (mat.texture == 4)
+                        diffuse_rgb = read_imagef(texture_4, sampler, info.uv).xyz;
+                else if (mat.texture == 5)
+                        diffuse_rgb = read_imagef(texture_5, sampler, info.uv).xyz;
+                else if (mat.texture == 6)
+                        diffuse_rgb = read_imagef(texture_6, sampler, info.uv).xyz;
+                else if (mat.texture == 7)
+                        diffuse_rgb = read_imagef(texture_7, sampler, info.uv).xyz;
+                else if (mat.texture == 8)
+                        diffuse_rgb = read_imagef(texture_8, sampler, info.uv).xyz;
+                else if (mat.texture == 9)
+                        diffuse_rgb = read_imagef(texture_9, sampler, info.uv).xyz;
+                else if (mat.texture == 10)
+                        diffuse_rgb = read_imagef(texture_10, sampler, info.uv).xyz;
+                else if (mat.texture == 11)
+                        diffuse_rgb = read_imagef(texture_11, sampler, info.uv).xyz;
+                else if (mat.texture == 12)
+                        diffuse_rgb = read_imagef(texture_12, sampler, info.uv).xyz;
+                else if (mat.texture == 13)
+                        diffuse_rgb = read_imagef(texture_13, sampler, info.uv).xyz;
+                else if (mat.texture == 14)
+                        diffuse_rgb = read_imagef(texture_14, sampler, info.uv).xyz;
+                else if (mat.texture == 15)
+                        diffuse_rgb = read_imagef(texture_15, sampler, info.uv).xyz;
+                else if (mat.texture == 16)
+                        diffuse_rgb = read_imagef(texture_16, sampler, info.uv).xyz;
+                else if (mat.texture == 17)
+                        diffuse_rgb = read_imagef(texture_17, sampler, info.uv).xyz;
+                else if (mat.texture == 18)
+                        diffuse_rgb = read_imagef(texture_18, sampler, info.uv).xyz;
+                else if (mat.texture == 19)
+                        diffuse_rgb = read_imagef(texture_19, sampler, info.uv).xyz;
+
+
 		/* float3 specular_rgb = (float3)(1.0f,1.0f,1.0f); */
 
 		float3 ambient_rgb = lights->ambient * diffuse_rgb;
@@ -150,7 +208,7 @@ shade(global ColorInt* image,
 
 			float spec = clamp(dot(r,-L),0.f,1.f);
 			spec = pow(spec,8);
-			spec *= cosL;
+			spec *= cosL * mat.shininess;
 
 			/*Diffuse*/
 			valrgb += dir_rgb * diffuse_rgb * cosL;

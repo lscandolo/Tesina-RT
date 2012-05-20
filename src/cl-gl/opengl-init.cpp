@@ -82,7 +82,8 @@ GLuint create_tex_gl(uint32_t width, uint32_t height)
 	return tex;
 }
 
-GLuint create_tex_gl_from_jpeg(uint32_t& width, uint32_t& height, const char* file){
+int32_t create_tex_gl_from_file(uint32_t& width, uint32_t& height, 
+                                const char* file, GLuint* tex_id){
 	
 	fipImage img;
 	if (!img.load(file)) 
@@ -108,15 +109,13 @@ GLuint create_tex_gl_from_jpeg(uint32_t& width, uint32_t& height, const char* fi
 			p[1] = pixels.rgbGreen;
 			p[2] = pixels.rgbBlue;
 			p[3] = 255;
-
 		}
 	}
 
-
 	GLuint tex;
 
-	glGenTextures(1,&tex);
-	glBindTexture(GL_TEXTURE_2D, tex);
+	glGenTextures(1,tex_id);
+	glBindTexture(GL_TEXTURE_2D, *tex_id);
 
 	// select modulate to mix texture with color for shading
 	glTexEnvf( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_DECAL );
@@ -145,7 +144,7 @@ GLuint create_tex_gl_from_jpeg(uint32_t& width, uint32_t& height, const char* fi
 	glBindTexture(GL_TEXTURE_2D, 0);
 	delete[] tex_data;
 
-	return tex;
+	return 0;
 
 }
 

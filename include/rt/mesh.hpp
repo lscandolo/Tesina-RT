@@ -3,8 +3,10 @@
 
 #include <stdint.h>
 #include <vector>
+#include <string>
 
 #include <rt/vector.hpp>
+#include <rt/material.hpp>
 #include <rt/cl_aux.hpp>
 #include <rt/assert.hpp>
 
@@ -26,6 +28,14 @@ struct Vertex
         cl_float2 texCoord;
 };
 
+struct MeshMaterial
+{
+        size_t start_index;
+        size_t end_index;
+        material_cl material;
+        std::string texture_filename;
+};
+
 class Mesh
 {
 
@@ -33,6 +43,7 @@ public:
         std::vector<Vertex> vertices;
         std::vector<Triangle> triangles;
         std::vector<vec3> slacks;
+        std::vector<MeshMaterial> original_materials;
 
 public:
         Mesh();

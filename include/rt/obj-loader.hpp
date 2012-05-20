@@ -175,9 +175,8 @@ private:
     std::map<int, std::vector<int> > m_vertexCache;
 
 public:
-    void get_meshes(std::vector<Mesh>& meshes, 
-                    std::vector<material_cl>& materials) const;
-    void toMesh(Mesh* mesh) const;
+    void get_meshes(std::vector<Mesh>& meshes) const;
+    void get_aggregate_mesh(Mesh* mesh) const;
 };
 
 //-----------------------------------------------------------------------------

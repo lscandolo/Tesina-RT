@@ -9,6 +9,7 @@
 #include <gpu/interface.hpp>
 #include <rt/mesh.hpp>
 #include <rt/material.hpp>
+#include <rt/texture-atlas.hpp>
 #include <rt/bvh.hpp>
 #include <rt/multi-bvh.hpp>
 #include <rt/light.hpp>
@@ -17,7 +18,6 @@
 
 /*Once MeshInstances have been handed to the scene geometry, it is 
 the user's responsibility to make sure the mesh pointers remain valid */
-
 
 typedef int32_t mesh_id;
 typedef int32_t object_id;
@@ -107,7 +107,9 @@ public:
         size_t triangle_count();
         size_t vertex_count();
 
-public:
+
+        TextureAtlas texture_atlas;
+private:
 
         std::vector<Mesh> mesh_atlas;
         Mesh aggregate_mesh;

@@ -10,19 +10,14 @@ Cubemap::initialize(std::string posx, std::string negx,
         if (device.initialize(clinfo))
                 return -1;
 
-	posx_tex = create_tex_gl_from_jpeg(tex_width,tex_height,posx.c_str());
-	negx_tex = create_tex_gl_from_jpeg(tex_width,tex_height,negx.c_str());
-	posy_tex = create_tex_gl_from_jpeg(tex_width,tex_height,posy.c_str());
-	negy_tex = create_tex_gl_from_jpeg(tex_width,tex_height,negy.c_str());
-	posz_tex = create_tex_gl_from_jpeg(tex_width,tex_height,posz.c_str());
-	negz_tex = create_tex_gl_from_jpeg(tex_width,tex_height,negz.c_str());
-	
-
-	if (posx_tex < 0 || negx_tex < 0 || 
-	    posy_tex < 0 || negy_tex < 0 || 
-	    posz_tex < 0 || negz_tex < 0) {
+	if (create_tex_gl_from_file(tex_width,tex_height,posx.c_str(),&posx_tex) ||
+            create_tex_gl_from_file(tex_width,tex_height,negx.c_str(),&negx_tex) ||
+            create_tex_gl_from_file(tex_width,tex_height,posy.c_str(),&posy_tex) ||
+            create_tex_gl_from_file(tex_width,tex_height,negy.c_str(),&negy_tex) ||
+            create_tex_gl_from_file(tex_width,tex_height,posz.c_str(),&posz_tex) ||
+            create_tex_gl_from_file(tex_width,tex_height,negz.c_str(),&negz_tex))
 		return -1;
-	}
+
 	
         posx_id = device.new_memory();
         if (device.memory(posx_id).initialize_from_gl_texture(posx_tex))
