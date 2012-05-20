@@ -32,29 +32,6 @@ Object::clone()
 	return mi;
 }
 
-/*------------------------- SceneGeometry Methods ---------------------*/
-
-object_id 
-SceneGeometry::add_object(mesh_id mid)
-{
-	object_id oid = object_id(objects.size());
-	objects.push_back(Object(mid));
-	return oid;
-}
-	
-void 
-SceneGeometry::remove_object(object_id id)
-{
-	if (id < (object_id)objects.size())
-		objects[id].set_mesh_id(invalid_mesh_id());
-}
-
-Object& 
-SceneGeometry::object(object_id id)
-{
-	ASSERT(is_valid_object_id(id) && id < objects.size());
-	return objects[id];
-}
 
 /*-------------------------- Scene Methods ------------------------------*/
 
@@ -206,6 +183,28 @@ Scene::transfer_aggregate_bvh_to_device()
         return 0;
 }
 
+std::vector<mesh_id>
+Scene::load_obj_file(std::string filename) 
+{
+        std::vector<mesh_id> mesh_ids;
+	ModelOBJ obj;
+	if (!obj.import(filename.c_str())){
+		return mesh_ids;
+	}
+
+        std::vector<Mesh> meshes;
+        // std::vector<material_cl> materials;
+
+        obj.get_meshes(meshes);
+
+        for (uint32_t i = 0; i < meshes.size(); ++i) {
+                mesh_atlas.push_back(meshes[i]);
+                uint32_t mesh_id = mesh_atlas.size() - 1;
+                mesh_ids.push_back(mesh_id);
+        }
+        return mesh_ids;
+}
+
 void
 Scene::load_obj_file_and_make_objs(std::string filename) 
 {
@@ -222,8 +221,8 @@ Scene::load_obj_file_and_make_objs(std::string filename)
         for (uint32_t i = 0; i < meshes.size(); ++i) {
                 mesh_atlas.push_back(meshes[i]);
                 uint32_t mesh_id = mesh_atlas.size() - 1;
-                object_id obj_id = geometry.add_object(mesh_id);
-                Object& obj = geometry.object(obj_id);
+                object_id obj_id = add_object(mesh_id);
+                Object& obj = object(obj_id);
                 MeshMaterial& mesh_mat = meshes[i].original_materials[0];
                 obj.mat = mesh_mat.material;
                 obj.mat.texture = texture_atlas.load_texture(mesh_mat.texture_filename);
@@ -231,7 +230,7 @@ Scene::load_obj_file_and_make_objs(std::string filename)
 }
 
 mesh_id
-Scene::load_obj_file(std::string filename)
+Scene::load_obj_file_as_aggregate(std::string filename)
 {
 	ModelOBJ obj;
 	if (!obj.import(filename.c_str())){
@@ -244,6 +243,45 @@ Scene::load_obj_file(std::string filename)
 	return uint32_t(mesh_atlas.size() - 1);
 }
 
+/*------------------------- Scene (Geometry) Methods ---------------------*/
+
+object_id 
+Scene::add_object(mesh_id mid)
+{
+	object_id oid = object_id(objects.size());
+	objects.push_back(Object(mid));
+        if (mid >= 0 && mid < mesh_atlas.size()) {
+                material_cl& mat = objects[oid].mat;
+                MeshMaterial& mesh_mat = mesh_atlas[mid].original_materials[0];
+                mat = mesh_mat.material;
+                mat.texture = texture_atlas.load_texture(mesh_mat.texture_filename);
+        }
+	return oid;
+}
+
+std::vector<object_id>
+Scene::add_objects(std::vector<mesh_id> mids)
+{
+        std::vector<object_id> object_ids;
+        for (size_t i = 0; i < mids.size(); ++i)  
+                object_ids.push_back(add_object(mids[i]));
+        return object_ids;
+}
+	
+void 
+Scene::remove_object(object_id id)
+{
+	if (id < (object_id)objects.size())
+		objects[id].set_mesh_id(invalid_mesh_id());
+}
+
+Object& 
+Scene::object(object_id id)
+{
+	ASSERT(is_valid_object_id(id) && id < objects.size());
+	return objects[id];
+}
+
 int32_t 
 Scene::create_aggregate_mesh()
 {
@@ -251,8 +289,8 @@ Scene::create_aggregate_mesh()
 	material_list.clear();
 	material_map.clear();
 
-	for (uint32_t i = 0; i < geometry.objects.size(); ++i) {
-		Object& obj = geometry.objects[i];
+	for (uint32_t i = 0; i < objects.size(); ++i) {
+		Object& obj = objects[i];
 
 		if (!obj.is_valid())
 			continue;
@@ -328,8 +366,8 @@ Scene::update_bvh_roots()
         uint32_t root_idx = 0;
 
 	/*--------------------- Update roots from object info ---------------------*/
-        for (uint32_t obj_idx = 0; obj_idx < geometry.objects.size(); ++obj_idx) {
-                Object& obj = geometry.objects[obj_idx];
+        for (uint32_t obj_idx = 0; obj_idx < objects.size(); ++obj_idx) {
+                Object& obj = objects[obj_idx];
                 if (!obj.is_valid())
                         continue;
                 
@@ -374,7 +412,7 @@ Scene::create_bvhs()
 
         /* Create bvh for each mesh that is referenced by a valid object*/
         /* Save the resulting structures in this->bvhs and this->mmaps (for material maps)*/
-        for (obj = geometry.objects.begin(); obj < geometry.objects.end(); obj++) {
+        for (obj = objects.begin(); obj < objects.end(); obj++) {
                 /*If object is invalid, ignore*/
                 if (!obj->is_valid())
                         continue;
@@ -664,7 +702,7 @@ Scene::triangle_count()
 
         size_t vtx_count = 0;
         std::vector<Object>::iterator obj;
-        for (obj = geometry.objects.begin(); obj != geometry.objects.end(); obj++) {
+        for (obj = objects.begin(); obj != objects.end(); obj++) {
                 if (!obj->is_valid())
                         continue;
                 Mesh& mesh = mesh_atlas[obj->id];
@@ -682,7 +720,7 @@ Scene::vertex_count()
 
         size_t vtx_count = 0;
         std::vector<Object>::iterator obj;
-        for (obj = geometry.objects.begin(); obj != geometry.objects.end(); obj++) {
+        for (obj = objects.begin(); obj != objects.end(); obj++) {
                 if (!obj->is_valid())
                         continue;
                 Mesh& mesh = mesh_atlas[obj->id];

@@ -9,13 +9,22 @@ RayShader::initialize(CLInfo& clinfo)
                 return -1;
 
 	/*------------------------ Set up ray shading kernel info ---------------------*/
-        shade_id = device.new_function();
-        DeviceFunction& shade_function = device.function(shade_id);
+        p_shade_id = device.new_function();
+        DeviceFunction& p_shade_function = device.function(p_shade_id);
 
-        if (shade_function.initialize("src/kernel/ray-shader.cl", "shade"))
+        if (p_shade_function.initialize("src/kernel/ray-shader.cl", "shade_primary"))
                 return -1;
 
-        shade_function.set_dims(1);
+        p_shade_function.set_dims(1);
+
+
+        s_shade_id = device.new_function();
+        DeviceFunction& s_shade_function = device.function(s_shade_id);
+
+        if (s_shade_function.initialize("src/kernel/ray-shader.cl", "shade_secondary"))
+                return -1;
+
+        s_shade_function.set_dims(1);
 
 	m_timing = false;
 	return 0;
@@ -23,10 +32,12 @@ RayShader::initialize(CLInfo& clinfo)
 
 int32_t 
 RayShader::shade(RayBundle& rays, HitBundle& hb, Scene& scene, 
-		 Cubemap& cm, FrameBuffer& fb, size_t size)
+		 Cubemap& cm, FrameBuffer& fb, size_t size, bool primary)
 {
 	if (m_timing)
 		m_timer.snap_time();
+
+        function_id shade_id = primary? p_shade_id : s_shade_id;
 
         DeviceFunction& shade_function = device.function(shade_id);
         

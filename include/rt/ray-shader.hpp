@@ -15,7 +15,7 @@ public:
 	
 	int32_t initialize(CLInfo& clinfo);
 	int32_t shade(RayBundle& rays, HitBundle& hb, Scene& scene, 
-		   Cubemap& cm, FrameBuffer& fb, size_t size);
+                      Cubemap& cm, FrameBuffer& fb, size_t size, bool primary = false);
 
 	void timing(bool b);
 	double get_exec_time();
@@ -23,7 +23,8 @@ public:
 private:
 
         DeviceInterface device;
-        function_id shade_id;
+        function_id p_shade_id;
+        function_id s_shade_id;
 
 	bool         m_timing;
 	rt_time_t    m_timer;

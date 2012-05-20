@@ -41,16 +41,6 @@ struct Object {
         vec3 slack;
 };
 
-struct SceneGeometry {
-
-        object_id add_object(mesh_id mid);
-        void remove_object(object_id id);
-        Object& object(object_id id);
-
-        std::vector<Object> objects;
-};
-
-
 class Scene {
 
 public:
@@ -81,13 +71,21 @@ public:
         
         size_t   root_count();
 
-        size_t   object_count(){return bvh_roots.size();}
-
+        /* Ligthing methods */
         int32_t set_dir_light(const directional_light_cl& dl);
         int32_t set_ambient_light(const color_cl& color);
 
-        mesh_id load_obj_file(std::string filename);
+        /* File load methods */
+        std::vector<mesh_id> load_obj_file(std::string filename);
+        mesh_id load_obj_file_as_aggregate(std::string filename);
         void    load_obj_file_and_make_objs(std::string filename);
+
+        /*Object methods*/
+        size_t   object_count(){return bvh_roots.size();}
+        object_id add_object(mesh_id mid);
+        std::vector<object_id> add_objects(std::vector<mesh_id> mids);
+        void remove_object(object_id id);
+        Object& object(object_id id);
 
         DeviceMemory& vertex_mem();
         DeviceMemory& triangle_mem();
@@ -102,8 +100,6 @@ public:
 
         bool reorderTriangles(const std::vector<uint32_t>& new_order);
 
-        SceneGeometry geometry;
-
         size_t triangle_count();
         size_t vertex_count();
 
@@ -111,9 +107,12 @@ public:
         TextureAtlas texture_atlas;
 private:
 
-        std::vector<Mesh> mesh_atlas;
         Mesh aggregate_mesh;
         BVH  aggregate_bvh;
+
+        std::vector<Object> objects;
+        std::vector<Mesh> mesh_atlas;
+
         std::vector<material_cl> material_list;
         std::vector<cl_int>   material_map;
 

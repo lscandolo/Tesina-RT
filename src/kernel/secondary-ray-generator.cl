@@ -22,7 +22,7 @@ typedef struct
 	float shininess;
 	float reflectiveness;
 	float refractive_index;
-        unsigned int texture;
+        int texture;
 
 } Material;
 
@@ -53,9 +53,8 @@ generate_secondary_rays(global RayHitInfo* ray_hit_info,
 	int index = get_global_id(0);
 	RayHitInfo info  = ray_hit_info[index];
 
-	if (!info.hit){
+	if (!info.hit)
 		return;
-	}
 
 	RayPlus rayplus = ray_in[index];
 	Ray original_ray = rayplus.ray;
@@ -104,7 +103,7 @@ generate_secondary_rays(global RayHitInfo* ray_hit_info,
 			if (ray_id >= max_rays)
 				return;
 
-			refract_ray.ori = original_ray.ori + original_ray.dir * info.t;
+                        refract_ray.ori = info.hit_point;
 			refract_ray.dir = dir;
 			refract_ray.invDir = 1.f/refract_ray.dir;
 			refract_ray.tMin = 0.0001f;
@@ -123,7 +122,7 @@ generate_secondary_rays(global RayHitInfo* ray_hit_info,
 		if (ray_id >= max_rays)
 			return;
 
-		reflect_ray.ori = original_ray.ori + original_ray.dir * info.t;
+		reflect_ray.ori = info.hit_point;
 		reflect_ray.dir = d - 2.f * n * (dot(d,n));
 		reflect_ray.invDir = 1.f/reflect_ray.dir;
 		reflect_ray.tMin = 0.0001f;
@@ -146,7 +145,7 @@ generate_secondary_rays(global RayHitInfo* ray_hit_info,
 
 		float3 d = original_ray.dir;
 		float3 n = info.n;
-		reflect_ray.ori = original_ray.ori + original_ray.dir * info.t;
+		reflect_ray.ori = info.hit_point;
 		reflect_ray.dir = d - 2.f * n * (dot(d,n));
 		reflect_ray.invDir = 1.f/reflect_ray.dir;
 		reflect_ray.tMin = 0.0001f;

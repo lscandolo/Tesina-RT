@@ -137,30 +137,29 @@ transform_hit_info(Ray ray,
 
 void __attribute__((always_inline))
 complete_hit_info(Ray ray, 
+                  sqmat4 tr,
                   RayHitInfo* hit_info, 
                   global Vertex* vertex_buffer,
                   global int* index_buffer)
 {
 
-        if (hit_info->hit) {
-                
-                hit_info->n = compute_normal(vertex_buffer, 
-                                            index_buffer,
-                                            hit_info->id, 
-                                            hit_info->uv);
-                /* If the normal is pointing out, 
-                   invert it and note it in the flags */
-                if (dot(hit_info->n,ray.dir) > 0) { 
-                        hit_info->inverse_n = true;
-                        hit_info->n *= -1.f;
-                }
-
-                hit_info->uv = compute_texCoord(vertex_buffer, 
-                                               index_buffer,
-                                               hit_info->id, 
-                                               hit_info->uv);
+               
+        hit_info->n = compute_normal(vertex_buffer, 
+                                     index_buffer,
+                                     hit_info->id, 
+                                     hit_info->uv);
+        hit_info->n = multiply_vector(hit_info->n, tr);
+        /* If the normal is pointing out, 
+           invert it and note it in the flags */
+        if (dot(hit_info->n,ray.dir) > 0) { 
+                hit_info->inverse_n = true;
+                hit_info->n *= -1.f;
         }
-        
+
+        hit_info->uv = compute_texCoord(vertex_buffer, 
+                                        index_buffer,
+                                        hit_info->id, 
+                                        hit_info->uv);
 }
 
 void __attribute__((always_inline))
@@ -283,8 +282,7 @@ triangle_hit(global Vertex* vertex_buffer,
                 return info;
 
         info.t = f * dot(e2,q);
-        /* bool t_is_within_bounds = (info.t < ray.tMax && info.t > ray.tMin); */
-        bool t_is_within_bounds = info.t > 0;
+        bool t_is_within_bounds = (info.t < ray.tMax && info.t > ray.tMin);
 
         if (t_is_within_bounds) {
                 info.hit = true;
@@ -455,28 +453,36 @@ trace(global RayHitInfo* trace_info,
         int offset = get_global_offset(0);
         Ray ray = rays[index].ray;
 
-        RayHitInfo hit_info;
-        hit_info.hit = false;
+        RayHitInfo best_info;
+        best_info.hit = false;
+        int best_root = 0;
 
         for (int i = 0; i < root_count; ++i) {
 
                 Ray tr_ray = transform_ray(ray, roots[i].trInv);
-                RayHitInfo root_hit_info = trace_ray(tr_ray,vertex_buffer,index_buffer,
+                RayHitInfo root_info = trace_ray(tr_ray,vertex_buffer,index_buffer,
                                                      bvh_nodes, roots[i].node);
                 /* float depth = root_hit_info.n.s0; */
                 /*Compute real t and hit point to compare which hit is closest*/
                 transform_hit_info(ray,
                                    tr_ray,
-                                   &root_hit_info,
+                                   &root_info,
                                    roots[i].tr,
                                    vertex_buffer,
                                    index_buffer);
                 /* root_hit_info.uv.s0 = depth; */
-                merge_hit_info (&hit_info, &root_hit_info);
+
+                if (!best_info.hit ||
+                    (root_info.hit && root_info.t < best_info.t)) {
+                        best_info = root_info;
+                        best_root = i;
+                }
         }
 
         /*Compute normal and texCoord at hit point*/
-        complete_hit_info(ray, &hit_info, vertex_buffer, index_buffer);
+        if (best_info.hit)
+                complete_hit_info(ray, roots[best_root].tr,&best_info, 
+                                  vertex_buffer, index_buffer);
         /* Save hit info*/
-        trace_info[index] = hit_info;
+        trace_info[index] = best_info;
 }

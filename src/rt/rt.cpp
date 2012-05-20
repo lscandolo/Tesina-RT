@@ -5,7 +5,7 @@
 #include <cl-gl/opencl-init.hpp>
 #include <rt/rt.hpp>
 
-#define MAX_BOUNCE 0
+#define MAX_BOUNCE 5
 
 CLInfo clinfo;
 GLInfo glinfo;
@@ -61,9 +61,9 @@ void gl_key(unsigned char key, int x, int y)
 
         static float scale = 1.f;
         static float tilt = 0.f;
-        Object& boat_obj = scene.geometry.object(boat_id);
-        Object& floor_obj = scene.geometry.object(floor_id);
-        Object& item_obj = scene.geometry.object(item_id);
+        Object& boat_obj = scene.object(boat_id);
+        Object& floor_obj = scene.object(floor_id);
+        Object& item_obj = scene.object(item_id);
 
         const sample_cl samples1[] = {{ 0.f , 0.f, 1.f}};
         const sample_cl samples4[] = {{ 0.25f , 0.25f, 0.25f},
@@ -211,7 +211,7 @@ void gl_loop()
                 prim_shadow_trace_time += tracer.get_shadow_exec_time();
 
                 if (ray_shader.shade(*ray_in, hit_bundle, scene,
-                                      cubemap, framebuffer, tile_size)){
+                                     cubemap, framebuffer, tile_size,true)){
                         std::cerr << "Failed to update framebuffer." << std::endl;
                         exit(1);
                 }
@@ -394,43 +394,48 @@ int main (int argc, char** argv)
         */
 
 
-        // mesh_id floor_mesh_id = scene.load_obj_file("models/obj/pack1OBJ/gridFluid1.obj");
-        // // mesh_id floor_mesh_id = scene.load_obj_file("models/obj/floor.obj");
-        // // mesh_id floor_mesh_id = scene.load_obj_file("models/obj/frame_water1.obj");
-        // object_id floor_obj_id  = scene.geometry.add_object(floor_mesh_id);
-        // Object& floor_obj = scene.geometry.object(floor_obj_id);
+        mesh_id floor_mesh_id = scene.load_obj_file_as_aggregate("models/obj/pack1OBJ/gridFluid1.obj");
+        // mesh_id floor_mesh_id = scene.load_obj_file_as_aggregate("models/obj/floor.obj");
+        // mesh_id floor_mesh_id = scene.load_obj_file_as_aggregate("models/obj/frame_water1.obj");
+        object_id floor_obj_id  = scene.add_object(floor_mesh_id);
+        Object& floor_obj = scene.object(floor_obj_id);
+        floor_obj.geom.setScale(2.f);
+        floor_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
+        floor_obj.mat.diffuse = Blue;
+        floor_obj.mat.reflectiveness = 0.9f;
+        floor_obj.mat.refractive_index = 1.333f;
         // floor_id = floor_obj_id; //!!
-        // floor_obj.geom.setScale(2.f);
-        // floor_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
-        // floor_obj.mat.diffuse = Blue;
-        // floor_obj.mat.reflectiveness = 0.9f;
-        // floor_obj.mat.refractive_index = 1.333f;
 
-         // mesh_id boat_mesh_id = scene.load_obj_file("models/obj/frame_boat1.obj");
-         // object_id boat_obj_id = scene.geometry.add_object(boat_mesh_id);
-         // Object& boat_obj = scene.geometry.object(boat_obj_id);
-         // boat_id = boat_obj_id; //!!
-         // boat_obj.geom.setPos(makeVector(0.f,-17.f,0.f));
-         // boat_obj.geom.setRpy(makeVector(0.05f,0.f,0.f));
-         // boat_obj.geom.setScale(2.f);
-         // boat_obj.mat.diffuse = Red;
-         // boat_obj.mat.shininess = 1.f;
-         // boat_obj.mat.reflectiveness = 0.0f;
+         mesh_id boat_mesh_id = 
+                 scene.load_obj_file_as_aggregate("models/obj/frame_boat1.obj");
+         object_id boat_obj_id = scene.add_object(boat_mesh_id);
+         Object& boat_obj = scene.object(boat_obj_id);
+         boat_id = boat_obj_id; //!!
+         boat_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
+         boat_obj.geom.setRpy(makeVector(0.f,0.f,0.f));
+         boat_obj.geom.setScale(2.f);
+         boat_obj.mat.diffuse = Red;
+         boat_obj.mat.shininess = 1.f;
+         boat_obj.mat.reflectiveness = 0.0f;
 
+        // std::vector<mesh_id> hand_meshes;
+        // hand_meshes = scene.load_obj_file("models/obj/hand/hand_00.obj");
+        // std::vector<object_id> hand_objects;
+        // hand_objects = scene.add_objects(hand_meshes);
 
         // scene.load_obj_file_and_make_objs("models/obj/hand/hand_00.obj");
-        scene.load_obj_file_and_make_objs("models/obj/ben/ben_00.obj");
+        // scene.load_obj_file_and_make_objs("models/obj/ben/ben_00.obj");
         // scene.load_obj_file_and_make_objs("models/obj/fairy_forest/f000.obj");
         // scene.load_obj_file_and_make_objs("models/obj/marbles/marbles000.obj");
 
 /*
-        // mesh_id item_mesh_id = scene.load_obj_file("models/obj/teapot2.obj");
-        mesh_id item_mesh_id = scene.load_obj_file("models/obj/hand/hand_00.obj");
-        // mesh_id item_mesh_id = scene.load_obj_file("models/obj/ben_00.obj");
-        // mesh_id item_mesh_id = scene.load_obj_file("models/obj/f000.obj");
-        // mesh_id item_mesh_id = scene.load_obj_file("models/obj/marbles000.obj");
-        object_id item_obj_id = scene.geometry.add_object(item_mesh_id);
-        Object& item_obj = scene.geometry.object(item_obj_id);
+        // mesh_id item_mesh_id = scene.load_obj_file_as_aggregate("models/obj/teapot2.obj");
+        mesh_id item_mesh_id = scene.load_obj_file_as_aggregate("models/obj/hand/hand_00.obj");
+        // mesh_id item_mesh_id = scene.load_obj_file_as_aggregate("models/obj/ben_00.obj");
+        // mesh_id item_mesh_id = scene.load_obj_file_as_aggregate("models/obj/f000.obj");
+        // mesh_id item_mesh_id = scene.load_obj_file_as_aggregate("models/obj/marbles000.obj");
+        object_id item_obj_id = scene.add_object(item_mesh_id);
+        Object& item_obj = scene.object(item_obj_id);
         item_obj.geom.setPos(makeVector(-8.f,-5.f,0.f));
         item_obj.mat.diffuse[0] = 239/255.f;
         item_obj.mat.diffuse[1] = 208/255.f;
@@ -443,8 +448,8 @@ int main (int argc, char** argv)
         // texture_id hand_tex_id = scene.texture_atlas.load_texture("textures/hand/hand.ppm");
         // item_obj.mat.texture = hand_tex_id;
 
-        // object_id item_obj_id_2 = scene.geometry.add_object(item_mesh_id);
-        // Object& item_obj_2 = scene.geometry.object(item_obj_id_2);
+        // object_id item_obj_id_2 = scene.add_object(item_mesh_id);
+        // Object& item_obj_2 = scene.object(item_obj_id_2);
         // item_obj_2.mat.diffuse = Red;
         // item_obj_2.mat.shininess = 1.f;
         // item_obj_2.geom.setPos(makeVector(8.f,5.f,0.f));
@@ -550,8 +555,7 @@ int main (int argc, char** argv)
 
         /*----------------------- Initialize cubemap ---------------------------*/
         
-        if (cubemap.initialize("textures/hand/hand.ppm",
-        // if (cubemap.initialize("textures/cubemap/Path/posx.jpg",
+        if (cubemap.initialize("textures/cubemap/Path/posx.jpg",
                                "textures/cubemap/Path/negx.jpg",
                                "textures/cubemap/Path/posy.jpg",
                                "textures/cubemap/Path/negy.jpg",

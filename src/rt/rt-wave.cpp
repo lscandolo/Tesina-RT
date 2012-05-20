@@ -233,7 +233,7 @@ void gl_loop()
 		prim_shadow_trace_time += tracer.get_shadow_exec_time();
 
 		if (ray_shader.shade(*ray_in, hit_bundle, scene,
-                                     cubemap, framebuffer, tile_size)){
+                                     cubemap, framebuffer, tile_size,true)){
 			std::cerr << "Failed to update framebuffer." << std::endl;
 			exit(1);
 		}
@@ -390,9 +390,9 @@ int main (int argc, char** argv)
                 std::cout << "Initialized scene succesfully" << std::endl;
         }
 
-	mesh_id floor_mesh_id = scene.load_obj_file("models/obj/grid100.obj");
-	object_id floor_obj_id  = scene.geometry.add_object(floor_mesh_id);
-	Object& floor_obj = scene.geometry.object(floor_obj_id);
+	mesh_id floor_mesh_id = scene.load_obj_file_as_aggregate("models/obj/grid100.obj");
+	object_id floor_obj_id  = scene.add_object(floor_mesh_id);
+	Object& floor_obj = scene.object(floor_obj_id);
  	floor_obj.geom.setScale(10.f);
 	// floor_obj.geom.setPos(makeVector(0.f,0.f,0.f));
 	floor_obj.mat.diffuse = White;
