@@ -168,11 +168,7 @@ void gl_loop()
 
 	glClear(GL_COLOR_BUFFER_BIT);
 
-<<<<<<< Updated upstream
         if (device.acquire_graphic_resource(tex_id) ||
-=======
-        if (device.acquire_graphic_resource(texture_id) ||
->>>>>>> Stashed changes
             cubemap.acquire_graphic_resources()) {
                 std::cerr << "Error acquiring texture resource." << std::endl;
                 pause_and_exit(1);
@@ -365,11 +361,7 @@ void gl_loop()
         fb_copy_time = framebuffer.get_copy_exec_time();
         double total_msec = rt_time.msec_since_snap();
 
-<<<<<<< Updated upstream
         if (device.release_graphic_resource(tex_id) ||
-=======
-        if (device.release_graphic_resource(texture_id) ||
->>>>>>> Stashed changes
             cubemap.release_graphic_resources()) {
                 std::cerr << "Error releasing texture resource." << std::endl;
                 pause_and_exit(1);

@@ -117,47 +117,20 @@ Ray transform_ray(Ray ray, sqmat4 tr)
         return ray;
 }
 
-<<<<<<< Updated upstream
 void __attribute__((always_inline))
 transform_hit_info(Ray ray, 
                    Ray tr_ray, 
                    RayHitInfo* hit_info, 
-=======
-//RayHitInfo __attribute__((always_inline))
-void
-transform_hit_info(RayHitInfo* hit_info, 
-                   Ray ray,
-                   Ray tr_ray, 
->>>>>>> Stashed changes
                    sqmat4 tr,
                    global Vertex* vertex_buffer,
                    global int* index_buffer)
 {
 
         if (hit_info->hit) {
-<<<<<<< Updated upstream
-                
-=======
-                
-                hit_info->n = compute_normal(vertex_buffer, 
-                                            index_buffer,
-                                            hit_info->id, 
-                                            hit_info->uv);
-                hit_info->n =
-                        normalize(multiply_vector(hit_info->n,tr));
-                
-                /* If the normal is pointing out, 
-                   invert it and note it in the flags */
-                if (dot(hit_info->n,ray.dir) > 0) {
-                        hit_info->inverse_n = true;
-                        hit_info->n *= -1.f;
-                }
->>>>>>> Stashed changes
                 hit_info->hit_point = tr_ray.ori + tr_ray.dir * hit_info->t;
                 hit_info->hit_point = multiply_point(hit_info->hit_point, tr);
                 hit_info->t = distance(hit_info->hit_point, ray.ori); 
         }
-<<<<<<< Updated upstream
      
 }
 
@@ -446,7 +419,6 @@ RayHitInfo trace_ray(Ray ray,
                                 going_up = true;
                                 /* depth--; */
                         }
-<<<<<<< Updated upstream
                 } else {
                         test_bbox = current_node.bbox;
                         bool hit = bbox_hit(test_bbox, ray);
@@ -479,30 +451,6 @@ RayHitInfo trace_ray(Ray ray,
                 
                                 // If it didn't hit, go up
                         } else {
-=======
-                }
-                        
-                bool hit = bbox_hit(current_node.bbox, ray);
-
-                // If it hit, and closer to the closest hit up to now, check it
-                if (hit) {
-                        // If it's a leaf, check all primitives in the leaf, then go up
-                        if (current_node.leaf) {
-                                // Check all primitives in leaf
-                                //RayHitInfo leaf_info = try_leaf_hit(&best_hit_info,
-                                //                                current_node,
-                                //                                vertex_buffer,
-                                //                                index_buffer,
-                                //                                ray);
-
-                                RayHitInfo leaf_info = leaf_hit(current_node,
-                                                              vertex_buffer,
-                                                              index_buffer,
-                                                              ray);
-                                merge_hit_info(&best_hit_info, &leaf_info);
-                                if (best_hit_info.hit)
-                                        ray.tMax = best_hit_info.t;
->>>>>>> Stashed changes
                                 last = curr;
                                 curr = current_node.parent;
                                 going_up = true;
@@ -538,7 +486,6 @@ trace(global RayHitInfo* trace_info,
                 Ray tr_ray = transform_ray(ray, roots[i].trInv);
                 RayHitInfo root_info = trace_ray(tr_ray,vertex_buffer,index_buffer,
                                                      bvh_nodes, roots[i].node);
-<<<<<<< Updated upstream
                 /* float depth = root_hit_info.n.s0; */
                 /*Compute real t and hit point to compare which hit is closest*/
                 transform_hit_info(ray,
@@ -554,17 +501,6 @@ trace(global RayHitInfo* trace_info,
                         best_info = root_info;
                         best_root = i;
                 }
-=======
-
-                //transform_hit_info(&root_hit_info,
-                //                   ray,
-                //                   tr_ray,
-                //                   roots[i].tr,
-                //                   vertex_buffer,
-                //                   index_buffer);
-
-                //merge_hit_info (&hit_info, &root_hit_info);
->>>>>>> Stashed changes
         }
 
         /*Compute normal and texCoord at hit point*/

@@ -5,11 +5,7 @@
 #include <cl-gl/opencl-init.hpp>
 #include <rt/rt.hpp>
 
-<<<<<<< Updated upstream
 #define MAX_BOUNCE 5
-=======
-#define MAX_BOUNCE 0
->>>>>>> Stashed changes
 
 CLInfo clinfo;
 GLInfo glinfo;
@@ -423,7 +419,6 @@ int main (int argc, char** argv)
          boat_obj.mat.shininess = 1.f;
          boat_obj.mat.reflectiveness = 0.0f;
 
-<<<<<<< Updated upstream
         // std::vector<mesh_id> hand_meshes;
         // hand_meshes = scene.load_obj_file("models/obj/hand/hand_00.obj");
         // std::vector<object_id> hand_objects;
@@ -464,57 +459,6 @@ int main (int argc, char** argv)
         // item_obj_2.mat.reflectiveness = 0.3f;
 
 #if 1
-=======
-        mesh_id teapot_mesh_id = scene.load_obj_file("models/obj/teapot2.obj");
-        // mesh_id teapot_mesh_id = scene.load_obj_file("models/obj/teapot-low_res.obj");
-        object_id teapot_obj_id = scene.geometry.add_object(teapot_mesh_id);
-        Object& teapot_obj = scene.geometry.object(teapot_obj_id);
-        // teapot_obj.geom.setPos(makeVector(-8.f,-5.f,0.f));
-        teapot_obj.mat.diffuse = Green;
-        teapot_obj.mat.shininess = 1.f;
-        teapot_obj.mat.reflectiveness = 0.3f;
-
-        object_id teapot_obj_id_2 = scene.geometry.add_object(teapot_mesh_id);
-        Object& teapot_obj_2 = scene.geometry.object(teapot_obj_id_2);
-        teapot_obj_2.mat.diffuse = Red;
-        teapot_obj_2.mat.shininess = 1.f;
-        teapot_obj_2.geom.setPos(makeVector(8.f,5.f,0.f));
-        teapot_obj_2.geom.setRpy(makeVector(0.2f,0.1f,0.3f));
-        teapot_obj_2.geom.setScale(0.3f);
-        teapot_obj_2.mat.reflectiveness = 0.3f;
-
-         // mesh_id bunny_mesh_id = scene.load_obj_file("models/obj/bunny.obj");
-         // object_id bunny_obj_id = scene.geometry.add_object(bunny_mesh_id);
-         // Object& bunny_obj = scene.geometry.object(bunny_obj_id);
-         // bunny_obj.geom.setPos(makeVector(0.f,0.f,-3.f));
-         // bunny_obj.geom.setRpy(makeVector(0.f,0.f,M_PI));
-         // bunny_obj.mat.diffuse = White;
-         // bunny_obj.mat.shininess = 0.8;
-         // bunny_obj.mat.reflectiveness = 0.f;
-
-
-         /* -=-=-=-=-=-=-=-=-=-=-=-=-=-=- Aggregate BVH -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- */
-        // scene.create_aggregate_mesh();
-        // Mesh& scene_mesh = scene.get_aggregate_mesh();
-        // std::cout << "Created scene aggregate succesfully." << std::endl;
-
-        // rt_time.snap_time();
-        // scene.create_aggregate_bvh();
-        // BVH& scene_bvh   = scene.get_aggregate_bvh ();
-        // double bvh_build_time = rt_time.msec_since_snap();
-        // std::cout << "Created BVH succesfully (build time: " 
-        //           << bvh_build_time << " msec, " 
-        //           << scene_bvh.nodeArraySize() << " nodes)." << std::endl;
-
-        // /*---------------------- Initialize SceneInfo ----------------------------*/
-        // if (!scene_info.initialize(scene,clinfo)) {
-        //         std::cerr << "Failed to initialize scene info." << std::endl;
-        //         pause_and_exit(1);
-        // }
-        // std::cout << "Initialized scene info succesfully." << std::endl;
-
-#if 0
->>>>>>> Stashed changes
          /* -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- Aggregate BVH -=-=-=-=-=-=-=-=-=-=-=-=-=- */
          if (scene.create_aggregate_mesh()) { 
                 std::cerr << "Failed to create aggregate mesh" << std::endl;
@@ -572,20 +516,7 @@ int main (int argc, char** argv)
                  std::cout << "Transfered bvhs to device succesfully" << std::endl;
          }
 
-<<<<<<< Updated upstream
 #endif
-=======
-
-         /* -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- NEW STUFF -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- */
-
-        /*---------------------- Initialize SceneInfo ----------------------------*/
-        //  if (!scene_info.initialize_multi(scene,clinfo)) {
-        //         std::cerr << "Failed to initialize scene info." << std::endl;
-        //         pause_and_exit(1);
-        // }
-        // std::cout << "Initialized scene info succesfully." << std::endl;
-        //  // pause_and_exit(1);
->>>>>>> Stashed changes
 
         /*---------------------- Set initial Camera paramaters -----------------------*/
         camera.set(makeVector(0,3,-30), makeVector(0,0,1), makeVector(0,1,0), M_PI/4.,
