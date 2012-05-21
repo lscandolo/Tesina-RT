@@ -19,6 +19,9 @@ public:
         int32_t       initialize(CLInfo& clinfo);
         texture_id    load_texture(std::string filename);
         DeviceMemory& texture_mem(texture_id);
+
+        int32_t acquire_graphic_resources();
+        int32_t release_graphic_resources();
         
 private:
         DeviceInterface device;

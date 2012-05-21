@@ -169,7 +169,8 @@ void gl_loop()
 	glClear(GL_COLOR_BUFFER_BIT);
 
         if (device.acquire_graphic_resource(tex_id) ||
-            cubemap.acquire_graphic_resources()) {
+            cubemap.acquire_graphic_resources() || 
+            scene.acquire_graphic_resources()) {
                 std::cerr << "Error acquiring texture resource." << std::endl;
                 pause_and_exit(1);
         }
@@ -362,7 +363,8 @@ void gl_loop()
         double total_msec = rt_time.msec_since_snap();
 
         if (device.release_graphic_resource(tex_id) ||
-            cubemap.release_graphic_resources()) {
+            cubemap.release_graphic_resources() ||
+            scene.release_graphic_resources()) {
                 std::cerr << "Error releasing texture resource." << std::endl;
                 pause_and_exit(1);
         }
@@ -479,17 +481,17 @@ int main (int argc, char** argv)
 	}
 	std::cout << "Initialized scene succesfully." << std::endl;
 
-        mesh_id floor_mesh_id = scene.load_obj_file_as_aggregate("models/obj/grid100.obj");
-        object_id floor_obj_id  = scene.add_object(floor_mesh_id);
+    mesh_id floor_mesh_id = scene.load_obj_file_as_aggregate("models/obj/grid100.obj");
+    object_id floor_obj_id  = scene.add_object(floor_mesh_id);
 	Object& floor_obj = scene.object(floor_obj_id);
-        floor_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
+    floor_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
  	floor_obj.geom.setScale(10.f);
 	floor_obj.mat.diffuse = Blue;
 	floor_obj.mat.reflectiveness = 0.95f;
 	floor_obj.mat.refractive_index = 1.5f;
-        /*Set slack for bvh*/
-        vec3 slack = makeVector(0.f,WAVE_HEIGHT,0.f);
-        scene.get_mesh(floor_mesh_id).set_global_slack(slack);
+    /*Set slack for bvh*/
+    vec3 slack = makeVector(0.f,WAVE_HEIGHT,0.f);
+    scene.get_mesh(floor_mesh_id).set_global_slack(slack);
 
         mesh_id boat_mesh_id = scene.load_obj_file_as_aggregate("models/obj/frame_boat1.obj");
         object_id boat_obj_id = scene.add_object(boat_mesh_id);
@@ -499,7 +501,7 @@ int main (int argc, char** argv)
         boat_obj.geom.setRpy(makeVector(0.0f,0.f,0.f));
         boat_obj.geom.setScale(2.f);
         boat_obj.mat.diffuse = Red;
-        boat_obj.mat.shininess = 1.f;
+        boat_obj.mat.shininess = 0.3f;
         boat_obj.mat.reflectiveness = 0.0f;
 
         if (scene.create_bvhs()) {

@@ -172,9 +172,19 @@ void gl_loop()
 
 	glClear(GL_COLOR_BUFFER_BIT);
 
-        if (device.acquire_graphic_resource(tex_id)) {
+        if (device.acquire_graphic_resource(tex_id) ||
+            cubemap.acquire_graphic_resources() || 
+            flat_scene.acquire_graphic_resources()) {
                 std::cerr << "Error acquiring texture resource." << std::endl;
                 exit(1);
+        }
+
+        for (size_t i = 0; i < scenes.size(); ++i) {
+                Scene& scene = scenes[i];
+                if (scene.acquire_graphic_resources()) {
+                        std::cerr << "Error acquiring texture resource." << std::endl;
+                        exit(1);
+                }
         }
 
         if (framebuffer.clear()) {
@@ -295,10 +305,20 @@ void gl_loop()
 	else
 		max_time = std::max(max_time,total_msec);
 
-        if (device.release_graphic_resource(tex_id)) {
+        if (device.release_graphic_resource(tex_id) ||
+            cubemap.release_graphic_resources() || 
+            flat_scene.release_graphic_resources()) {
                 std::cerr << "Error releasing texture resource." << std::endl;
                 exit(1);
         }
+
+        for (size_t i = 0; i < scenes.size(); ++i) {
+                if (scenes[i].release_graphic_resources()) {
+                        std::cerr << "Error releasing texture resource." << std::endl;
+                        exit(1);
+                }
+        }
+
         ////////////////// Immediate mode textured quad
 	glBindTexture(GL_TEXTURE_2D, gl_tex);
 

@@ -154,7 +154,9 @@ void gl_loop()
 
         glClear(GL_COLOR_BUFFER_BIT);
 
-        if (device.acquire_graphic_resource(tex_id)) {
+        if (device.acquire_graphic_resource(tex_id) ||
+            cubemap.acquire_graphic_resources() || 
+            scene.acquire_graphic_resources()) {
                 std::cerr << "Error acquiring texture resource." << std::endl;
                 pause_and_exit(1);
         }
@@ -270,7 +272,9 @@ void gl_loop()
         fb_copy_time = framebuffer.get_copy_exec_time();
         double total_msec = rt_time.msec_since_snap();
 
-    if (device.release_graphic_resource(tex_id)) {
+        if (device.release_graphic_resource(tex_id) ||
+            cubemap.release_graphic_resources() || 
+            scene.release_graphic_resources()) {
             std::cerr << "Error releasing texture resource." << std::endl;
             pause_and_exit(1);
     }
@@ -334,7 +338,6 @@ void gl_loop()
         rt_log << std::endl;
 
         glutSwapBuffers();
-        pause_and_exit(-1);//!!
 }
 
 int main (int argc, char** argv)
@@ -395,9 +398,9 @@ int main (int argc, char** argv)
         */
 
 
-        mesh_id floor_mesh_id = scene.load_obj_file_as_aggregate("models/obj/pack1OBJ/gridFluid1.obj");
+        //mesh_id floor_mesh_id = scene.load_obj_file_as_aggregate("models/obj/pack1OBJ/gridFluid1.obj");
         // mesh_id floor_mesh_id = scene.load_obj_file_as_aggregate("models/obj/floor.obj");
-        // mesh_id floor_mesh_id = scene.load_obj_file_as_aggregate("models/obj/frame_water1.obj");
+         mesh_id floor_mesh_id = scene.load_obj_file_as_aggregate("models/obj/frame_water1.obj");
         object_id floor_obj_id  = scene.add_object(floor_mesh_id);
         Object& floor_obj = scene.object(floor_obj_id);
         floor_obj.geom.setScale(2.f);

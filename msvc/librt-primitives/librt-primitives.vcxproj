@@ -97,6 +97,7 @@
     <ClInclude Include="..\..\include\rt\rt.hpp" />
     <ClInclude Include="..\..\include\rt\scene.hpp" />
     <ClInclude Include="..\..\include\rt\secondary-ray-generator.hpp" />
+    <ClInclude Include="..\..\include\rt\texture-atlas.hpp" />
     <ClInclude Include="..\..\include\rt\timing.hpp" />
     <ClInclude Include="..\..\include\rt\tracer.hpp" />
     <ClInclude Include="..\..\include\rt\vector.hpp" />
@@ -118,6 +119,7 @@
     <ClCompile Include="..\..\src\rt\ray.cpp" />
     <ClCompile Include="..\..\src\rt\scene.cpp" />
     <ClCompile Include="..\..\src\rt\secondary-ray-generator.cpp" />
+    <ClCompile Include="..\..\src\rt\texture-atlas.cpp" />
     <ClCompile Include="..\..\src\rt\timing.cpp" />
     <ClCompile Include="..\..\src\rt\tracer.cpp" />
     <ClCompile Include="..\..\src\rt\vector.cpp" />

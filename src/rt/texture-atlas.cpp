@@ -58,3 +58,38 @@ TextureAtlas::texture_mem(texture_id tex_id)
 
         return device.memory(tex_mem_ids[tex_id]);
 }
+
+int32_t 
+TextureAtlas::acquire_graphic_resources()
+{
+       if (!m_initialized)
+                return -1;
+
+        if (device.acquire_graphic_resource(invalid_tex_mem_id))
+                return -1;
+
+        for (size_t i = 0; i < tex_mem_ids.size(); ++i) {
+                memory_id id = tex_mem_ids[i];
+                if (device.acquire_graphic_resource(id))
+                        return -1;
+        }
+        return 0;
+}
+
+int32_t 
+TextureAtlas::release_graphic_resources()
+{
+       if (!m_initialized)
+                return -1;
+
+        if (device.release_graphic_resource(invalid_tex_mem_id))
+                return -1;
+
+        for (size_t i = 0; i < tex_mem_ids.size(); ++i) {
+                memory_id id = tex_mem_ids[i];
+                if (device.release_graphic_resource(id))
+                        return -1;
+        }
+
+        return 0;
+}

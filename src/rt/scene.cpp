@@ -650,6 +650,30 @@ Scene::set_ambient_light(const color_cl& c)
         return light_mem.write(sizeof(lights_cl), &lights);
 }
 
+int32_t
+Scene::acquire_graphic_resources()
+{
+        if (!m_initialized)
+                return -1;
+
+        if (texture_atlas.acquire_graphic_resources())
+                return -1;
+
+        return 0;
+}
+
+int32_t
+Scene::release_graphic_resources()
+{
+        if (!m_initialized)
+                return -1;
+
+        if (texture_atlas.release_graphic_resources())
+                return -1;
+
+        return 0;
+}
+
 DeviceMemory& 
 Scene::vertex_mem()
 {

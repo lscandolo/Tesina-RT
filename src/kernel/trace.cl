@@ -159,19 +159,17 @@ complete_hit_info(Ray ray,
                                         index_buffer,
                                         hit_info->id, 
                                         hit_info->uv);
-=======
->>>>>>> Stashed changes
 }
 
 void __attribute__((always_inline))
 merge_hit_info(RayHitInfo* best_info, RayHitInfo* new_info){
         if (!best_info->hit ||
             (new_info->hit && new_info->t < best_info->t)) {
-                    best_info->t  = new_info->t;
-                    best_info->id = new_info->id;
-                    best_info->uv = new_info->uv;
-                    best_info->hit_point = new_info->hit_point;
-                    //*best_info = *new_info;
+                    //best_info->t  = new_info->t;
+                    //best_info->id = new_info->id;
+                    //best_info->uv = new_info->uv;
+                    //best_info->hit_point = new_info->hit_point;
+                    *best_info = *new_info;
         }
 }
 
@@ -420,8 +418,7 @@ RayHitInfo trace_ray(Ray ray,
                                 /* depth--; */
                         }
                 } else {
-                        test_bbox = current_node.bbox;
-                        bool hit = bbox_hit(test_bbox, ray);
+                        bool hit = bbox_hit(current_node.bbox, ray);
 
                         // If it hit, and closer to the closest hit up to now, check it
                         if (hit) {

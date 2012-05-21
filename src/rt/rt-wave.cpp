@@ -139,10 +139,12 @@ void gl_loop()
 
 	glClear(GL_COLOR_BUFFER_BIT);
 
-        if (device.acquire_graphic_resource(tex_id)) {
-                std::cerr << "Error acquiring texture resource." << std::endl;
-                exit(1);
-        }
+    if (device.acquire_graphic_resource(tex_id) ||
+            cubemap.acquire_graphic_resources() ||
+            scene.acquire_graphic_resources()) {
+                    std::cerr << "Error acquiring texture resource." << std::endl;
+                    exit(1);
+    }
 
         if (framebuffer.clear()) {
 		std::cerr << "Failed to clear framebuffer." << std::endl;
@@ -287,7 +289,9 @@ void gl_loop()
 	fb_copy_time = framebuffer.get_copy_exec_time();
 	double total_msec = rt_time.msec_since_snap();
 
-        if (device.release_graphic_resource(tex_id)) {
+        if (device.release_graphic_resource(tex_id) ||
+            cubemap.release_graphic_resources() ||
+            scene.release_graphic_resources()) {
                 std::cerr << "Error releasing texture resource." << std::endl;
                 exit(1);
         }

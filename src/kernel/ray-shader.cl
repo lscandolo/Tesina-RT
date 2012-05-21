@@ -191,9 +191,7 @@ shade_secondary(global ColorInt* image,
 		/* float3 specular_rgb = (float3)(1.0f,1.0f,1.0f); */
 
 		float3 ambient_rgb = lights->ambient * diffuse_rgb;
-
 		float3 dir_rgb   = lights->directional.color;
-
 		valrgb = ambient_rgb;
 
 		/* If it's not in shadow, compute diffuse and specular component */

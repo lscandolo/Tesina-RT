@@ -87,6 +87,10 @@ public:
         void remove_object(object_id id);
         Object& object(object_id id);
 
+        /*GPU resources*/
+        int32_t acquire_graphic_resources();
+        int32_t release_graphic_resources();
+
         DeviceMemory& vertex_mem();
         DeviceMemory& triangle_mem();
         DeviceMemory& material_list_mem();

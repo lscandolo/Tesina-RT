@@ -25,7 +25,7 @@ typedef struct
 } Sample;
 
 kernel void
-_generate_primary_rays(global RayPlus* ray_buffer,
+generate_primary_rays(global RayPlus* ray_buffer,
 		      read_only float4 pos,
 		      read_only float4 dir,
 		      read_only float4 right,
@@ -40,9 +40,9 @@ _generate_primary_rays(global RayPlus* ray_buffer,
 	int offset = get_global_offset(0);
   	int index = (gid-offset);
 
-	int i = gid / spp;
-	Sample sample = samples[gid%spp];
-
+    int pixels = width * height;
+    int i = gid%pixels;
+	Sample sample = samples[gid/pixels];
 
   	global Ray* ray = &(ray_buffer[index].ray);
 
@@ -99,7 +99,7 @@ _generate_primary_rays(global RayPlus* ray_buffer,
 }
 
 kernel void
-generate_primary_rays(global RayPlus* ray_buffer,
+_generate_primary_rays(global RayPlus* ray_buffer,
 		      read_only float4 pos,
 		      read_only float4 dir,
 		      read_only float4 right,
