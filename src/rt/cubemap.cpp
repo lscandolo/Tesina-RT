@@ -6,8 +6,7 @@ Cubemap::initialize(std::string posx, std::string negx,
 		    std::string posz, std::string negz,
 		    const CLInfo& clinfo)
 {
-
-        if (device.initialize(clinfo))
+        if (device.initialize(clinfo) || m_initialized)
                 return -1;
 
 	if (create_tex_gl_from_file(tex_width,tex_height,posx.c_str(),&posx_tex) ||
@@ -42,6 +41,40 @@ Cubemap::initialize(std::string posx, std::string negx,
         negz_id = device.new_memory();
         if (device.memory(negz_id).initialize_from_gl_texture(negz_tex))
                 return -1;
-
+        m_initialized = true;
 	return 0;
+}
+
+int32_t
+Cubemap::acquire_graphic_resources()
+{
+        if (!m_initialized)
+                return -1;
+
+        if (device.acquire_graphic_resource(posx_id) ||
+            device.acquire_graphic_resource(posy_id) ||
+            device.acquire_graphic_resource(posz_id) ||
+            device.acquire_graphic_resource(negx_id) ||
+            device.acquire_graphic_resource(negy_id) ||
+            device.acquire_graphic_resource(negz_id))
+                return -1;
+
+        return 0;
+}
+
+int32_t 
+Cubemap::release_graphic_resources()
+{
+        if (!m_initialized)
+                return -1;
+
+        if (device.release_graphic_resource(posx_id) ||
+            device.release_graphic_resource(posy_id) ||
+            device.release_graphic_resource(posz_id) ||
+            device.release_graphic_resource(negx_id) ||
+            device.release_graphic_resource(negy_id) ||
+            device.release_graphic_resource(negz_id))
+                return -1;
+
+        return 0;
 }

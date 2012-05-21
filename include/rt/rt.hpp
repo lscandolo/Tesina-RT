@@ -26,4 +26,10 @@
 #include <rt/bvh.hpp>
 #include <rt/cl_aux.hpp>
 
+void pause_and_exit(int val)
+{
+        getchar();
+        exit(val);
+}
+
 #endif /* RT_HPP */

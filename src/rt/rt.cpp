@@ -5,7 +5,11 @@
 #include <cl-gl/opencl-init.hpp>
 #include <rt/rt.hpp>
 
+<<<<<<< Updated upstream
 #define MAX_BOUNCE 5
+=======
+#define MAX_BOUNCE 0
+>>>>>>> Stashed changes
 
 CLInfo clinfo;
 GLInfo glinfo;
@@ -97,18 +101,18 @@ void gl_key(unsigned char key, int x, int y)
         case '1': /* Set 1 sample per pixel */
                 if (prim_ray_gen.set_spp(1,samples1)){
                         std::cerr << "Error seting spp" << std::endl;
-                        exit(1);
+                        pause_and_exit(1);
                 }
                 break;
         case '4': /* Set 4 samples per pixel */
                 if (prim_ray_gen.set_spp(4,samples4)){
                         std::cerr << "Error seting spp" << std::endl;
-                        exit(1);
+                        pause_and_exit(1);
                 }
                 break;
         case 'q':
-                std::cout << std::endl << "Exiting..." << std::endl;
-                exit(1);
+                std::cout << std::endl << "pause_and_exiting..." << std::endl;
+                pause_and_exit(1);
                 break;
         case 't':
                 tilt -= 0.01f;
@@ -156,12 +160,12 @@ void gl_loop()
 
         if (device.acquire_graphic_resource(tex_id)) {
                 std::cerr << "Error acquiring texture resource." << std::endl;
-                exit(1);
+                pause_and_exit(1);
         }
         
         if (framebuffer.clear()) {
                 std::cerr << "Failed to clear framebuffer." << std::endl;
-                exit(1);
+                pause_and_exit(1);
         }
         fb_clear_time = framebuffer.get_clear_exec_time();
 
@@ -192,7 +196,7 @@ void gl_loop()
                 if (prim_ray_gen.set_rays(camera, ray_bundle_1, window_size,
                                            tile_size, offset)) {
                         std::cerr << "Error seting primary ray bundle" << std::endl;
-                        exit(1);
+                        pause_and_exit(1);
                 }
                 prim_gen_time += prim_ray_gen.get_exec_time();
 
@@ -200,20 +204,20 @@ void gl_loop()
 
                 if (tracer.trace(scene, tile_size, *ray_in, hit_bundle)) {
                         std::cerr << "Error tracing primary rays" << std::endl;
-                        exit(1);
+                        pause_and_exit(1);
                 }
                 prim_trace_time += tracer.get_trace_exec_time();
 
                 if (tracer.shadow_trace(scene, tile_size, *ray_in, hit_bundle)) {
                         std::cerr << "Error shadow tracing primary rays" << std::endl;
-                        exit(1);
+                        pause_and_exit(1);
                 }
                 prim_shadow_trace_time += tracer.get_shadow_exec_time();
 
                 if (ray_shader.shade(*ray_in, hit_bundle, scene,
                                      cubemap, framebuffer, tile_size,true)){
                         std::cerr << "Failed to update framebuffer." << std::endl;
-                        exit(1);
+                        pause_and_exit(1);
                 }
                 shader_time += ray_shader.get_exec_time();
 
@@ -224,7 +228,7 @@ void gl_loop()
                                                  hit_bundle, *ray_out, &sec_ray_count)) {
                                 std::cerr << "Failed to create secondary rays." 
                                           << std::endl;
-                                exit(1);
+                                pause_and_exit(1);
                         }
                         sec_gen_time += sec_ray_gen.get_exec_time();
 
@@ -240,7 +244,7 @@ void gl_loop()
                         if (tracer.trace(scene, sec_ray_count, 
                                          *ray_in, hit_bundle, true)) {
                                 std::cerr << "Error tracing secondary rays" << std::endl;
-                                exit(1);
+                                pause_and_exit(1);
                         }
 
                         sec_trace_time += tracer.get_trace_exec_time();
@@ -249,14 +253,14 @@ void gl_loop()
                                                 *ray_in, hit_bundle, true)) {
                                 std::cerr << "Error shadow tracing primary rays" 
                                           << std::endl;
-                                exit(1);
+                                pause_and_exit(1);
                         }
                         sec_shadow_trace_time += tracer.get_shadow_exec_time();
 
                         if (ray_shader.shade(*ray_in, hit_bundle, scene,
                                               cubemap, framebuffer, sec_ray_count)){
                                 std::cerr << "Ray shader failed execution." << std::endl;
-                                exit(1);
+                                pause_and_exit(1);
                         }
                         shader_time += ray_shader.get_exec_time();
                 }
@@ -265,14 +269,14 @@ void gl_loop()
 
         if (framebuffer.copy(device.memory(tex_id))){
                 std::cerr << "Failed to copy framebuffer." << std::endl;
-                exit(1);
+                pause_and_exit(1);
         }
         fb_copy_time = framebuffer.get_copy_exec_time();
         double total_msec = rt_time.msec_since_snap();
 
     if (device.release_graphic_resource(tex_id)) {
             std::cerr << "Error releasing texture resource." << std::endl;
-            exit(1);
+            pause_and_exit(1);
     }
         ////////////////// Immediate mode textured quad
         glBindTexture(GL_TEXTURE_2D, gl_tex);
@@ -334,6 +338,7 @@ void gl_loop()
         rt_log << std::endl;
 
         glutSwapBuffers();
+        pause_and_exit(-1);//!!
 }
 
 int main (int argc, char** argv)
@@ -347,14 +352,14 @@ int main (int argc, char** argv)
                 
         if (init_gl(argc,argv,&glinfo, window_size, "RT") != 0){
                 std::cerr << "Failed to initialize GL" << std::endl;
-                exit(1);
+                pause_and_exit(1);
         } else { 
                 std::cout << "Initialized GL succesfully" << std::endl;
         }
 
         if (init_cl(glinfo,&clinfo) != CL_SUCCESS){
                 std::cerr << "Failed to initialize CL" << std::endl;
-                exit(1);
+                pause_and_exit(1);
         } else { 
                 std::cout << "Initialized CL succesfully" << std::endl;
         }
@@ -363,7 +368,7 @@ int main (int argc, char** argv)
         /* Initialize device interface */
         if (device.initialize(clinfo)) {
                 std::cerr << "Failed to initialize device interface" << std::endl;
-                exit(1);
+                pause_and_exit(1);
         }
         
         /*---------------------- Create shared GL-CL texture ----------------------*/
@@ -373,12 +378,12 @@ int main (int argc, char** argv)
         DeviceMemory& tex_mem = device.memory(tex_id);
         if (tex_mem.initialize_from_gl_texture(gl_tex)) {
                 std::cerr << "Failed to create memory object from gl texture" << std::endl;
-                exit(1);
+                pause_and_exit(1);
         }
         /*---------------------- Set up scene ---------------------------*/
         if (scene.initialize(clinfo)) {
                 std::cerr << "Failed to initialize scene" << std::endl;
-                exit(1);
+                pause_and_exit(1);
         } else {
                 std::cout << "Initialized scene succesfully" << std::endl;
         }
@@ -418,6 +423,7 @@ int main (int argc, char** argv)
          boat_obj.mat.shininess = 1.f;
          boat_obj.mat.reflectiveness = 0.0f;
 
+<<<<<<< Updated upstream
         // std::vector<mesh_id> hand_meshes;
         // hand_meshes = scene.load_obj_file("models/obj/hand/hand_00.obj");
         // std::vector<object_id> hand_objects;
@@ -458,17 +464,68 @@ int main (int argc, char** argv)
         // item_obj_2.mat.reflectiveness = 0.3f;
 
 #if 1
+=======
+        mesh_id teapot_mesh_id = scene.load_obj_file("models/obj/teapot2.obj");
+        // mesh_id teapot_mesh_id = scene.load_obj_file("models/obj/teapot-low_res.obj");
+        object_id teapot_obj_id = scene.geometry.add_object(teapot_mesh_id);
+        Object& teapot_obj = scene.geometry.object(teapot_obj_id);
+        // teapot_obj.geom.setPos(makeVector(-8.f,-5.f,0.f));
+        teapot_obj.mat.diffuse = Green;
+        teapot_obj.mat.shininess = 1.f;
+        teapot_obj.mat.reflectiveness = 0.3f;
+
+        object_id teapot_obj_id_2 = scene.geometry.add_object(teapot_mesh_id);
+        Object& teapot_obj_2 = scene.geometry.object(teapot_obj_id_2);
+        teapot_obj_2.mat.diffuse = Red;
+        teapot_obj_2.mat.shininess = 1.f;
+        teapot_obj_2.geom.setPos(makeVector(8.f,5.f,0.f));
+        teapot_obj_2.geom.setRpy(makeVector(0.2f,0.1f,0.3f));
+        teapot_obj_2.geom.setScale(0.3f);
+        teapot_obj_2.mat.reflectiveness = 0.3f;
+
+         // mesh_id bunny_mesh_id = scene.load_obj_file("models/obj/bunny.obj");
+         // object_id bunny_obj_id = scene.geometry.add_object(bunny_mesh_id);
+         // Object& bunny_obj = scene.geometry.object(bunny_obj_id);
+         // bunny_obj.geom.setPos(makeVector(0.f,0.f,-3.f));
+         // bunny_obj.geom.setRpy(makeVector(0.f,0.f,M_PI));
+         // bunny_obj.mat.diffuse = White;
+         // bunny_obj.mat.shininess = 0.8;
+         // bunny_obj.mat.reflectiveness = 0.f;
+
+
+         /* -=-=-=-=-=-=-=-=-=-=-=-=-=-=- Aggregate BVH -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- */
+        // scene.create_aggregate_mesh();
+        // Mesh& scene_mesh = scene.get_aggregate_mesh();
+        // std::cout << "Created scene aggregate succesfully." << std::endl;
+
+        // rt_time.snap_time();
+        // scene.create_aggregate_bvh();
+        // BVH& scene_bvh   = scene.get_aggregate_bvh ();
+        // double bvh_build_time = rt_time.msec_since_snap();
+        // std::cout << "Created BVH succesfully (build time: " 
+        //           << bvh_build_time << " msec, " 
+        //           << scene_bvh.nodeArraySize() << " nodes)." << std::endl;
+
+        // /*---------------------- Initialize SceneInfo ----------------------------*/
+        // if (!scene_info.initialize(scene,clinfo)) {
+        //         std::cerr << "Failed to initialize scene info." << std::endl;
+        //         pause_and_exit(1);
+        // }
+        // std::cout << "Initialized scene info succesfully." << std::endl;
+
+#if 0
+>>>>>>> Stashed changes
          /* -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- Aggregate BVH -=-=-=-=-=-=-=-=-=-=-=-=-=- */
          if (scene.create_aggregate_mesh()) { 
                 std::cerr << "Failed to create aggregate mesh" << std::endl;
-                exit(1);
+                pause_and_exit(1);
          } else {
                  std::cout << "Created aggregate mesh succesfully" << std::endl;
          }
 
          if (scene.create_aggregate_bvh()) { 
                 std::cerr << "Failed to create aggregate bvh" << std::endl;
-                exit(1);
+                pause_and_exit(1);
          } else {
                  std::cout << "Created aggregate bvh succesfully" << std::endl;
          }
@@ -476,7 +533,7 @@ int main (int argc, char** argv)
          if (scene.transfer_aggregate_mesh_to_device()) {
                 std::cerr << "Failed to transfer aggregate meshe to device memory" 
                           << std::endl;
-                exit(1);
+                pause_and_exit(1);
          } else {
                  std::cout << "Transfered aggregate meshe to device succesfully" 
                            << std::endl;
@@ -485,7 +542,7 @@ int main (int argc, char** argv)
          if (scene.transfer_aggregate_bvh_to_device()) {
                 std::cerr << "Failed to transfer aggregate bvh to device memory" 
                           << std::endl;
-                exit(1);
+                pause_and_exit(1);
          } else {
                  std::cout << "Transfered aggregate bvh to device succesfully" 
                            << std::endl;
@@ -496,27 +553,39 @@ int main (int argc, char** argv)
          /* -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- Multi BVH -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- */
          if (scene.create_bvhs()) { 
                 std::cerr << "Failed to create bvhs" << std::endl;
-                exit(1);
+                pause_and_exit(1);
          } else {
                  std::cout << "Create bvhs succesfully" << std::endl;
          }
 
          if (scene.transfer_meshes_to_device()) {
                 std::cerr << "Failed to transfer meshes to device memory" << std::endl;
-                exit(1);
+                pause_and_exit(1);
          } else {
                  std::cout << "Transfered meshes to device succesfully" << std::endl;
          }
 
          if (scene.transfer_bvhs_to_device()) {
                 std::cerr << "Failed to transfer bvhs to device memory" << std::endl;
-                exit(1);
+                pause_and_exit(1);
          } else {
                  std::cout << "Transfered bvhs to device succesfully" << std::endl;
          }
 
+<<<<<<< Updated upstream
 #endif
+=======
+
          /* -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- NEW STUFF -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- */
+
+        /*---------------------- Initialize SceneInfo ----------------------------*/
+        //  if (!scene_info.initialize_multi(scene,clinfo)) {
+        //         std::cerr << "Failed to initialize scene info." << std::endl;
+        //         pause_and_exit(1);
+        // }
+        // std::cout << "Initialized scene info succesfully." << std::endl;
+        //  // pause_and_exit(1);
+>>>>>>> Stashed changes
 
         /*---------------------- Set initial Camera paramaters -----------------------*/
         camera.set(makeVector(0,3,-30), makeVector(0,0,1), makeVector(0,1,0), M_PI/4.,
@@ -524,7 +593,7 @@ int main (int argc, char** argv)
 
         /*---------------------------- Set tile size ------------------------------*/
         best_tile_size = clinfo.max_compute_units * clinfo.max_work_item_sizes[0];
-        best_tile_size *= 64;
+        best_tile_size *= 128;
         best_tile_size = std::min(pixel_count, best_tile_size);
 
         /*---------------------- Initialize ray bundles -----------------------------*/
@@ -533,13 +602,13 @@ int main (int argc, char** argv)
         if (ray_bundle_1.initialize(ray_bundle_size, clinfo)) {
                 std::cerr << "Error initializing ray bundle 1" << std::endl;
                 std::cerr.flush();
-                exit(1);
+                pause_and_exit(1);
         }
 
         if (ray_bundle_2.initialize(ray_bundle_size, clinfo)) {
                 std::cerr << "Error initializing ray bundle 2" << std::endl;
                 std::cerr.flush();
-                exit(1);
+                pause_and_exit(1);
         }
         std::cout << "Initialized ray bundles succesfully" << std::endl;
 
@@ -549,7 +618,7 @@ int main (int argc, char** argv)
         if (hit_bundle.initialize(hit_bundle_size, clinfo)) {
                 std::cerr << "Error initializing hit bundle" << std::endl;
                 std::cerr.flush();
-                exit(1);
+                pause_and_exit(1);
         }
         std::cout << "Initialized hit bundle succesfully" << std::endl;
 
@@ -563,14 +632,14 @@ int main (int argc, char** argv)
                                "textures/cubemap/Path/negz.jpg",
                                clinfo)) {
                 std::cerr << "Failed to initialize cubemap." << std::endl;
-                exit(1);
+                pause_and_exit(1);
         }
         std::cerr << "Initialized cubemap succesfully." << std::endl;
 
         /*------------------------ Initialize FrameBuffer ---------------------------*/
         if (framebuffer.initialize(clinfo, window_size)) {
                 std::cerr << "Error initializing framebuffer." << std::endl;
-                exit(1);
+                pause_and_exit(1);
         }
         std::cout << "Initialized framebuffer succesfully." << std::endl;
 
@@ -578,7 +647,7 @@ int main (int argc, char** argv)
 
         if (tracer.initialize(clinfo)){
                 std::cerr << "Failed to initialize tracer." << std::endl;
-                return 0;
+                pause_and_exit(1);
         }
         std::cerr << "Initialized tracer succesfully." << std::endl;
 
@@ -587,7 +656,7 @@ int main (int argc, char** argv)
 
         if (prim_ray_gen.initialize(clinfo)) {
                 std::cerr << "Error initializing primary ray generator." << std::endl;
-                exit(1);
+                pause_and_exit(1);
         }
         std::cout << "Initialized primary ray generator succesfully." << std::endl;
                 
@@ -595,7 +664,7 @@ int main (int argc, char** argv)
         /* ------------------ Initialize Secondary Ray Generator ----------------------*/
         if (sec_ray_gen.initialize(clinfo)) {
                 std::cerr << "Error initializing secondary ray generator." << std::endl;
-                exit(1);
+                pause_and_exit(1);
         }
         sec_ray_gen.set_max_rays(ray_bundle_1.count());
         std::cout << "Initialized secondary ray generator succesfully." << std::endl;
@@ -603,7 +672,7 @@ int main (int argc, char** argv)
         /*------------------------ Initialize RayShader ---------------------------*/
         if (ray_shader.initialize(clinfo)) {
                 std::cerr << "Error initializing ray shader." << std::endl;
-                exit(1);
+                pause_and_exit(1);
         }
         std::cout << "Initialized ray shader succesfully." << std::endl;
 

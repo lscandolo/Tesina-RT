@@ -28,7 +28,6 @@ void rainEvent();
 CLInfo clinfo;
 GLInfo glinfo;
 
-
 int loging_state = 0;
 
 DeviceInterface device;
@@ -136,13 +135,13 @@ void gl_key(unsigned char key, int x, int y)
 	case '1': /* Set 1 sample per pixel */
 		if (prim_ray_gen.set_spp(1,samples1)){
 			std::cerr << "Error seting spp" << std::endl;
-			exit(1);
+			pause_and_exit(1);
 		}
 		break;
 	case '4': /* Set 4 samples per pixel */
 		if (prim_ray_gen.set_spp(4,samples4)){
 			std::cerr << "Error seting spp" << std::endl;
-			exit(1);
+			pause_and_exit(1);
 		}
 		break;
 	}
@@ -169,14 +168,19 @@ void gl_loop()
 
 	glClear(GL_COLOR_BUFFER_BIT);
 
-        if (device.acquire_graphic_resource(tex_id)) {
+<<<<<<< Updated upstream
+        if (device.acquire_graphic_resource(tex_id) ||
+=======
+        if (device.acquire_graphic_resource(texture_id) ||
+>>>>>>> Stashed changes
+            cubemap.acquire_graphic_resources()) {
                 std::cerr << "Error acquiring texture resource." << std::endl;
-                exit(1);
+                pause_and_exit(1);
         }
 
         if (framebuffer.clear()) {
 		std::cerr << "Failed to clear framebuffer." << std::endl;
-		exit(1);
+		pause_and_exit(1);
 	}
 	fb_clear_time = framebuffer.get_clear_exec_time();
 
@@ -287,7 +291,7 @@ void gl_loop()
                 if (prim_ray_gen.set_rays(camera, ray_bundle_1, window_size,
                                           tile_size, offset)) {
                         std::cerr << "Error seting primary ray bundle" << std::endl;
-                        exit(1);
+                        pause_and_exit(1);
                 }
                 prim_gen_time += prim_ray_gen.get_exec_time();
 
@@ -295,20 +299,20 @@ void gl_loop()
 
                 if (tracer.trace(scene, tile_size, *ray_in, hit_bundle)){
                         std::cerr << "Failed to trace." << std::endl;
-                        exit(1);
+                        pause_and_exit(1);
                 }
                 prim_trace_time += tracer.get_trace_exec_time();
 
                 if (tracer.shadow_trace(scene, tile_size, *ray_in, hit_bundle)){
                         std::cerr << "Failed to shadow trace." << std::endl;
-                        exit(1);
+                        pause_and_exit(1);
                 }
                 prim_shadow_trace_time += tracer.get_shadow_exec_time();
 
                 if (ray_shader.shade(*ray_in, hit_bundle, scene,
                                      cubemap, framebuffer, tile_size,true)){
                         std::cerr << "Failed to update framebuffer." << std::endl;
-                        exit(1);
+                        pause_and_exit(1);
                 }
                 shader_time += ray_shader.get_exec_time();
 		
@@ -332,7 +336,7 @@ void gl_loop()
                         if (tracer.trace(scene, sec_ray_count, 
                                          *ray_in, hit_bundle, true)) {
                                 std::cerr << "Failed to trace." << std::endl;
-                                exit(1);
+                                pause_and_exit(1);
                         }
                         sec_trace_time += tracer.get_trace_exec_time();
 
@@ -340,14 +344,14 @@ void gl_loop()
                         if (tracer.shadow_trace(scene, sec_ray_count, 
                                                 *ray_in, hit_bundle, true)) {
                                 std::cerr << "Failed to shadow trace." << std::endl;
-                                exit(1);
+                                pause_and_exit(1);
                         }
                         sec_shadow_trace_time += tracer.get_shadow_exec_time();
 
                         if (ray_shader.shade(*ray_in, hit_bundle, scene,
                                              cubemap, framebuffer, sec_ray_count)){
                                 std::cerr << "Ray shader failed execution." << std::endl;
-                                exit(1);
+                                pause_and_exit(1);
                         }
                         shader_time += ray_shader.get_exec_time();
                 }
@@ -356,14 +360,19 @@ void gl_loop()
 
         if (framebuffer.copy(device.memory(tex_id))){
                 std::cerr << "Failed to copy framebuffer." << std::endl;
-                exit(1);
+                pause_and_exit(1);
         }
         fb_copy_time = framebuffer.get_copy_exec_time();
         double total_msec = rt_time.msec_since_snap();
 
-        if (device.release_graphic_resource(tex_id)) {
+<<<<<<< Updated upstream
+        if (device.release_graphic_resource(tex_id) ||
+=======
+        if (device.release_graphic_resource(texture_id) ||
+>>>>>>> Stashed changes
+            cubemap.release_graphic_resources()) {
                 std::cerr << "Error releasing texture resource." << std::endl;
-                exit(1);
+                pause_and_exit(1);
         }
         ////////////////// Immediate mode textured quad
         glBindTexture(GL_TEXTURE_2D, gl_tex);
@@ -438,14 +447,14 @@ int main (int argc, char** argv)
 
 	if (init_gl(argc,argv,&glinfo, window_size, "RT") != 0){
 		std::cerr << "Failed to initialize GL" << std::endl;
-		exit(1);
+		pause_and_exit(1);
 	} else { 
 		std::cout << "Initialized GL succesfully" << std::endl;
 	}
 
 	if (init_cl(glinfo,&clinfo) != CL_SUCCESS){
 		std::cerr << "Failed to initialize CL" << std::endl;
-		exit(1);
+		pause_and_exit(1);
 	} else { 
 		std::cout << "Initialized CL succesfully" << std::endl;
 	}
@@ -454,7 +463,7 @@ int main (int argc, char** argv)
 	/* Initialize device interface */
 	if (device.initialize(clinfo)) {
 		std::cerr << "Failed to initialize device interface" << std::endl;
-		exit(1);
+		pause_and_exit(1);
 	}
 
 	/*---------------------- Initialize lbm simulator ----------------------*/
@@ -468,13 +477,13 @@ int main (int argc, char** argv)
 	DeviceMemory& tex_mem = device.memory(tex_id);
 	if (tex_mem.initialize_from_gl_texture(gl_tex)) {
 		std::cerr << "Failed to create memory object from gl texture" << std::endl;
-		exit(1);
+		pause_and_exit(1);
 	}
 
 	/*---------------------- Set up scene ---------------------------*/
 	if (scene.initialize(clinfo)) {
 		std::cerr << "Failed to initialize scene." << std::endl;
-		exit(1);
+		pause_and_exit(1);
 	}
 	std::cout << "Initialized scene succesfully." << std::endl;
 
@@ -503,21 +512,21 @@ int main (int argc, char** argv)
 
         if (scene.create_bvhs()) {
                 std::cerr << "Failed to create bvhs." << std::endl;
-                exit(1);
+                pause_and_exit(1);
         }
         std::cout << "Created bvhs" << std::endl;
     
         if (scene.transfer_meshes_to_device()) {
                 std::cerr << "Failed to transfer meshes to device." 
                           << std::endl;
-                exit(1);
+                pause_and_exit(1);
         }
         std::cout << "Transfered meshes to device" << std::endl;
 
         if (scene.transfer_bvhs_to_device()) {
                 std::cerr << "Failed to transfer bvhs to device." 
                           << std::endl;
-                exit(1);
+                pause_and_exit(1);
         }
         std::cout << "Transfered bvhs to device" << std::endl;
         grid_id = floor_mesh_id;
@@ -538,13 +547,13 @@ int main (int argc, char** argv)
 	if (ray_bundle_1.initialize(ray_bundle_size, clinfo)) {
 		std::cerr << "Error initializing ray bundle 1" << std::endl;
 		std::cerr.flush();
-		exit(1);
+		pause_and_exit(1);
 	}
 
 	if (ray_bundle_2.initialize(ray_bundle_size, clinfo)) {
 		std::cerr << "Error initializing ray bundle 2" << std::endl;
 		std::cerr.flush();
-		exit(1);
+		pause_and_exit(1);
 	}
 	std::cout << "Initialized ray bundles succesfully" << std::endl;
 
@@ -554,7 +563,7 @@ int main (int argc, char** argv)
 	if (hit_bundle.initialize(hit_bundle_size, clinfo)) {
 		std::cerr << "Error initializing hit bundle" << std::endl;
 		std::cerr.flush();
-		exit(1);
+		pause_and_exit(1);
 	}
 	std::cout << "Initialized hit bundle succesfully" << std::endl;
 
@@ -568,14 +577,14 @@ int main (int argc, char** argv)
                                "textures/cubemap/Path/negz.jpg",
                                clinfo)) {
 		std::cerr << "Failed to initialize cubemap." << std::endl;
-		exit(1);
+		pause_and_exit(1);
 	}
 	std::cerr << "Initialized cubemap succesfully." << std::endl;
 
 	/*------------------------ Initialize FrameBuffer ---------------------------*/
 	if (framebuffer.initialize(clinfo, window_size)) {
 		std::cerr << "Error initializing framebuffer." << std::endl;
-		exit(1);
+		pause_and_exit(1);
 	}
 	std::cout << "Initialized framebuffer succesfully." << std::endl;
 
@@ -592,7 +601,7 @@ int main (int argc, char** argv)
 
 	if (prim_ray_gen.initialize(clinfo)) {
 		std::cerr << "Error initializing primary ray generator." << std::endl;
-		exit(1);
+		pause_and_exit(1);
 	}
 	std::cout << "Initialized primary ray generator succesfully." << std::endl;
 
@@ -600,7 +609,7 @@ int main (int argc, char** argv)
 	/* ------------------ Initialize Secondary Ray Generator ----------------------*/
 	if (sec_ray_gen.initialize(clinfo)) {
 		std::cerr << "Error initializing secondary ray generator." << std::endl;
-		exit(1);
+		pause_and_exit(1);
 	}
 	sec_ray_gen.set_max_rays(ray_bundle_1.count());
 	std::cout << "Initialized secondary ray generator succesfully." << std::endl;
@@ -608,7 +617,7 @@ int main (int argc, char** argv)
 	/*------------------------ Initialize RayShader ---------------------------*/
 	if (ray_shader.initialize(clinfo)) {
 		std::cerr << "Error initializing ray shader." << std::endl;
-		exit(1);
+		pause_and_exit(1);
 	}
 	std::cout << "Initialized ray shader succesfully." << std::endl;
 
