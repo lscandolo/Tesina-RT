@@ -327,7 +327,7 @@ bool trace_shadow_ray(Ray ray,
 				going_up = false;
 
                                 // I'm going up from my second child, go up one more level
-			} else if (last == second_child) {
+			} else /* if (last == second_child) */ {
 				last = curr;
 				curr = current_node.parent;
 				going_up = true;
@@ -371,14 +371,14 @@ bool trace_shadow_ray(Ray ray,
 
 
 kernel void 
-shadow_trace(global RayHitInfo* trace_info,
-	     global RayPlus* rays,
-	     global Vertex* vertex_buffer,
-	     global int* index_buffer,
-             int    root_count,
-             global BVHRoot* roots,
-	     global BVHNode* bvh_nodes,
-	     global Lights* lights)
+shadow_trace_multi(global RayHitInfo* trace_info,
+                   global RayPlus* rays,
+                   global Vertex* vertex_buffer,
+                   global int* index_buffer,
+                   int    root_count,
+                   global BVHRoot* roots,
+                   global BVHNode* bvh_nodes,
+                   global Lights* lights)
 {
 	int index = get_global_id(0);
 
@@ -412,5 +412,40 @@ shadow_trace(global RayHitInfo* trace_info,
                         return;
                 }
         }
+        return;
+}
+
+kernel void 
+shadow_trace_single(global RayHitInfo* trace_info,
+                    global RayPlus* rays,
+                    global Vertex* vertex_buffer,
+                    global int* index_buffer,
+                    int    root_count,
+                    global BVHRoot* roots,
+                    global BVHNode* bvh_nodes,
+                    global Lights* lights)
+{
+	int index = get_global_id(0);
+
+	/* Ray original_ray = rays[index].ray; */
+
+	RayHitInfo info  = trace_info[index];
+
+	if (!info.hit){
+		return;
+	}
+
+	Ray ray;
+	ray.dir = -lights->directional.dir;
+	ray.invDir = 1.f/ray.dir;
+        ray.ori = info.hit_point;
+	/* ray.ori = original_ray.ori + original_ray.dir * info.t; */
+  	ray.tMin = 0.01f; ray.tMax = 1e37f;
+
+        trace_info[index].shadow_hit = trace_shadow_ray(ray, 
+                                                        vertex_buffer, 
+                                                        index_buffer, 
+                                                        bvh_nodes,
+                                                        0);
         return;
 }

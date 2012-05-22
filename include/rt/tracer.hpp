@@ -32,8 +32,11 @@ public:
 private:
 
         DeviceInterface device;
-        function_id tracer_id;
-        function_id shadow_id;
+        function_id single_tracer_id;
+        function_id multi_tracer_id;
+
+        function_id single_shadow_id;
+        function_id multi_shadow_id;
 
 	// CLKernelInfo tracer_clk;
 	// CLKernelInfo shadow_clk;

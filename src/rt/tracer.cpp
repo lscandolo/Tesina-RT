@@ -11,20 +11,39 @@ int32_t Tracer::initialize(const CLInfo& clinfo)
         if (device.initialize(clinfo))
                 return -1;
 
-        tracer_id = device.new_function();
-        DeviceFunction& tracer = device.function(tracer_id);
+        /* Single root functions */
+        single_tracer_id = device.new_function();
+        DeviceFunction& single_tracer = device.function(single_tracer_id);
 
-        if (tracer.initialize("src/kernel/trace.cl", "trace"))
+        if (single_tracer.initialize("src/kernel/trace.cl", "trace_single"))
                 return -1;
 
-        tracer.set_dims(1);
+        single_tracer.set_dims(1);
 
-        shadow_id = device.new_function();
-        DeviceFunction& shadow = device.function(shadow_id);
-        if (shadow.initialize("src/kernel/shadow-trace.cl", "shadow_trace"))
+        single_shadow_id = device.new_function();
+        DeviceFunction& single_shadow = device.function(single_shadow_id);
+        if (single_shadow.initialize("src/kernel/shadow-trace.cl", "shadow_trace_single"))
                 return -1;
         
-	shadow.set_dims(1);
+	single_shadow.set_dims(1);
+        /*----------------------------*/
+
+        /* Multi root functions */
+        multi_tracer_id = device.new_function();
+        DeviceFunction& multi_tracer = device.function(multi_tracer_id);
+
+        if (multi_tracer.initialize("src/kernel/trace.cl", "trace_multi"))
+                return -1;
+
+        multi_tracer.set_dims(1);
+
+        multi_shadow_id = device.new_function();
+        DeviceFunction& multi_shadow = device.function(multi_shadow_id);
+        if (multi_shadow.initialize("src/kernel/shadow-trace.cl", "shadow_trace_multi"))
+                return -1;
+        
+	multi_shadow.set_dims(1);
+        /*----------------------------*/
 
 	m_timing = false;
         m_initialized = true;
@@ -38,7 +57,8 @@ Tracer::trace(Scene& scene, DeviceMemory& bvh_mem, int32_t ray_count,
 {
         if (!m_initialized || !device.good())
                 return -1;
-
+        
+        function_id tracer_id = scene.root_count()>1?multi_tracer_id:single_tracer_id;
         DeviceFunction& tracer = device.function(tracer_id);
 
 	if (m_timing)
@@ -129,6 +149,7 @@ Tracer::trace(Scene& scene, int32_t ray_count,
         if (!m_initialized || !device.good())
                 return -1;
 
+        function_id tracer_id = scene.root_count()>1?multi_tracer_id:single_tracer_id;
         DeviceFunction& tracer = device.function(tracer_id);
 
 	if (m_timing)
@@ -220,6 +241,7 @@ Tracer::shadow_trace(Scene& scene, int32_t ray_count,
         if (!m_initialized || !device.good())
                 return -1;
 
+        function_id shadow_id = scene.root_count()>1?multi_shadow_id:single_shadow_id;
         DeviceFunction& shadow = device.function(shadow_id);
 
 	if (m_timing)
@@ -315,6 +337,7 @@ Tracer::shadow_trace(Scene& scene, DeviceMemory& bvh_mem, int32_t ray_count,
         if (!m_initialized || !device.good())
                 return -1;
 
+        function_id shadow_id = scene.root_count()>1?multi_shadow_id:single_shadow_id;
         DeviceFunction& shadow = device.function(shadow_id);
 
 	if (m_timing)

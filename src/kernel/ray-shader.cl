@@ -195,7 +195,7 @@ shade_secondary(global ColorInt* image,
 		valrgb = ambient_rgb;
 
 		/* If it's not in shadow, compute diffuse and specular component */
-		if (!info.shadow_hit || true) {
+		if (!info.shadow_hit) {
 
 			float3 d = ray_plus.ray.dir;
 			float3 n = info.n;
@@ -413,7 +413,7 @@ shade_primary(global ColorInt* image,
 		valrgb = ambient_rgb;
 
 		/* If it's not in shadow, compute diffuse and specular component */
-		if (!info.shadow_hit || true) {
+		if (!info.shadow_hit) {
 
 			float3 d = ray_plus.ray.dir;
 			float3 n = info.n;

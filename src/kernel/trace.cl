@@ -322,7 +322,7 @@ leaf_hit(BVHNode node,
         return best_hit;
 }
 
-RayHitInfo 
+void
 try_leaf_hit(RayHitInfo* best_info,
              BVHNode node,
              global Vertex* vertex_buffer,
@@ -461,14 +461,13 @@ RayHitInfo trace_ray(Ray ray,
 
 
 kernel void 
-trace(global RayHitInfo* trace_info,
-      global RayPlus* rays,
-      global Vertex* vertex_buffer,
-      global int* index_buffer,
-      global BVHNode* bvh_nodes,
-      global BVHRoot* roots,
-      int root_count)
-      
+trace_multi(global RayHitInfo* trace_info,
+            global RayPlus* rays,
+            global Vertex* vertex_buffer,
+            global int* index_buffer,
+            global BVHNode* bvh_nodes,
+            global BVHRoot* roots,
+            int root_count)
 {
         int index = get_global_id(0);
         int offset = get_global_offset(0);
@@ -482,7 +481,7 @@ trace(global RayHitInfo* trace_info,
 
                 Ray tr_ray = transform_ray(ray, roots[i].trInv);
                 RayHitInfo root_info = trace_ray(tr_ray,vertex_buffer,index_buffer,
-                                                     bvh_nodes, roots[i].node);
+                                                 bvh_nodes, roots[i].node);
                 /* float depth = root_hit_info.n.s0; */
                 /*Compute real t and hit point to compare which hit is closest*/
                 transform_hit_info(ray,
@@ -502,8 +501,47 @@ trace(global RayHitInfo* trace_info,
 
         /*Compute normal and texCoord at hit point*/
         if (best_info.hit)
-                complete_hit_info(ray, roots[best_root].tr,&best_info, 
+                complete_hit_info(ray, roots[best_root].tr,&best_info,
                                   vertex_buffer, index_buffer);
         /* Save hit info*/
+        trace_info[index] = best_info;
+}
+
+kernel void 
+trace_single(global RayHitInfo* trace_info,
+             global RayPlus* rays,
+             global Vertex* vertex_buffer,
+             global int* index_buffer,
+             global BVHNode* bvh_nodes,
+             global BVHRoot* roots,
+             int root_count)
+{
+        int index = get_global_id(0);
+        int offset = get_global_offset(0);
+        Ray ray = rays[index].ray;
+        RayHitInfo best_info;
+
+        best_info = trace_ray(ray,vertex_buffer,index_buffer,
+                              bvh_nodes, 0);
+
+        if (best_info.hit) {
+                best_info.hit_point = ray.ori + ray.dir * best_info.t;
+                best_info.n = compute_normal(vertex_buffer,
+                                             index_buffer,
+                                             best_info.id,
+                                             best_info.uv);
+                /* If the normal is pointing out,
+                   invert it and note it in the flags */
+                if (dot(best_info.n,ray.dir) > 0) {
+                        best_info.inverse_n = true;
+                        best_info.n *= -1.f;
+                }
+
+                best_info.uv = compute_texCoord(vertex_buffer,
+                                                index_buffer,
+                                                best_info.id,
+                                                best_info.uv);
+        }
+
         trace_info[index] = best_info;
 }

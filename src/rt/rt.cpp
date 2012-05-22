@@ -1,11 +1,12 @@
 #include <algorithm>
 #include <iostream>
+#include <sstream>
 
 #include <cl-gl/opengl-init.hpp>
 #include <cl-gl/opencl-init.hpp>
 #include <rt/rt.hpp>
 
-#define MAX_BOUNCE 5
+#define MAX_BOUNCE 0
 
 CLInfo clinfo;
 GLInfo glinfo;
@@ -35,6 +36,7 @@ size_t window_size[] = {512, 512};
 size_t pixel_count = window_size[0] * window_size[1];
 size_t best_tile_size;
 Log rt_log;
+bool  print_fps = true;
 
 #define STEPS 16
 
@@ -93,6 +95,9 @@ void gl_key(unsigned char key, int x, int y)
                 break;
         case 'l':
                 rt_log.silent = !rt_log.silent;
+                break;
+        case 'f':
+                print_fps = !print_fps;
                 break;
         case '1': /* Set 1 sample per pixel */
                 if (prim_ray_gen.set_spp(1,samples1)){
@@ -279,6 +284,7 @@ void gl_loop()
             pause_and_exit(1);
     }
         ////////////////// Immediate mode textured quad
+        glLoadIdentity();
         glBindTexture(GL_TEXTURE_2D, gl_tex);
 
         glBegin(GL_TRIANGLE_STRIP);
@@ -336,6 +342,17 @@ void gl_loop()
         rt_log << "Fb clear time: \t" << fb_clear_time << std::endl;
         rt_log << "Fb copy time: \t" << fb_copy_time << std::endl;
         rt_log << std::endl;
+
+        // glRasterPos2f(-window_size[0]/2.f,window_size[1]/2.f - 30.f);
+
+        if (print_fps) {
+                glRasterPos2f(-0.95f,0.9f);
+                std::stringstream ss;
+                ss << "FPS: " << (1000.f / total_msec);
+                std::string fps_s = ss.str();
+                for (int i = 0; i < fps_s.size(); ++i)
+                        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *(fps_s.c_str()+i));
+        }
 
         glutSwapBuffers();
 }
@@ -398,57 +415,60 @@ int main (int argc, char** argv)
         */
 
 
-        //mesh_id floor_mesh_id = scene.load_obj_file_as_aggregate("models/obj/pack1OBJ/gridFluid1.obj");
-        // mesh_id floor_mesh_id = scene.load_obj_file_as_aggregate("models/obj/floor.obj");
-         mesh_id floor_mesh_id = scene.load_obj_file_as_aggregate("models/obj/frame_water1.obj");
-        object_id floor_obj_id  = scene.add_object(floor_mesh_id);
-        Object& floor_obj = scene.object(floor_obj_id);
-        floor_obj.geom.setScale(2.f);
-        floor_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
-        floor_obj.mat.diffuse = Blue;
-        floor_obj.mat.reflectiveness = 0.9f;
-        floor_obj.mat.refractive_index = 1.333f;
-        // floor_id = floor_obj_id; //!!
+        // //mesh_id floor_mesh_id = scene.load_obj_file_as_aggregate("models/obj/pack1OBJ/gridFluid1.obj");
+        // // mesh_id floor_mesh_id = scene.load_obj_file_as_aggregate("models/obj/floor.obj");
 
-         mesh_id boat_mesh_id = 
-                 scene.load_obj_file_as_aggregate("models/obj/frame_boat1.obj");
-         object_id boat_obj_id = scene.add_object(boat_mesh_id);
-         Object& boat_obj = scene.object(boat_obj_id);
-         boat_id = boat_obj_id; //!!
-         boat_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
-         boat_obj.geom.setRpy(makeVector(0.f,0.f,0.f));
-         boat_obj.geom.setScale(2.f);
-         boat_obj.mat.diffuse = Red;
-         boat_obj.mat.shininess = 1.f;
-         boat_obj.mat.reflectiveness = 0.0f;
+        //  mesh_id floor_mesh_id = scene.load_obj_file_as_aggregate("models/obj/frame_water1.obj");
+        // object_id floor_obj_id  = scene.add_object(floor_mesh_id);
+        // Object& floor_obj = scene.object(floor_obj_id);
+        // floor_obj.geom.setScale(2.f);
+        // floor_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
+        // floor_obj.mat.diffuse = Blue;
+        // floor_obj.mat.reflectiveness = 0.9f;
+        // floor_obj.mat.refractive_index = 1.333f;
+        // // floor_id = floor_obj_id; //!!
+
+        //  mesh_id boat_mesh_id = 
+        //          scene.load_obj_file_as_aggregate("models/obj/frame_boat1.obj");
+        //  object_id boat_obj_id = scene.add_object(boat_mesh_id);
+        //  Object& boat_obj = scene.object(boat_obj_id);
+        //  boat_id = boat_obj_id; //!!
+        //  boat_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
+        //  boat_obj.geom.setRpy(makeVector(0.f,0.f,0.f));
+        //  boat_obj.geom.setScale(2.f);
+        //  boat_obj.mat.diffuse = Red;
+        //  boat_obj.mat.shininess = 1.f;
+        //  boat_obj.mat.reflectiveness = 0.0f;
 
         // std::vector<mesh_id> hand_meshes;
         // hand_meshes = scene.load_obj_file("models/obj/hand/hand_00.obj");
         // std::vector<object_id> hand_objects;
         // hand_objects = scene.add_objects(hand_meshes);
 
-        // scene.load_obj_file_and_make_objs("models/obj/hand/hand_00.obj");
+        scene.load_obj_file_and_make_objs("models/obj/hand/hand_00.obj");
         // scene.load_obj_file_and_make_objs("models/obj/ben/ben_00.obj");
         // scene.load_obj_file_and_make_objs("models/obj/fairy_forest/f000.obj");
         // scene.load_obj_file_and_make_objs("models/obj/marbles/marbles000.obj");
 
-/*
-        // mesh_id item_mesh_id = scene.load_obj_file_as_aggregate("models/obj/teapot2.obj");
-        mesh_id item_mesh_id = scene.load_obj_file_as_aggregate("models/obj/hand/hand_00.obj");
-        // mesh_id item_mesh_id = scene.load_obj_file_as_aggregate("models/obj/ben_00.obj");
-        // mesh_id item_mesh_id = scene.load_obj_file_as_aggregate("models/obj/f000.obj");
-        // mesh_id item_mesh_id = scene.load_obj_file_as_aggregate("models/obj/marbles000.obj");
-        object_id item_obj_id = scene.add_object(item_mesh_id);
-        Object& item_obj = scene.object(item_obj_id);
-        item_obj.geom.setPos(makeVector(-8.f,-5.f,0.f));
-        item_obj.mat.diffuse[0] = 239/255.f;
-        item_obj.mat.diffuse[1] = 208/255.f;
-        item_obj.mat.diffuse[2] = 207/255.f;
-        item_obj.geom.setScale(2.f);
-        item_obj.mat.shininess = 1.f;
-        item_obj.mat.reflectiveness = 0.1f;
-        item_id = item_obj_id;
-*/
+
+
+        // // std::string mesh_file("models/obj/teapot2.obj");
+        // std::string mesh_file("models/obj/hand/hand_00.obj");
+        // // std::string mesh_file("models/obj/ben/ben_00.obj");
+        // // std::string mesh_file("models/obj/fairy_forest/f000.obj");
+        // // std::string mesh_file("models/obj/marbles/marbles000.obj");
+        // mesh_id item_mesh_id = scene.load_obj_file_as_aggregate(mesh_file);
+        // object_id item_obj_id = scene.add_object(item_mesh_id);
+        // Object& item_obj = scene.object(item_obj_id);
+        // // item_obj.geom.setPos(makeVector(-8.f,-5.f,0.f));
+        // item_obj.mat.diffuse[0] = 239/255.f;
+        // item_obj.mat.diffuse[1] = 208/255.f;
+        // item_obj.mat.diffuse[2] = 207/255.f;
+        // // item_obj.geom.setScale(2.f);
+        // item_obj.mat.shininess = 1.f;
+        // item_obj.mat.reflectiveness = 0.f;
+        // item_id = item_obj_id;
+
         // texture_id hand_tex_id = scene.texture_atlas.load_texture("textures/hand/hand.ppm");
         // item_obj.mat.texture = hand_tex_id;
 
