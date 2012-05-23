@@ -6,7 +6,7 @@
 #include <cl-gl/opencl-init.hpp>
 #include <rt/rt.hpp>
 
-#define MAX_BOUNCE 0
+int MAX_BOUNCE = 0;
 
 CLInfo clinfo;
 GLInfo glinfo;
@@ -23,7 +23,7 @@ HitBundle             hit_bundle;
 PrimaryRayGenerator   prim_ray_gen;
 SecondaryRayGenerator sec_ray_gen;
 RayShader             ray_shader;
-Scene scene;
+Scene                 scene;
 Cubemap               cubemap;
 FrameBuffer           framebuffer;
 Tracer                tracer;
@@ -74,6 +74,12 @@ void gl_key(unsigned char key, int x, int y)
                                       {-0.25f ,-0.25f, 0.25f}};
 
         switch (key){
+        case '+':
+                MAX_BOUNCE = std::min(MAX_BOUNCE+1, 10);
+                break;
+        case '-':
+                MAX_BOUNCE = std::max(MAX_BOUNCE-1, 0);
+                break;
         case 'p':
                 camera.set(makeVector(-9.37294f,-3.47214f,0.412559f),
                            makeVector(0.769393f,-0.393467f,-0.503207f),
@@ -98,6 +104,9 @@ void gl_key(unsigned char key, int x, int y)
                 break;
         case 'f':
                 print_fps = !print_fps;
+                break;
+        case 'c':
+                cubemap.enabled = !cubemap.enabled;
                 break;
         case '1': /* Set 1 sample per pixel */
                 if (prim_ray_gen.set_spp(1,samples1)){
@@ -237,7 +246,7 @@ void gl_loop()
 
                         std::swap(ray_in,ray_out);
  
-                       if (!sec_ray_count)
+                        if (!sec_ray_count)
                                 break;
                         if (sec_ray_count == ray_bundle_1.count())
                                 std::cerr << "Max sec rays reached!\n";
@@ -261,7 +270,7 @@ void gl_loop()
                         sec_shadow_trace_time += tracer.get_shadow_exec_time();
 
                         if (ray_shader.shade(*ray_in, hit_bundle, scene,
-                                              cubemap, framebuffer, sec_ray_count)){
+                                             cubemap, framebuffer, sec_ray_count)){
                                 std::cerr << "Ray shader failed execution." << std::endl;
                                 pause_and_exit(1);
                         }
@@ -415,42 +424,41 @@ int main (int argc, char** argv)
         */
 
 
-        // //mesh_id floor_mesh_id = scene.load_obj_file_as_aggregate("models/obj/pack1OBJ/gridFluid1.obj");
-        // // mesh_id floor_mesh_id = scene.load_obj_file_as_aggregate("models/obj/floor.obj");
+        //mesh_id floor_mesh_id = scene.load_obj_file_as_aggregate("models/obj/pack1OBJ/gridFluid1.obj");
+        // mesh_id floor_mesh_id = scene.load_obj_file_as_aggregate("models/obj/floor.obj");
 
-        //  mesh_id floor_mesh_id = scene.load_obj_file_as_aggregate("models/obj/frame_water1.obj");
-        // object_id floor_obj_id  = scene.add_object(floor_mesh_id);
-        // Object& floor_obj = scene.object(floor_obj_id);
-        // floor_obj.geom.setScale(2.f);
-        // floor_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
-        // floor_obj.mat.diffuse = Blue;
-        // floor_obj.mat.reflectiveness = 0.9f;
-        // floor_obj.mat.refractive_index = 1.333f;
-        // // floor_id = floor_obj_id; //!!
+         mesh_id floor_mesh_id = scene.load_obj_file_as_aggregate("models/obj/frame_water1.obj");
+        object_id floor_obj_id  = scene.add_object(floor_mesh_id);
+        Object& floor_obj = scene.object(floor_obj_id);
+        floor_obj.geom.setScale(2.f);
+        floor_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
+        floor_obj.mat.diffuse = Blue;
+        floor_obj.mat.reflectiveness = 0.9f;
+        floor_obj.mat.refractive_index = 1.333f;
+        // floor_id = floor_obj_id; //!!
 
-        //  mesh_id boat_mesh_id = 
-        //          scene.load_obj_file_as_aggregate("models/obj/frame_boat1.obj");
-        //  object_id boat_obj_id = scene.add_object(boat_mesh_id);
-        //  Object& boat_obj = scene.object(boat_obj_id);
-        //  boat_id = boat_obj_id; //!!
-        //  boat_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
-        //  boat_obj.geom.setRpy(makeVector(0.f,0.f,0.f));
-        //  boat_obj.geom.setScale(2.f);
-        //  boat_obj.mat.diffuse = Red;
-        //  boat_obj.mat.shininess = 1.f;
-        //  boat_obj.mat.reflectiveness = 0.0f;
+         mesh_id boat_mesh_id = 
+                 scene.load_obj_file_as_aggregate("models/obj/frame_boat1.obj");
+         object_id boat_obj_id = scene.add_object(boat_mesh_id);
+         Object& boat_obj = scene.object(boat_obj_id);
+         boat_id = boat_obj_id; //!!
+         boat_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
+         boat_obj.geom.setRpy(makeVector(0.f,0.f,0.f));
+         boat_obj.geom.setScale(2.f);
+         boat_obj.mat.diffuse = Red;
+         boat_obj.mat.shininess = 1.f;
+         boat_obj.mat.reflectiveness = 0.0f;
 
         // std::vector<mesh_id> hand_meshes;
         // hand_meshes = scene.load_obj_file("models/obj/hand/hand_00.obj");
         // std::vector<object_id> hand_objects;
         // hand_objects = scene.add_objects(hand_meshes);
 
-        scene.load_obj_file_and_make_objs("models/obj/hand/hand_00.obj");
+        // scene.load_obj_file_and_make_objs("models/obj/hand/hand_40.obj");
         // scene.load_obj_file_and_make_objs("models/obj/ben/ben_00.obj");
         // scene.load_obj_file_and_make_objs("models/obj/fairy_forest/f000.obj");
         // scene.load_obj_file_and_make_objs("models/obj/marbles/marbles000.obj");
-
-
+        // scene.load_obj_file_and_make_objs("models/obj/marbles/marbles000.obj");
 
         // // std::string mesh_file("models/obj/teapot2.obj");
         // std::string mesh_file("models/obj/hand/hand_00.obj");

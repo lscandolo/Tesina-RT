@@ -16,10 +16,10 @@ public:
 
 	bool initialize(std::string s = std::string("log"))
 	{
-        enabled = true;
-        silent = false;
-		log.open(s.c_str(),std::fstream::out);
-		return log.is_open();
+                enabled = true;
+                silent = false;
+                log.open(s.c_str(),std::fstream::out);
+                return !log.is_open();
 	}
 
 	void out(std::string str)

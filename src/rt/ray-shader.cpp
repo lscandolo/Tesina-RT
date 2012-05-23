@@ -115,8 +115,24 @@ RayShader::shade(RayBundle& rays, HitBundle& hb, Scene& scene,
 		return -1;
         if (shade_function.set_arg(30,scene.texture_atlas.texture_mem(19)))
 		return -1;
+        if (shade_function.set_arg(31,scene.texture_atlas.texture_mem(20)))
+		return -1;
+        if (shade_function.set_arg(32,scene.texture_atlas.texture_mem(21)))
+		return -1;
+        if (shade_function.set_arg(33,scene.texture_atlas.texture_mem(22)))
+		return -1;
+        if (shade_function.set_arg(34,scene.texture_atlas.texture_mem(23)))
+		return -1;
+        if (shade_function.set_arg(35,scene.texture_atlas.texture_mem(24)))
+		return -1;
+        if (shade_function.set_arg(36,scene.texture_atlas.texture_mem(25)))
+		return -1;
 
-        if (shade_function.set_arg(31,scene.lights_mem()))
+        cl_int use_cubemap = cm.enabled;
+        if (shade_function.set_arg(37,sizeof(use_cubemap), &use_cubemap))
+		return -1;
+
+        if (shade_function.set_arg(38,scene.lights_mem()))
 		return -1;
 
         size_t shade_work_size[] = {size, 0, 0};

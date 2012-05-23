@@ -121,6 +121,13 @@ shade_secondary(global ColorInt* image,
                 read_only image2d_t texture_17,
                 read_only image2d_t texture_18,
                 read_only image2d_t texture_19,
+                read_only image2d_t texture_20,
+                read_only image2d_t texture_21,
+                read_only image2d_t texture_22,
+                read_only image2d_t texture_23,
+                read_only image2d_t texture_24,
+                read_only image2d_t texture_25,
+                int use_cubemap,
                 global Lights* lights)
 {
 
@@ -187,6 +194,18 @@ shade_secondary(global ColorInt* image,
                         diffuse_rgb = read_imagef(texture_18, sampler, info.uv).xyz;
                 else if (mat.texture == 19)
                         diffuse_rgb = read_imagef(texture_19, sampler, info.uv).xyz;
+                else if (mat.texture == 20)
+                        diffuse_rgb = read_imagef(texture_20, sampler, info.uv).xyz;
+                else if (mat.texture == 21)
+                        diffuse_rgb = read_imagef(texture_21, sampler, info.uv).xyz;
+                else if (mat.texture == 22)
+                        diffuse_rgb = read_imagef(texture_22, sampler, info.uv).xyz;
+                else if (mat.texture == 23)
+                        diffuse_rgb = read_imagef(texture_23, sampler, info.uv).xyz;
+                else if (mat.texture == 24)
+                        diffuse_rgb = read_imagef(texture_24, sampler, info.uv).xyz;
+                else if (mat.texture == 25)
+                        diffuse_rgb = read_imagef(texture_25, sampler, info.uv).xyz;
 
 		/* float3 specular_rgb = (float3)(1.0f,1.0f,1.0f); */
 
@@ -224,7 +243,7 @@ shade_secondary(global ColorInt* image,
 		/* 	valrgb = (float3)(0.f,1.f,0.f); */
 
 	/* Miss branch: compute color from cubemap */
-	} else {
+	} else if (use_cubemap){
 
 		float3 d = (ray_plus.ray.dir);
 		float3 inv_d = (ray_plus.ray.invDir);
@@ -233,50 +252,37 @@ shade_secondary(global ColorInt* image,
 		float3 y_proy = d *  inv_d.y;
 		float3 z_proy = d *  inv_d.z;
 
-		float4 final_val = (float4)(0.f,0.f,0.f,1.f);
-
 		float2 cm_coords;
 
 		if (d.x > 0.f && in_range(x_proy.y, x_proy.z)) {
 			cm_coords.s0 = (-x_proy.z+1.f) * 0.5f;
 			cm_coords.s1 = (x_proy.y+1.f) * 0.5f;
-			final_val = read_imagef(x_pos, sampler, cm_coords);		
-		}
-
-		if (d.x < 0.f && in_range(x_proy.y, x_proy.z)) {
+			valrgb = read_imagef(x_pos, sampler, cm_coords).xyz;		
+		} else if (d.x < 0.f && in_range(x_proy.y, x_proy.z)) {
 			cm_coords.s0 = (-x_proy.z+1.f) * 0.5f;
 			cm_coords.s1 = (-x_proy.y+1.f) * 0.5f;
-			final_val = read_imagef(x_neg, sampler, cm_coords);		
-		}
-
-		if (d.y > 0.f && in_range(y_proy.x, y_proy.z)) {
+			valrgb = read_imagef(x_neg, sampler, cm_coords).xyz;		
+		} else if (d.y > 0.f && in_range(y_proy.x, y_proy.z)) {
 			cm_coords.s0 = (y_proy.x+1.f) * 0.5f;
 			cm_coords.s1 = (-y_proy.z+1.f) * 0.5f;
-			final_val = read_imagef(y_pos, sampler, cm_coords);		
-		}
-
-		if (d.y < 0.f && in_range(y_proy.x, y_proy.z)) {
+			valrgb = read_imagef(y_pos, sampler, cm_coords).xyz;		
+		} else if (d.y < 0.f && in_range(y_proy.x, y_proy.z)) {
 			cm_coords.s0 = (-y_proy.x+1.f) * 0.5f;
 			cm_coords.s1 = (-y_proy.z+1.f) * 0.5f;
-			final_val = read_imagef(y_neg, sampler, cm_coords);		
-		}
-
-		if (d.z > 0.f && in_range(z_proy.x, z_proy.y)) {
+			valrgb = read_imagef(y_neg, sampler, cm_coords).xyz;		
+		} else if (d.z > 0.f && in_range(z_proy.x, z_proy.y)) {
 			cm_coords.s0 = (z_proy.x+1.f) * 0.5f;
 			cm_coords.s1 = (z_proy.y+1.f) * 0.5f;
-			final_val = read_imagef(z_pos, sampler, cm_coords);		
-		}
-
-		if (d.z < 0.f && in_range(z_proy.x, z_proy.y)) {
+			valrgb = read_imagef(z_pos, sampler, cm_coords).xyz;		
+		} else if (d.z < 0.f && in_range(z_proy.x, z_proy.y)) {
 			cm_coords.s0 = (z_proy.x+1.f) * 0.5f;
 			cm_coords.s1 = (-z_proy.y+1.f) * 0.5f;
-			final_val = read_imagef(z_neg, sampler, cm_coords);		
+			valrgb = read_imagef(z_neg, sampler, cm_coords).xyz;		
 		}
-
-
-		valrgb = final_val.xyz;
-		/* valrgb = (float3)(0.f,1.f,0.f); */
-	}
+	} else {
+                /* valrgb = (float3)(0.f,0.f,0.f); */
+                return;
+        }
 
         /* valrgb +=  (float3)(0.f,info.uv.s0,0.f) * 0.05f; */
 
@@ -337,6 +343,13 @@ shade_primary(global ColorInt* image,
               read_only image2d_t texture_17,
               read_only image2d_t texture_18,
               read_only image2d_t texture_19,
+              read_only image2d_t texture_20,
+              read_only image2d_t texture_21,
+              read_only image2d_t texture_22,
+              read_only image2d_t texture_23,
+              read_only image2d_t texture_24,
+              read_only image2d_t texture_25,
+              int use_cubemap,
               global Lights* lights)
 {
 
@@ -403,6 +416,18 @@ shade_primary(global ColorInt* image,
                         diffuse_rgb = read_imagef(texture_18, sampler, info.uv).xyz;
                 else if (mat.texture == 19)
                         diffuse_rgb = read_imagef(texture_19, sampler, info.uv).xyz;
+                else if (mat.texture == 20)
+                        diffuse_rgb = read_imagef(texture_20, sampler, info.uv).xyz;
+                else if (mat.texture == 21)
+                        diffuse_rgb = read_imagef(texture_21, sampler, info.uv).xyz;
+                else if (mat.texture == 22)
+                        diffuse_rgb = read_imagef(texture_22, sampler, info.uv).xyz;
+                else if (mat.texture == 23)
+                        diffuse_rgb = read_imagef(texture_23, sampler, info.uv).xyz;
+                else if (mat.texture == 24)
+                        diffuse_rgb = read_imagef(texture_24, sampler, info.uv).xyz;
+                else if (mat.texture == 25)
+                        diffuse_rgb = read_imagef(texture_25, sampler, info.uv).xyz;
 
 		/* float3 specular_rgb = (float3)(1.0f,1.0f,1.0f); */
 
@@ -442,7 +467,7 @@ shade_primary(global ColorInt* image,
 		/* 	valrgb = (float3)(0.f,1.f,0.f); */
 
 	/* Miss branch: compute color from cubemap */
-	} else {
+	} else if (use_cubemap) {
 
 		float3 d = (ray_plus.ray.dir);
 		float3 inv_d = (ray_plus.ray.invDir);
@@ -451,50 +476,37 @@ shade_primary(global ColorInt* image,
 		float3 y_proy = d *  inv_d.y;
 		float3 z_proy = d *  inv_d.z;
 
-		float4 final_val = (float4)(0.f,0.f,0.f,1.f);
-
 		float2 cm_coords;
 
 		if (d.x > 0.f && in_range(x_proy.y, x_proy.z)) {
 			cm_coords.s0 = (-x_proy.z+1.f) * 0.5f;
 			cm_coords.s1 = (x_proy.y+1.f) * 0.5f;
-			final_val = read_imagef(x_pos, sampler, cm_coords);		
-		}
-
-		if (d.x < 0.f && in_range(x_proy.y, x_proy.z)) {
+			valrgb = read_imagef(x_pos, sampler, cm_coords).xyz;		
+		} else if (d.x < 0.f && in_range(x_proy.y, x_proy.z)) {
 			cm_coords.s0 = (-x_proy.z+1.f) * 0.5f;
 			cm_coords.s1 = (-x_proy.y+1.f) * 0.5f;
-			final_val = read_imagef(x_neg, sampler, cm_coords);		
-		}
-
-		if (d.y > 0.f && in_range(y_proy.x, y_proy.z)) {
+			valrgb = read_imagef(x_neg, sampler, cm_coords).xyz;		
+		} else if (d.y > 0.f && in_range(y_proy.x, y_proy.z)) {
 			cm_coords.s0 = (y_proy.x+1.f) * 0.5f;
 			cm_coords.s1 = (-y_proy.z+1.f) * 0.5f;
-			final_val = read_imagef(y_pos, sampler, cm_coords);		
-		}
-
-		if (d.y < 0.f && in_range(y_proy.x, y_proy.z)) {
+			valrgb = read_imagef(y_pos, sampler, cm_coords).xyz;		
+		} else if (d.y < 0.f && in_range(y_proy.x, y_proy.z)) {
 			cm_coords.s0 = (-y_proy.x+1.f) * 0.5f;
 			cm_coords.s1 = (-y_proy.z+1.f) * 0.5f;
-			final_val = read_imagef(y_neg, sampler, cm_coords);		
-		}
-
-		if (d.z > 0.f && in_range(z_proy.x, z_proy.y)) {
+			valrgb = read_imagef(y_neg, sampler, cm_coords).xyz;		
+		} else if (d.z > 0.f && in_range(z_proy.x, z_proy.y)) {
 			cm_coords.s0 = (z_proy.x+1.f) * 0.5f;
 			cm_coords.s1 = (z_proy.y+1.f) * 0.5f;
-			final_val = read_imagef(z_pos, sampler, cm_coords);		
-		}
-
-		if (d.z < 0.f && in_range(z_proy.x, z_proy.y)) {
+			valrgb = read_imagef(z_pos, sampler, cm_coords).xyz;		
+		} else if (d.z < 0.f && in_range(z_proy.x, z_proy.y)) {
 			cm_coords.s0 = (z_proy.x+1.f) * 0.5f;
 			cm_coords.s1 = (-z_proy.y+1.f) * 0.5f;
-			final_val = read_imagef(z_neg, sampler, cm_coords);		
+			valrgb = read_imagef(z_neg, sampler, cm_coords).xyz;		
 		}
-
-
-		valrgb = final_val.xyz;
-		/* valrgb = (float3)(0.f,1.f,0.f); */
-	}
+	} else {
+                /* valrgb = (float3)(0.f,0.f,0.f); */
+                return;
+        }
 
         /* valrgb +=  (float3)(0.f,info.uv.s0,0.f) * 0.05f; */
 

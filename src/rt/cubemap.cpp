@@ -42,6 +42,7 @@ Cubemap::initialize(std::string posx, std::string negx,
         if (device.memory(negz_id).initialize_from_gl_texture(negz_tex))
                 return -1;
         m_initialized = true;
+        enabled = true;
 	return 0;
 }
 

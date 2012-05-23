@@ -28,7 +28,7 @@ private:
         memory_id invalid_tex_mem_id;
 
         static const texture_id invalid_tex_id = -1;
-        static const size_t MAX_TEXTURE_COUNT = 20;
+        static const size_t MAX_TEXTURE_COUNT = 25;
 
         bool m_initialized;
 
