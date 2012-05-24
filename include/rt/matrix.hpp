@@ -139,6 +139,16 @@ public:
                 for (uint32_t i = 0; i < N; ++i, vptr++)
                         *vptr = col[i];
         }
+
+        friend std::ostream& operator<< (std::ostream &out, sqmat<N,F>& v) {
+                for (uint32_t row = 0; row < N; ++row) {
+                        for (uint32_t col = 0; col < N; ++col) {
+                                out << v.val(row,col) << "\t";
+                        }
+                        out << "\n";
+                }
+        }
+
 };
 
 typedef sqmat<3,float> mat3x3;

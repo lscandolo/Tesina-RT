@@ -1,6 +1,7 @@
 #ifndef RT_VECTOR_HPP
 #define RT_VECTOR_HPP
 
+#include <ostream>
 #include <stdint.h>
 #include <math.h>
 
@@ -181,6 +182,14 @@ public:
 			return n;
 		};
 
+        /* Friendly neighborhood stream helper function */
+        friend std::ostream& operator<< (std::ostream &out, const vec<N,F>& v) {
+                for (uint32_t i = 0; i < N; ++i) {
+                        out << v[i] << "\t";
+                }
+                return out;
+        }
+
 	// inline float norm() const
 	// 	{return x*x + y*y + z*z;}
 
@@ -230,6 +239,5 @@ vec3 makeVector(const float& v0, const float& v1, const float& v2);
 vec4 makeVector(const float& v0, const float& v1, const float& v2, const float& v3);
 
 const vec3 vec3_zero = makeVector(0.f,0.f,0.f);
-
 
 #endif /* RT_VECTOR_HPP */

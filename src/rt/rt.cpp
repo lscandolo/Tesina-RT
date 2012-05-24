@@ -14,9 +14,9 @@ GLInfo glinfo;
 DeviceInterface device;
 memory_id tex_id;
 
-object_id item_id;
-object_id boat_id;
-object_id floor_id;
+// object_id item_id;
+// object_id boat_id;
+// object_id floor_id;
 
 RayBundle             ray_bundle_1,ray_bundle_2;
 HitBundle             hit_bundle;
@@ -63,9 +63,9 @@ void gl_key(unsigned char key, int x, int y)
 
         static float scale = 1.f;
         static float tilt = 0.f;
-        Object& boat_obj = scene.object(boat_id);
-        Object& floor_obj = scene.object(floor_id);
-        Object& item_obj = scene.object(item_id);
+        // Object& boat_obj = scene.object(boat_id);
+        // Object& floor_obj = scene.object(floor_id);
+        // Object& item_obj = scene.object(item_id);
 
         const sample_cl samples1[] = {{ 0.f , 0.f, 1.f}};
         const sample_cl samples4[] = {{ 0.25f , 0.25f, 0.25f},
@@ -81,11 +81,9 @@ void gl_key(unsigned char key, int x, int y)
                 MAX_BOUNCE = std::max(MAX_BOUNCE-1, 0);
                 break;
         case 'p':
-                camera.set(makeVector(-9.37294f,-3.47214f,0.412559f),
-                           makeVector(0.769393f,-0.393467f,-0.503207f),
-                           makeVector(0.f,1.f,0.f),
-                           M_PI/4.f,
-                           window_size[0] / (float)window_size[1]);
+                std::cout << std::endl;
+                std::cout << "Camera Pos:\n" << camera.pos << std::endl;
+                std::cout << "Camera Dir:\n" << camera.dir << std::endl;
                 break;
         case 'a':
                 camera.panRight(-delta*scale);
@@ -141,12 +139,6 @@ void gl_key(unsigned char key, int x, int y)
                 scene.update_bvh_roots();
                 break;
         }
-        vec3 p = camera.pos;
-        vec3 d = camera.dir;
-        std::cout << "Camera Pos:\n"
-                  << p[0] << "\t" << p[1] << "\t" << p[2] << std::endl;
-        std::cout << "Camera Dir:\n"
-                  << d[0] << "\t" << d[1] << "\t" << d[2] << std::endl;
 }
 
 
@@ -181,15 +173,15 @@ void gl_loop()
         }
         fb_clear_time = framebuffer.get_clear_exec_time();
 
-        cl_int arg = i%STEPS;
         int32_t tile_size = best_tile_size;
 
         directional_light_cl light;
-        light.set_dir(0.05f,-1.f,-1.9f);
+        // cl_int arg = i%STEPS;
         // light.set_dir(1.f,-1.f,0.f);
-        light.set_color(1.f,1.f,1.f);
         // light.set_dir(0.05f * (arg - 8.f) , -0.6f, 0.2f);
         // light.set_color(0.05f * (fabsf(arg)) + 0.1f, 0.2f, 0.05f * fabsf(arg+4.f));
+        light.set_dir(0.05f,-1.f,-1.9f);
+        light.set_color(1.f,1.f,1.f);
         scene.set_dir_light(light);
         color_cl ambient;
         ambient[0] = ambient[1] = ambient[2] = 0.1f;
@@ -441,7 +433,7 @@ int main (int argc, char** argv)
                  scene.load_obj_file_as_aggregate("models/obj/frame_boat1.obj");
          object_id boat_obj_id = scene.add_object(boat_mesh_id);
          Object& boat_obj = scene.object(boat_obj_id);
-         boat_id = boat_obj_id; //!!
+         // boat_id = boat_obj_id; //!!
          boat_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
          boat_obj.geom.setRpy(makeVector(0.f,0.f,0.f));
          boat_obj.geom.setScale(2.f);
