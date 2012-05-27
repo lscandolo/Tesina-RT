@@ -23,7 +23,6 @@ HitBundle                hit_bundle;
 PrimaryRayGenerator     prim_ray_gen;
 SecondaryRayGenerator   sec_ray_gen;
 RayShader                ray_shader;
-Scene                    flat_scene;
 std::vector<Scene>       scenes;
 Cubemap                  cubemap;
 FrameBuffer              framebuffer;
@@ -168,13 +167,10 @@ void gl_loop()
 	double fb_clear_time = 0;
 	double fb_copy_time = 0;
 
-	DeviceMemory& bvh_mem = flat_scene.bvh_nodes_mem();
-
 	glClear(GL_COLOR_BUFFER_BIT);
 
         if (device.acquire_graphic_resource(tex_id) ||
-            cubemap.acquire_graphic_resources() || 
-            flat_scene.acquire_graphic_resources()) {
+            cubemap.acquire_graphic_resources()) {
                 std::cerr << "Error acquiring texture resource." << std::endl;
                 exit(1);
         }
@@ -228,13 +224,15 @@ void gl_loop()
 
 		total_ray_count += tile_size;
 
-		if (tracer.trace(scene, bvh_mem, tile_size, *ray_in, hit_bundle)){
+		if (tracer.trace(scene, tile_size, *ray_in, hit_bundle)){
+		// if (tracer.trace(scene, bvh_mem, tile_size, *ray_in, hit_bundle)){
 			std::cerr << "Failed to trace." << std::endl;
 			exit(1);
 		}
 		prim_trace_time += tracer.get_trace_exec_time();
 
-		if (tracer.shadow_trace(scene, bvh_mem, tile_size, *ray_in, hit_bundle)){
+		if (tracer.shadow_trace(scene, tile_size, *ray_in, hit_bundle)){
+		//if (tracer.shadow_trace(scene, bvh_mem, tile_size, *ray_in, hit_bundle)){
 			std::cerr << "Failed to shadow trace." << std::endl;
 			exit(1);
 		}
@@ -263,7 +261,8 @@ void gl_loop()
 
 			total_ray_count += sec_ray_count;
 
-			if (tracer.trace(scene, bvh_mem, sec_ray_count, 
+			// if (tracer.trace(scene, bvh_mem, sec_ray_count, 
+			if (tracer.trace(scene, sec_ray_count, 
                                          *ray_in, hit_bundle, true)) {
                                 std::cerr << "Failed to trace." << std::endl;
                                 exit(1);
@@ -271,7 +270,8 @@ void gl_loop()
 			sec_trace_time += tracer.get_trace_exec_time();
 
 
-			if (tracer.shadow_trace(scene, bvh_mem, sec_ray_count, 
+			// if (tracer.shadow_trace(scene, bvh_mem, sec_ray_count, 
+			if (tracer.shadow_trace(scene, sec_ray_count, 
                                                 *ray_in, hit_bundle, true)) {
                                 std::cerr << "Failed to shadow trace." << std::endl;
                                 exit(1);
@@ -306,8 +306,7 @@ void gl_loop()
 		max_time = std::max(max_time,total_msec);
 
         if (device.release_graphic_resource(tex_id) ||
-            cubemap.release_graphic_resources() || 
-            flat_scene.release_graphic_resources()) {
+            cubemap.release_graphic_resources()) {
                 std::cerr << "Error releasing texture resource." << std::endl;
                 exit(1);
         }
@@ -434,60 +433,6 @@ int main (int argc, char** argv)
 	// const std::string pack = "pack2OBJ";
 	double wave_attenuation = 1.f;
 
-	/* -=-=-=-=-=-=-=- Flat grid bvh construction -=-=-=-=-=-=- */
-        flat_scene.initialize(clinfo);
-	std::stringstream flat_grid_path;
-	flat_grid_path << "models/obj/" << pack << "/gridFluid" << 1 << ".obj";
-	mesh_id flat_grid_mid = flat_scene.load_obj_file_as_aggregate(flat_grid_path.str());
-	object_id flat_grid_oid = flat_scene.add_object(flat_grid_mid);
-	Object& flat_grid = flat_scene.object(flat_grid_oid);
-	flat_grid.geom.setScale(makeVector(1.f,0.f,1.f));
-	// flat_grid.slack = makeVector(0.f,0.9f,0.f);
-	flat_grid.slack = makeVector(0.f,wave_attenuation * 0.9f,0.f);
-
-	/* ---- Solids ------ */
-	// const uint32_t bridge_parts = 5;
-	// const int32_t visual_frame = 9;
-	// std::stringstream visual_path;
-	// visual_path << "models/obj/" << pack << "/visual" << visual_frame << ".obj";
-	// mesh_id visual_mid = flat_scene.load_obj_file_as_aggregate(visual_path.str());
-	// object_id visual_oid = flat_scene.add_object(visual_mid);
-	// Object& visual = flat_scene.object(visual_oid);
-	// // visual.slack = makeVector(0.f,0.55f,0.f);
-
-	// for (uint32_t j = 0; j < bridge_parts ; ++j) {
-	// 	std::stringstream bridge_path;
-	// 	bridge_path << "models/obj/" << pack << "/bridge" << j << visual_frame << ".obj";
-	// 	mesh_id bridge_mid = flat_scene.load_obj_file_as_aggregate(bridge_path.str());
-	// 	object_id bridge_oid = flat_scene.add_object(bridge_mid);
-	// 	Object& bridge = flat_scene.object(bridge_oid);
-	// 	// bridge.slack = makeVector(0.f,5.55f,0.f);
-	// }
-
-	// mesh_id teapot_mesh_id = flat_scene.load_obj_file_as_aggregate("models/obj/teapot2.obj");
-	// mesh_id teapot_mesh_id = flat_scene.load_obj_file_as_aggregate("models/obj/teapot-low_res.obj");
-	// object_id teapot_obj_id = flat_scene.add_object(teapot_mesh_id);
-	// Object& teapot_obj = flat_scene.object(teapot_obj_id);
-	// teapot_obj.geom.setPos(makeVector(-1.f,0.f,0.f));
-	// teapot_obj.geom.setScale(makeVector(3.f,3.f,3.f));
-
-	/* ------------------*/
-
-	flat_grid.geom.setScale(makeVector(1.f,0.f,1.f));
-	rt_time.snap_time();
-	if (flat_scene.create_aggregate_mesh() || flat_scene.create_aggregate_bvh())
-                std::cerr << "Failed to create flat scene aggregate" << std::endl;
-        if (flat_scene.transfer_aggregate_bvh_to_device())
-                std::cerr << "Failed to transfer flat scene bvh to device" << std::endl;
-	// flat_scene.create_bvh_with_slack(makeVector(0.f,.55f,0.f));
-	BVH& flat_scene_bvh   = flat_scene.get_aggregate_bvh();
-	double bvh_build_time = rt_time.msec_since_snap();
-	std::cout << "Created BVH succesfully (build time: " 
-		  << bvh_build_time << " msec, " 
-		  << flat_scene_bvh.nodeArraySize() << " nodes)." << std::endl;
-	/* -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- */
-
-
         scenes.resize(frames);
 	for (uint32_t i = 0; i < frames ; ++i) {
 
@@ -532,10 +477,11 @@ int main (int argc, char** argv)
 
 		
 		scenes[i].create_aggregate_mesh();
+		scenes[i].create_aggregate_bvh();
 		Mesh& scene_mesh = scenes[i].get_aggregate_mesh();
-		scenes[i].reorderTriangles(flat_scene_bvh.m_triangle_order);
-                if (scenes[i].transfer_aggregate_mesh_to_device())
-                        std::cerr << "Failed to transfer scene bvh to device" << std::endl;
+                if (scenes[i].transfer_aggregate_mesh_to_device() 
+                    || scenes[i].transfer_aggregate_bvh_to_device())
+                        std::cerr << "Failed to transfer scene info to device"<< std::endl;
 
 
 		/*---------------------- Print scene data ----------------------*/

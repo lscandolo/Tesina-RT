@@ -395,7 +395,7 @@ shadow_trace_multi(global RayHitInfo* trace_info,
 	ray.invDir = 1.f/ray.dir;
         ray.ori = info.hit_point;
 	/* ray.ori = original_ray.ori + original_ray.dir * info.t; */
-  	ray.tMin = 0.01f; ray.tMax = 1e37f;
+  	ray.tMin = 0.0001f; ray.tMax = 1e37f;
 
         trace_info[index].shadow_hit = false;
         for (int i = 0; i < root_count; ++i) {
@@ -440,7 +440,7 @@ shadow_trace_single(global RayHitInfo* trace_info,
 	ray.invDir = 1.f/ray.dir;
         ray.ori = info.hit_point;
 	/* ray.ori = original_ray.ori + original_ray.dir * info.t; */
-  	ray.tMin = 0.01f; ray.tMax = 1e37f;
+  	ray.tMin = 0.0001f; ray.tMax = 1e37f;
 
         trace_info[index].shadow_hit = trace_shadow_ray(ray, 
                                                         vertex_buffer, 

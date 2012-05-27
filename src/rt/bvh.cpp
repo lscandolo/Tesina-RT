@@ -51,6 +51,12 @@ BBox::largestAxis() const
 	float dx = hi.s[0] - lo.s[0];
 	float dy = hi.s[1] - lo.s[1];
 	float dz = hi.s[2] - lo.s[2];
+	// if (dx >= dy && dx >= dz)
+        //         return dy > dz ? 2 : 1;
+	// if (dy >= dx && dy >= dz)
+        //         return dx > dz ? 2 : 0;
+	// if (dz >= dx && dz >= dy)
+        //         return dx > dy ? 1 : 0;
 	if (dx > dy && dx > dz)
 		return 0;
 	else if (dy > dz)
@@ -98,18 +104,27 @@ BVHNode::sort(const std::vector<BBox>& bboxes,
 	}
 	/*------------------------ Choose split axis  ----------------------*/
 	m_split_axis = m_bbox.largestAxis();
+        uint32_t split_location;
+        for (int8_t tries = 0; tries < 2; ++tries) {
 
-	/*------------------------- Reorder triangles by axis -------------------*/
-	reorderTriangles(bboxes, ordered_triangles);
+                /*------------------------- Reorder triangles by axis ---------------*/
+                reorderTriangles(bboxes, ordered_triangles);
 
-	/*----------------------- Choose split location -----------------------*/
-	uint32_t split_location = chooseSplitLocationSAH(bboxes, ordered_triangles);
+                /*----------------------- Choose split location ---------------------*/
+                split_location = chooseSplitLocationSAH(bboxes, ordered_triangles);
+
+                if (split_location == m_start_index || split_location == m_end_index)
+                        m_split_axis = (m_split_axis + 1)%3;
+                else
+                        break;
+        }
 
 	if (split_location == m_start_index || split_location == m_end_index) {
                 offset_bounds(tri_offset);
 		m_leaf = true;
 		return;
 	}
+
 
 	/*------------------ Add left and right node -------------------*/
 	m_leaf = false;

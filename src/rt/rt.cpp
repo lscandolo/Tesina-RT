@@ -6,17 +6,16 @@
 #include <cl-gl/opencl-init.hpp>
 #include <rt/rt.hpp>
 
-int MAX_BOUNCE = 0;
+#define TOTAL_STATS_TO_LOG 12
+#define CONF_STATS_TO_LOG  4
+
+int MAX_BOUNCE = 5;
 
 CLInfo clinfo;
 GLInfo glinfo;
 
 DeviceInterface device;
 memory_id tex_id;
-
-// object_id item_id;
-// object_id boat_id;
-// object_id floor_id;
 
 RayBundle             ray_bundle_1,ray_bundle_2;
 HitBundle             hit_bundle;
@@ -37,6 +36,8 @@ size_t pixel_count = window_size[0] * window_size[1];
 size_t best_tile_size;
 Log rt_log;
 bool  print_fps = true;
+bool logging = false;
+int  stats_logged = 0;
 
 #define STEPS 16
 
@@ -63,9 +64,6 @@ void gl_key(unsigned char key, int x, int y)
 
         static float scale = 1.f;
         static float tilt = 0.f;
-        // Object& boat_obj = scene.object(boat_id);
-        // Object& floor_obj = scene.object(floor_id);
-        // Object& item_obj = scene.object(item_id);
 
         const sample_cl samples1[] = {{ 0.f , 0.f, 1.f}};
         const sample_cl samples4[] = {{ 0.25f , 0.25f, 0.25f},
@@ -80,11 +78,6 @@ void gl_key(unsigned char key, int x, int y)
         case '-':
                 MAX_BOUNCE = std::max(MAX_BOUNCE-1, 0);
                 break;
-        case 'p':
-                std::cout << std::endl;
-                std::cout << "Camera Pos:\n" << camera.pos << std::endl;
-                std::cout << "Camera Dir:\n" << camera.dir << std::endl;
-                break;
         case 'a':
                 camera.panRight(-delta*scale);
                 break;
@@ -97,8 +90,17 @@ void gl_key(unsigned char key, int x, int y)
         case 'd':
                 camera.panRight(delta*scale);
                 break;
+        case 'p':
+                std::cout << std::endl;
+                std::cout << "Camera Pos:\n" << camera.pos << std::endl;
+                std::cout << "Camera Dir:\n" << camera.dir << std::endl;
+                break;
         case 'l':
-                rt_log.silent = !rt_log.silent;
+                rt_log.silent = true;
+                rt_log.enabled = true;
+                logging = true;
+                stats_logged = 0;
+                MAX_BOUNCE = 5;
                 break;
         case 'f':
                 print_fps = !print_fps;
@@ -125,17 +127,11 @@ void gl_key(unsigned char key, int x, int y)
         case 't':
                 tilt -= 0.01f;
                 scale *= 1.5f;
-                // item_obj.geom.setScale(scale);
-                // boat_obj.geom.setRpy(makeVector(tilt,0.f,0.f));
-                // floor_obj.geom.setRpy(makeVector(0.f,0.f,tilt));
                 scene.update_bvh_roots();
                 break;
         case 'y':
                 tilt += 0.01f;
                 scale /= 1.5f;
-                // item_obj.geom.setScale(scale);
-                // boat_obj.geom.setRpy(makeVector(tilt,0.f,0.f));
-                // floor_obj.geom.setRpy(makeVector(0.f,0.f,tilt));
                 scene.update_bvh_roots();
                 break;
         }
@@ -158,6 +154,13 @@ void gl_loop()
         double fb_clear_time = 0;
         double fb_copy_time = 0;
 
+        vec3 stats_camera_pos[] = {makeVector(-39.9102, 9.42978, 55.1501) ,
+                                   makeVector(-1.1457, -0.774464, 49.4609) ,
+                                   makeVector(16.6885, 22.435, 25.0718) };
+        vec3 stats_camera_dir[] = {makeVector(0.558171, -0.165305, -0.813093),
+                                   makeVector(-0.00931118, -0.14159, -0.989882) ,
+                                   makeVector(-0.402962, -0.631356, -0.66258) };
+
         glClear(GL_COLOR_BUFFER_BIT);
 
         if (device.acquire_graphic_resource(tex_id) ||
@@ -176,16 +179,30 @@ void gl_loop()
         int32_t tile_size = best_tile_size;
 
         directional_light_cl light;
-        // cl_int arg = i%STEPS;
-        // light.set_dir(1.f,-1.f,0.f);
-        // light.set_dir(0.05f * (arg - 8.f) , -0.6f, 0.2f);
-        // light.set_color(0.05f * (fabsf(arg)) + 0.1f, 0.2f, 0.05f * fabsf(arg+4.f));
         light.set_dir(0.05f,-1.f,-1.9f);
         light.set_color(1.f,1.f,1.f);
         scene.set_dir_light(light);
         color_cl ambient;
         ambient[0] = ambient[1] = ambient[2] = 0.1f;
         scene.set_ambient_light(ambient);
+
+        if (logging) {
+                int32_t stats_index = stats_logged / CONF_STATS_TO_LOG;
+                camera.set(stats_camera_pos[stats_index],//pos 
+                           stats_camera_dir[stats_index],//dir
+                           makeVector(0,1,0), //up
+                           M_PI/4.,
+                           window_size[0] / (float)window_size[1]);
+                if (!(stats_logged % CONF_STATS_TO_LOG)) {
+                                rt_log << "-=-=-=-=-=-=-=-=-=-=-=- Stats for conf "
+                                       << (stats_logged / CONF_STATS_TO_LOG + 1)
+                                       << " -=-=-=-=-=-=-=-=-=-=-=-\n\n"
+                                       << "Camera Pos: " << camera.pos << std::endl
+                                       << "Camera Dir: " << camera.dir << std::endl
+                                       << std::endl;
+                }
+                rt_log << "---------------------" << std::endl;
+        }
 
         int32_t sample_count = pixel_count * prim_ray_gen.get_spp();
         for (int32_t offset = 0; offset < sample_count; offset+= tile_size) {
@@ -344,12 +361,24 @@ void gl_loop()
         rt_log << "Fb copy time: \t" << fb_copy_time << std::endl;
         rt_log << std::endl;
 
-        // glRasterPos2f(-window_size[0]/2.f,window_size[1]/2.f - 30.f);
+        if (logging) {
+                stats_logged++;
+                if (stats_logged >= TOTAL_STATS_TO_LOG) {
+                        logging = false;
+                        stats_logged = 0;
+                        rt_log.silent = true;
+                        rt_log.enabled = false;
+                }
+        }
+
 
         if (print_fps) {
                 glRasterPos2f(-0.95f,0.9f);
                 std::stringstream ss;
                 ss << "FPS: " << (1000.f / total_msec);
+                if (logging) {
+                        ss << "   LOGGING";
+                }
                 std::string fps_s = ss.str();
                 for (int i = 0; i < fps_s.size(); ++i)
                         glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *(fps_s.c_str()+i));
@@ -363,7 +392,7 @@ int main (int argc, char** argv)
 
         /*---------------------- Initialize OpenGL and OpenCL ----------------------*/
 
-        if (rt_log.initialize("rt-log")){
+        if (rt_log.initialize("rt-log-dragon")){
                 std::cerr << "Error initializing log!" << std::endl;
         }
                 
@@ -405,21 +434,8 @@ int main (int argc, char** argv)
                 std::cout << "Initialized scene succesfully" << std::endl;
         }
 
-        /* Other models 
-        models/obj/floor.obj
-        models/obj/teapot-low_res.obj
-        models/obj/teapot.obj
-        models/obj/teapot2.obj
-        models/obj/frame_boat1.obj
-        models/obj/frame_others1.obj
-        models/obj/frame_water1.obj
-        */
-
-
-        //mesh_id floor_mesh_id = scene.load_obj_file_as_aggregate("models/obj/pack1OBJ/gridFluid1.obj");
-        // mesh_id floor_mesh_id = scene.load_obj_file_as_aggregate("models/obj/floor.obj");
-
-         mesh_id floor_mesh_id = scene.load_obj_file_as_aggregate("models/obj/frame_water1.obj");
+        mesh_id floor_mesh_id = 
+                scene.load_obj_file_as_aggregate("models/obj/frame_water1.obj");
         object_id floor_obj_id  = scene.add_object(floor_mesh_id);
         Object& floor_obj = scene.object(floor_obj_id);
         floor_obj.geom.setScale(2.f);
@@ -427,59 +443,17 @@ int main (int argc, char** argv)
         floor_obj.mat.diffuse = Blue;
         floor_obj.mat.reflectiveness = 0.9f;
         floor_obj.mat.refractive_index = 1.333f;
-        // floor_id = floor_obj_id; //!!
 
-         mesh_id boat_mesh_id = 
-                 scene.load_obj_file_as_aggregate("models/obj/frame_boat1.obj");
-         object_id boat_obj_id = scene.add_object(boat_mesh_id);
-         Object& boat_obj = scene.object(boat_obj_id);
-         // boat_id = boat_obj_id; //!!
-         boat_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
-         boat_obj.geom.setRpy(makeVector(0.f,0.f,0.f));
-         boat_obj.geom.setScale(2.f);
-         boat_obj.mat.diffuse = Red;
-         boat_obj.mat.shininess = 1.f;
-         boat_obj.mat.reflectiveness = 0.0f;
-
-        // std::vector<mesh_id> hand_meshes;
-        // hand_meshes = scene.load_obj_file("models/obj/hand/hand_00.obj");
-        // std::vector<object_id> hand_objects;
-        // hand_objects = scene.add_objects(hand_meshes);
-
-        // scene.load_obj_file_and_make_objs("models/obj/hand/hand_40.obj");
-        // scene.load_obj_file_and_make_objs("models/obj/ben/ben_00.obj");
-        // scene.load_obj_file_and_make_objs("models/obj/fairy_forest/f000.obj");
-        // scene.load_obj_file_and_make_objs("models/obj/marbles/marbles000.obj");
-        // scene.load_obj_file_and_make_objs("models/obj/marbles/marbles000.obj");
-
-        // // std::string mesh_file("models/obj/teapot2.obj");
-        // std::string mesh_file("models/obj/hand/hand_00.obj");
-        // // std::string mesh_file("models/obj/ben/ben_00.obj");
-        // // std::string mesh_file("models/obj/fairy_forest/f000.obj");
-        // // std::string mesh_file("models/obj/marbles/marbles000.obj");
-        // mesh_id item_mesh_id = scene.load_obj_file_as_aggregate(mesh_file);
-        // object_id item_obj_id = scene.add_object(item_mesh_id);
-        // Object& item_obj = scene.object(item_obj_id);
-        // // item_obj.geom.setPos(makeVector(-8.f,-5.f,0.f));
-        // item_obj.mat.diffuse[0] = 239/255.f;
-        // item_obj.mat.diffuse[1] = 208/255.f;
-        // item_obj.mat.diffuse[2] = 207/255.f;
-        // // item_obj.geom.setScale(2.f);
-        // item_obj.mat.shininess = 1.f;
-        // item_obj.mat.reflectiveness = 0.f;
-        // item_id = item_obj_id;
-
-        // texture_id hand_tex_id = scene.texture_atlas.load_texture("textures/hand/hand.ppm");
-        // item_obj.mat.texture = hand_tex_id;
-
-        // object_id item_obj_id_2 = scene.add_object(item_mesh_id);
-        // Object& item_obj_2 = scene.object(item_obj_id_2);
-        // item_obj_2.mat.diffuse = Red;
-        // item_obj_2.mat.shininess = 1.f;
-        // item_obj_2.geom.setPos(makeVector(8.f,5.f,0.f));
-        // item_obj_2.geom.setRpy(makeVector(0.2f,0.1f,0.3f));
-        // item_obj_2.geom.setScale(0.3f);
-        // item_obj_2.mat.reflectiveness = 0.3f;
+         mesh_id dragon_mesh_id = 
+                 scene.load_obj_file_as_aggregate("models/obj/dragon.obj");
+         object_id dragon_obj_id = scene.add_object(dragon_mesh_id);
+         Object& dragon_obj = scene.object(dragon_obj_id);
+         dragon_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
+         dragon_obj.geom.setRpy(makeVector(0.f,0.f,0.f));
+         dragon_obj.geom.setScale(2.f);
+         dragon_obj.mat.diffuse = Red;
+         dragon_obj.mat.shininess = 1.f;
+         dragon_obj.mat.reflectiveness = 0.7f;
 
 #if 1
          /* -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- Aggregate BVH -=-=-=-=-=-=-=-=-=-=-=-=-=- */

@@ -135,11 +135,11 @@ transform_hit_info(Ray ray,
 }
 
 void __attribute__((always_inline))
-complete_hit_info(Ray ray, 
-                  sqmat4 tr,
-                  RayHitInfo* hit_info, 
-                  global Vertex* vertex_buffer,
-                  global int* index_buffer)
+complete_transformed_hit_info(Ray ray, 
+                              sqmat4 tr,
+                              RayHitInfo* hit_info, 
+                              global Vertex* vertex_buffer,
+                              global int* index_buffer)
 {
 
                
@@ -159,6 +159,45 @@ complete_hit_info(Ray ray,
                                         index_buffer,
                                         hit_info->id, 
                                         hit_info->uv);
+}
+
+void __attribute__((always_inline))
+complete_hit_info(Ray ray, 
+                  RayHitInfo* hit_info, 
+                  global Vertex* vertex_buffer,
+                  global int* index_buffer)
+{
+
+        hit_info->hit_point = ray.ori + ray.dir * hit_info->t;
+
+        int id = hit_info->id;
+
+        global Vertex* vx0 = &vertex_buffer[index_buffer[3*id]];
+        global Vertex* vx1 = &vertex_buffer[index_buffer[3*id+1]];
+        global Vertex* vx2 = &vertex_buffer[index_buffer[3*id+2]];
+
+        float u = hit_info->uv.s0;
+        float v = hit_info->uv.s1;
+        float w = 1.f - (u+v);
+
+        float3 n0 = normalize(vx0->normal);
+        float3 n1 = normalize(vx1->normal);
+        float3 n2 = normalize(vx2->normal);
+
+        float2 t0 = vx0->texCoord;
+        float2 t1 = vx1->texCoord;
+        float2 t2 = vx2->texCoord;
+
+        hit_info->n = w * n0 + v * n2 + u * n1;
+        hit_info->uv = w * t0 + v * t2 + u * t1;
+
+        /* If the normal is pointing out, 
+           invert it and note it in the flags */
+        if (dot(hit_info->n,ray.dir) > 0) { 
+                hit_info->inverse_n = true;
+                hit_info->n *= -1.f;
+        }
+
 }
 
 void __attribute__((always_inline))
@@ -418,10 +457,8 @@ RayHitInfo trace_ray(Ray ray,
                                 /* depth--; */
                         }
                 } else {
-                        bool hit = bbox_hit(current_node.bbox, ray);
-
                         // If it hit, and closer to the closest hit up to now, check it
-                        if (hit) {
+                        if (bbox_hit(current_node.bbox, ray)) {
                                 // If it's a leaf, check all primitives in the leaf, 
                                 // then go up
                                 if (current_node.leaf) {
@@ -470,7 +507,6 @@ trace_multi(global RayHitInfo* trace_info,
             int root_count)
 {
         int index = get_global_id(0);
-        int offset = get_global_offset(0);
         Ray ray = rays[index].ray;
 
         RayHitInfo best_info;
@@ -501,8 +537,8 @@ trace_multi(global RayHitInfo* trace_info,
 
         /*Compute normal and texCoord at hit point*/
         if (best_info.hit)
-                complete_hit_info(ray, roots[best_root].tr,&best_info,
-                                  vertex_buffer, index_buffer);
+                complete_transformed_hit_info(ray, roots[best_root].tr,&best_info,
+                                              vertex_buffer, index_buffer);
         /* Save hit info*/
         trace_info[index] = best_info;
 }
@@ -517,31 +553,15 @@ trace_single(global RayHitInfo* trace_info,
              int root_count)
 {
         int index = get_global_id(0);
-        int offset = get_global_offset(0);
         Ray ray = rays[index].ray;
         RayHitInfo best_info;
 
         best_info = trace_ray(ray,vertex_buffer,index_buffer,
                               bvh_nodes, 0);
 
-        if (best_info.hit) {
-                best_info.hit_point = ray.ori + ray.dir * best_info.t;
-                best_info.n = compute_normal(vertex_buffer,
-                                             index_buffer,
-                                             best_info.id,
-                                             best_info.uv);
-                /* If the normal is pointing out,
-                   invert it and note it in the flags */
-                if (dot(best_info.n,ray.dir) > 0) {
-                        best_info.inverse_n = true;
-                        best_info.n *= -1.f;
-                }
+        if (best_info.hit) 
+                complete_hit_info(ray,&best_info, vertex_buffer, index_buffer);
 
-                best_info.uv = compute_texCoord(vertex_buffer,
-                                                index_buffer,
-                                                best_info.id,
-                                                best_info.uv);
-        }
 
         trace_info[index] = best_info;
 }
