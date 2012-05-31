@@ -6,10 +6,10 @@
 #include <cl-gl/opencl-init.hpp>
 #include <rt/rt.hpp>
 
-#define TOTAL_STATS_TO_LOG 12
+#define TOTAL_STATS_TO_LOG 4
 #define CONF_STATS_TO_LOG  4
 
-int MAX_BOUNCE = 5;
+int MAX_BOUNCE = 9;
 
 CLInfo clinfo;
 GLInfo glinfo;
@@ -37,6 +37,8 @@ size_t best_tile_size;
 Log rt_log;
 bool  print_fps = true;
 bool logging = false;
+bool logged = false;
+bool custom_logging = false;
 int  stats_logged = 0;
 
 #define STEPS 16
@@ -95,13 +97,33 @@ void gl_key(unsigned char key, int x, int y)
                 std::cout << "Camera Pos:\n" << camera.pos << std::endl;
                 std::cout << "Camera Dir:\n" << camera.dir << std::endl;
                 break;
+        case 'k':
+                rt_log.silent = true;
+                rt_log.enabled = true;
+                rt_log << "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- " 
+                       << "CUSTOM LOG: " 
+                       << "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- " 
+                       << std::endl;
+                rt_log << "Camera Pos: " << camera.pos << std::endl;
+                rt_log << "Camera Dir: " << camera.dir << std::endl;
+                rt_log << "MAX_BOUNCE: "<< MAX_BOUNCE << std::endl;
+                rt_log << std::endl;
+                logging = true;
+                custom_logging = true;
+                stats_logged = 0;
+                break;
         case 'l':
+                if (logged)
+                        break;
                 rt_log.silent = true;
                 rt_log.enabled = true;
                 logging = true;
+                logged = true;
                 stats_logged = 0;
-                MAX_BOUNCE = 5;
+                MAX_BOUNCE = 9;
                 break;
+        case 'b':
+                rt_log.silent = !rt_log.silent;
         case 'f':
                 print_fps = !print_fps;
                 break;
@@ -154,12 +176,8 @@ void gl_loop()
         double fb_clear_time = 0;
         double fb_copy_time = 0;
 
-        vec3 stats_camera_pos[] = {makeVector(-39.9102, 9.42978, 55.1501) ,
-                                   makeVector(-1.1457, -0.774464, 49.4609) ,
-                                   makeVector(16.6885, 22.435, 25.0718) };
-        vec3 stats_camera_dir[] = {makeVector(0.558171, -0.165305, -0.813093),
-                                   makeVector(-0.00931118, -0.14159, -0.989882) ,
-                                   makeVector(-0.402962, -0.631356, -0.66258) };
+        vec3 stats_camera_pos[] = {makeVector(0.741773, -1.754, 4.95699)};
+        vec3 stats_camera_dir[] = {makeVector(-0.179715, -0.0878783, -0.979786)};
 
         glClear(GL_COLOR_BUFFER_BIT);
 
@@ -179,7 +197,7 @@ void gl_loop()
         int32_t tile_size = best_tile_size;
 
         directional_light_cl light;
-        light.set_dir(0.05f,-1.f,-1.9f);
+        light.set_dir(0.05f,-1.f,-0.02f);
         light.set_color(1.f,1.f,1.f);
         scene.set_dir_light(light);
         color_cl ambient;
@@ -187,13 +205,15 @@ void gl_loop()
         scene.set_ambient_light(ambient);
 
         if (logging) {
+                if (!custom_logging) {
                 int32_t stats_index = stats_logged / CONF_STATS_TO_LOG;
                 camera.set(stats_camera_pos[stats_index],//pos 
                            stats_camera_dir[stats_index],//dir
                            makeVector(0,1,0), //up
                            M_PI/4.,
                            window_size[0] / (float)window_size[1]);
-                if (!(stats_logged % CONF_STATS_TO_LOG)) {
+                }
+                if (!(stats_logged % CONF_STATS_TO_LOG) && !custom_logging) {
                                 rt_log << "-=-=-=-=-=-=-=-=-=-=-=- Stats for conf "
                                        << (stats_logged / CONF_STATS_TO_LOG + 1)
                                        << " -=-=-=-=-=-=-=-=-=-=-=-\n\n"
@@ -363,8 +383,9 @@ void gl_loop()
 
         if (logging) {
                 stats_logged++;
-                if (stats_logged >= TOTAL_STATS_TO_LOG) {
+                if (stats_logged >= TOTAL_STATS_TO_LOG || custom_logging) {
                         logging = false;
+                        custom_logging = false;
                         stats_logged = 0;
                         rt_log.silent = true;
                         rt_log.enabled = false;
@@ -392,10 +413,10 @@ int main (int argc, char** argv)
 
         /*---------------------- Initialize OpenGL and OpenCL ----------------------*/
 
-        if (rt_log.initialize("rt-log-dragon")){
+        if (rt_log.initialize("rt-log-buddha")){
                 std::cerr << "Error initializing log!" << std::endl;
         }
-                
+
         if (init_gl(argc,argv,&glinfo, window_size, "RT") != 0){
                 std::cerr << "Failed to initialize GL" << std::endl;
                 pause_and_exit(1);
@@ -434,26 +455,27 @@ int main (int argc, char** argv)
                 std::cout << "Initialized scene succesfully" << std::endl;
         }
 
-        mesh_id floor_mesh_id = 
-                scene.load_obj_file_as_aggregate("models/obj/frame_water1.obj");
-        object_id floor_obj_id  = scene.add_object(floor_mesh_id);
-        Object& floor_obj = scene.object(floor_obj_id);
-        floor_obj.geom.setScale(2.f);
-        floor_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
-        floor_obj.mat.diffuse = Blue;
-        floor_obj.mat.reflectiveness = 0.9f;
-        floor_obj.mat.refractive_index = 1.333f;
+        std::vector<mesh_id> box_meshes = 
+                scene.load_obj_file("models/obj/box-no-ceil.obj");
+        std::vector<object_id> box_objs = scene.add_objects(box_meshes);
 
-         mesh_id dragon_mesh_id = 
-                 scene.load_obj_file_as_aggregate("models/obj/dragon.obj");
-         object_id dragon_obj_id = scene.add_object(dragon_mesh_id);
-         Object& dragon_obj = scene.object(dragon_obj_id);
-         dragon_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
-         dragon_obj.geom.setRpy(makeVector(0.f,0.f,0.f));
-         dragon_obj.geom.setScale(2.f);
-         dragon_obj.mat.diffuse = Red;
-         dragon_obj.mat.shininess = 1.f;
-         dragon_obj.mat.reflectiveness = 0.7f;
+        for (uint32_t i = 0; i < box_objs.size(); ++i) {
+                Object& obj = scene.object(box_objs[i]);
+                obj.geom.setRpy(makeVector(0.f,0.f,0.4f));
+                if (obj.mat.texture > 0)
+                        obj.mat.reflectiveness = 0.8f;
+                // obj.geom.setPos(makeVector(0.f,-30.f,0.f));
+        }
+
+         mesh_id buddha_mesh_id = 
+                 scene.load_obj_file_as_aggregate("models/obj/buddha.obj");
+         object_id buddha_obj_id = scene.add_object(buddha_mesh_id);
+         Object& buddha_obj = scene.object(buddha_obj_id);
+          buddha_obj.geom.setPos(makeVector(0.f,-4.f,0.f));
+         buddha_obj.geom.setRpy(makeVector(0.f,0.f,0.f));
+         buddha_obj.geom.setScale(0.3f);
+         buddha_obj.mat.diffuse = White;
+         buddha_obj.mat.shininess = 1.f;
 
 #if 1
          /* -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- Aggregate BVH -=-=-=-=-=-=-=-=-=-=-=-=-=- */
@@ -562,6 +584,7 @@ int main (int argc, char** argv)
                 std::cerr << "Failed to initialize cubemap." << std::endl;
                 pause_and_exit(1);
         }
+        cubemap.enabled = false;
         std::cerr << "Initialized cubemap succesfully." << std::endl;
 
         /*------------------------ Initialize FrameBuffer ---------------------------*/

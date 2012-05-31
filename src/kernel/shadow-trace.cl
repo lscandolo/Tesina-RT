@@ -153,16 +153,16 @@ bbox_hit(BBox bbox,
 	float3 axis_t_max = max(axis_t_lo, axis_t_hi);
 	float3 axis_t_min = min(axis_t_lo, axis_t_hi);
 
-	if (fabs(ray.invDir.x) > 0.0001f) {
+	if (fabs(ray.invDir.x) > 1e-6f) {
 		tMin = max(tMin, axis_t_min.x); tMax = min(tMax, axis_t_max.x); 
 	}
-	if (fabs(ray.invDir.y) > 0.0001f) {
+	if (fabs(ray.invDir.y) > 1e-6f) {
 		tMin = max(tMin, axis_t_min.y); tMax = min(tMax, axis_t_max.y);
 	}
-	if (fabs(ray.invDir.z) > 0.0001f) {
+	if (fabs(ray.invDir.z) > 1e-6f) {
 	    tMin = max(tMin, axis_t_min.z); tMax = min(tMax, axis_t_max.z);
 	}
-
+        
 	return (tMin <= tMax);
 }
 
@@ -439,8 +439,7 @@ shadow_trace_single(global RayHitInfo* trace_info,
 	ray.dir = -lights->directional.dir;
 	ray.invDir = 1.f/ray.dir;
         ray.ori = info.hit_point;
-	/* ray.ori = original_ray.ori + original_ray.dir * info.t; */
-  	ray.tMin = 0.0001f; ray.tMax = 1e37f;
+  	ray.tMin = 0.01f; ray.tMax = 1e37f;
 
         trace_info[index].shadow_hit = trace_shadow_ray(ray, 
                                                         vertex_buffer, 

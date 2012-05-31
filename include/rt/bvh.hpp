@@ -97,7 +97,7 @@ public:
 	size_t triangle_order_array_size()
 		{return m_triangle_order.size();}
 
-	static const uint32_t MIN_PRIMS_PER_NODE = 4;
+	static const uint32_t MIN_PRIMS_PER_NODE = 2;
 	static const uint32_t SAH_BUCKETS = 32;
 
 // private:

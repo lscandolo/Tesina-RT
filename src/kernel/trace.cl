@@ -170,11 +170,11 @@ complete_hit_info(Ray ray,
 
         hit_info->hit_point = ray.ori + ray.dir * hit_info->t;
 
-        int id = hit_info->id;
+        int id = 3 * hit_info->id;
 
-        global Vertex* vx0 = &vertex_buffer[index_buffer[3*id]];
-        global Vertex* vx1 = &vertex_buffer[index_buffer[3*id+1]];
-        global Vertex* vx2 = &vertex_buffer[index_buffer[3*id+2]];
+        global Vertex* vx0 = &vertex_buffer[index_buffer[id]];
+        global Vertex* vx1 = &vertex_buffer[index_buffer[id+1]];
+        global Vertex* vx2 = &vertex_buffer[index_buffer[id+2]];
 
         float u = hit_info->uv.s0;
         float v = hit_info->uv.s1;
@@ -188,9 +188,9 @@ complete_hit_info(Ray ray,
         float2 t1 = vx1->texCoord;
         float2 t2 = vx2->texCoord;
 
-        hit_info->n = w * n0 + v * n2 + u * n1;
+        hit_info->n = normalize(w * n0 + v * n2 + u * n1);
         hit_info->uv = w * t0 + v * t2 + u * t1;
-
+        
         /* If the normal is pointing out, 
            invert it and note it in the flags */
         if (dot(hit_info->n,ray.dir) > 0) { 
@@ -228,13 +228,13 @@ bbox_hit(BBox bbox,
         float3 axis_t_max = fmax(axis_t_lo, axis_t_hi);
         float3 axis_t_min = fmin(axis_t_lo, axis_t_hi);
 
-        if (fabs(ray.invDir.x) > 1e-26f) {
+        if (fabs(ray.invDir.x) > 1e-6f) {
                 tMin = fmax(tMin, axis_t_min.x); tMax = fmin(tMax, axis_t_max.x);
         }
-        if (fabs(ray.invDir.y) > 1e-26f) {
+        if (fabs(ray.invDir.y) > 1e-6f) {
                 tMin = fmax(tMin, axis_t_min.y); tMax = fmin(tMax, axis_t_max.y);
         }
-        if (fabs(ray.invDir.z) > 1e-26f) {
+        if (fabs(ray.invDir.z) > 1e-6f) {
             tMin = fmax(tMin, axis_t_min.z); tMax = fmin(tMax, axis_t_max.z);
         }
 
