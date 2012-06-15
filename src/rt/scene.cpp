@@ -40,7 +40,11 @@ Scene::Scene()
         m_initialized = false;
         m_aggregate_mesh_built = false;
         m_aggregate_bvh_built = false;
+        m_aggregate_kdt_built = false;
         m_bvhs_built = false;
+        m_aggregate_bvh_transfered = false;
+        m_aggregate_kdt_transfered = false;
+        m_accelerator_type = KDTREE_ACCELERATOR;
 }
 
 int32_t 
@@ -59,6 +63,8 @@ Scene::initialize(CLInfo& clinfo)
         bvh_id = device.new_memory();
         lights_id = device.new_memory();
         bvh_roots_id = device.new_memory();
+        kdt_nodes_id = device.new_memory();
+        kdt_leaf_tris_id = device.new_memory();
 
 	/*-------------- Move initial light info to device memory---------------*/
         DeviceMemory& light_mem = device.memory(lights_id);
@@ -72,7 +78,7 @@ Scene::initialize(CLInfo& clinfo)
 bool 
 Scene::valid_aggregate()
 {
-        return m_aggregate_mesh_built && m_aggregate_bvh_built;
+        return m_aggregate_mesh_built && (m_aggregate_bvh_built || m_aggregate_kdt_built);
 }
 
 bool
@@ -86,6 +92,29 @@ Scene::valid()
 {
         return device.good() && m_initialized && 
                 (valid_aggregate() || valid_bvhs());
+}
+
+bool 
+Scene::ready()
+{
+        if (!device.good || !m_initialized)
+                return false;
+
+        switch (m_accelerator_type) {
+        case (KDTREE_ACCELERATOR):
+                return m_aggregate_kdt_built && m_aggregate_kdt_transfered;
+        case (BVH_ACCELERATOR):
+                return m_aggregate_bvh_built && m_aggregate_bvh_transfered;
+        default:
+                return -1;
+        }
+}
+
+void
+Scene::set_accelerator_type(AcceleratorType type)
+{
+        if (type == KDTREE_ACCELERATOR || type == BVH_ACCELERATOR)
+                m_accelerator_type = type;
 }
 
 int32_t 
@@ -179,6 +208,39 @@ Scene::transfer_aggregate_bvh_to_device()
                         return -1;
         }
         
+        m_aggregate_bvh_transfered = true;
+
+        return 0;
+}
+
+int32_t 
+Scene::transfer_aggregate_kdtree_to_device()
+{
+        if (!m_initialized || !m_aggregate_kdt_built)
+                return -1;
+
+	/*--------------------- Move kdt to device memory ---------------------*/
+
+        DeviceMemory& kdt_nodes_mem = device.memory(kdt_nodes_id);
+        DeviceMemory& kdt_leaf_tris_mem = device.memory(kdt_leaf_tris_id);
+
+        const void* kdt_nodes_ptr = aggregate_kdtree.node_array();
+        size_t kdt_nodes_size = aggregate_kdtree.node_array_size() * sizeof(KDTNode);
+
+        const void* kdt_leaf_tris_ptr = aggregate_kdtree.leaf_tris_array();
+        size_t kdt_leaf_tris_size = aggregate_kdtree.leaf_tris_array_size()*sizeof(cl_uint);
+
+        if (kdt_nodes_mem.initialize(kdt_nodes_size, 
+                                     kdt_nodes_ptr, 
+                                     READ_ONLY_MEMORY))
+            return -1;
+
+        if (kdt_leaf_tris_mem.initialize(kdt_leaf_tris_size, 
+                                         kdt_leaf_tris_ptr, 
+                                         READ_ONLY_MEMORY))
+            return -1;
+
+        m_aggregate_kdt_transfered = true;
 
         return 0;
 }
@@ -314,7 +376,7 @@ Scene::create_aggregate_mesh()
 		}
 		for (uint32_t t = 0; t < mesh.triangleCount(); ++t) {
 			Triangle tri = mesh.triangle(t);
-            tri.v[0] += vtx_id(base_vertex);
+                        tri.v[0] += vtx_id(base_vertex);
 			tri.v[1] += vtx_id(base_vertex);
 			tri.v[2] += vtx_id(base_vertex);
 			aggregate_mesh.triangles.push_back(tri);
@@ -328,12 +390,34 @@ Scene::create_aggregate_mesh()
 	return 0;
 }
 
+int32_t
+Scene::create_aggregate_accelerator()
+{
+        switch (m_accelerator_type) {
+        case (KDTREE_ACCELERATOR):
+                return create_aggregate_kdtree();
+        case (BVH_ACCELERATOR):
+                return create_aggregate_bvh();
+        default:
+                return -1;
+        }
+}
+
 int32_t 
 Scene::create_aggregate_bvh()
 {
-        if (!aggregate_bvh.construct_and_map(aggregate_mesh, material_map))
+        if (aggregate_bvh.construct_and_map(aggregate_mesh, material_map))
                 return -1;
         m_aggregate_bvh_built = true;
+        return 0;
+}
+
+int32_t 
+Scene::create_aggregate_kdtree()
+{
+        if (aggregate_kdtree.construct(aggregate_mesh, &aggregate_bbox))
+                return -1;
+        m_aggregate_kdt_built = true;
         return 0;
 }
 
@@ -536,6 +620,19 @@ Scene::transfer_meshes_to_device()
 }
 
 int32_t
+Scene::transfer_aggregate_accelerator_to_device()
+{
+        switch (m_accelerator_type) {
+        case (KDTREE_ACCELERATOR):
+                return transfer_aggregate_kdtree_to_device();
+        case (BVH_ACCELERATOR):
+                return transfer_aggregate_bvh_to_device();
+        default:
+                return -1;
+        }
+}
+
+int32_t
 Scene::transfer_bvhs_to_device()
 {
 	if (!m_initialized || !m_bvhs_built)
@@ -611,13 +708,32 @@ Scene::update_mesh_vertices(mesh_id mid)
             else {
                     Mesh& mesh = mesh_atlas[mid];
                     if (vertex_mem().write(mesh.vertexCount() *sizeof(Vertex),
-                                         mesh.vertexArray(),
-                                         vertex_offset))
-                                         return -1;
+                                           mesh.vertexArray(),
+                                           vertex_offset))
+                            return -1;
                     return 0;
             }
     }
     return -1;
+}   
+
+int32_t 
+Scene::update_aggregate_mesh_vertices(mesh_id mid)
+{
+	if (!m_initialized || !m_aggregate_mesh_built)
+                return -1;
+
+	/*---------------------- Move model data to OpenCL device -----------------*/
+
+
+        size_t vertex_count = aggregate_mesh.vertexCount();
+        DeviceMemory& vertex_mem = device.memory(vert_id);
+        size_t vertex_mem_size = vertex_count * sizeof(Vertex);
+        const void*  vertex_ptr = aggregate_mesh.vertexArray();
+        if (vertex_mem.write(vertex_mem_size, vertex_ptr, 0))
+                    return -1;
+        return 0;
+
 }   
 
 int32_t
@@ -708,6 +824,18 @@ DeviceMemory&
 Scene::bvh_roots_mem()
 {
         return device.memory(bvh_roots_id);
+}
+
+DeviceMemory&
+Scene::kdtree_nodes_mem()
+{
+        return device.memory(kdt_nodes_id);
+}
+
+DeviceMemory&
+Scene::kdtree_leaf_tris_mem()
+{
+        return device.memory(kdt_leaf_tris_id);
 }
 
 DeviceMemory&

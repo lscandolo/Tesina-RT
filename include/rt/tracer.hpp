@@ -31,12 +31,28 @@ public:
 
 private:
 
-        DeviceInterface device;
-        function_id single_tracer_id;
-        function_id multi_tracer_id;
+	int32_t trace_kdtree(Scene& scene, int32_t ray_count, 
+                             RayBundle& rays, HitBundle& hits, bool secondary = false);
+	int32_t trace_bvh(Scene& scene, int32_t ray_count, 
+                          RayBundle& rays, HitBundle& hits, bool secondary = false);
 
-        function_id single_shadow_id;
-        function_id multi_shadow_id;
+	int32_t shadow_trace_kdtree(Scene& scene, int32_t ray_count, 
+                                    RayBundle& rays, HitBundle& hits, 
+                                    bool secondary = false);
+	int32_t shadow_trace_bvh(Scene& scene, int32_t ray_count, 
+                                 RayBundle& rays, HitBundle& hits, 
+                                 bool secondary = false);
+
+        DeviceInterface device;
+        function_id kdt_single_tracer_id;
+        function_id kdt_multi_tracer_id;
+        function_id kdt_single_shadow_id;
+        function_id kdt_multi_shadow_id;
+
+        function_id bvh_single_tracer_id;
+        function_id bvh_multi_tracer_id;
+        function_id bvh_single_shadow_id;
+        function_id bvh_multi_shadow_id;
 
 	// CLKernelInfo tracer_clk;
 	// CLKernelInfo shadow_clk;
@@ -47,6 +63,9 @@ private:
 	double       m_tracer_time_ms;
 	rt_time_t    m_shadow_timer;
 	double       m_shadow_time_ms;
+
+        static const int KDT_SECONDARY_GROUP_SIZE = 64;
+        static const int BVH_SECONDARY_GROUP_SIZE = 64;
 };
 
 #endif /* RT_TRACER_HPP */

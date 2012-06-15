@@ -44,9 +44,15 @@ typedef struct {
 typedef struct {
 
 	BBox bbox;
-	unsigned int l_child, r_child;
+        union {
+                unsigned int l_child;
+                unsigned int start_index;
+        };
+        union {
+                unsigned int r_child;
+                unsigned int end_index;
+        };
 	unsigned int parent;
-	unsigned int start_index, end_index;
 	char split_axis;
 	char leaf;
 
@@ -66,16 +72,6 @@ typedef struct {
   
 } RayHitInfo;
 
-
-typedef struct {
-
-	float3 n;
-	float3 r;
-	float  cosL;
-	float  spec;
-	bool   inv_n;
-
-} RayReflectInfo;
 
 typedef float3 Color;
 
@@ -167,106 +163,51 @@ bbox_hit(BBox bbox,
 }
 
 bool 
-triangle_hit(global Vertex* vertex_buffer,
-	     global int* index_buffer,
-	     int triangle,
-	     Ray ray){
-
-	float3 p = ray.ori.xyz;
- 	float3 d = ray.dir.xyz;
-
-	global Vertex* vx0 = &vertex_buffer[index_buffer[3*triangle]];
-	global Vertex* vx1 = &vertex_buffer[index_buffer[3*triangle+1]];
-	global Vertex* vx2 = &vertex_buffer[index_buffer[3*triangle+2]];
-
-	float3 v0 = vx0->position;
-	float3 v1 = vx1->position;
-	float3 v2 = vx2->position;
-	
-	float3 e1 = v1 - v0;
-	float3 e2 = v2 - v0;
-	
-	float3 h = cross(d, e2);
-	float  a = dot(e1,h);
-	
-        if (a > -1e-26f && a < 1e-26f)
-	/* if (a > -0.000001f && a < 0.00001f) */
-		return false;
-
-	float  f = 1.f/a;
-	float3 s = p - v0;
-	float  u = f * dot(s,h);
-	if (u < 0.f || u > 1.f) 
-		return false;
-
-	float3 q = cross(s,e1);
-	float  v = f * dot(d,q);
-	if (v < 0.f || u+v > 1.f)
-		return false;
-
-	float t = f * dot(e2,q);
-	return (t < ray.tMax && t > ray.tMin);
-}
-
-bool 
 leaf_hit_any(BVHNode node,
 	     global Vertex* vertex_buffer,
 	     global int* index_buffer,
 	     Ray ray){
 
-	for (int i = node.start_index; i < node.end_index; ++i) {
-		int triangle = i;
-		if (triangle_hit(vertex_buffer,index_buffer,triangle,ray))
-			return true;
+	for (int triangle = node.start_index; triangle < node.end_index; ++triangle) {
+
+                float3 p = ray.ori.xyz;
+                float3 d = ray.dir.xyz;
+
+                global Vertex* vx0 = &vertex_buffer[index_buffer[3*triangle]];
+                global Vertex* vx1 = &vertex_buffer[index_buffer[3*triangle+1]];
+                global Vertex* vx2 = &vertex_buffer[index_buffer[3*triangle+2]];
+
+                float3 v0 = vx0->position;
+                float3 v1 = vx1->position;
+                float3 v2 = vx2->position;
+	
+                float3 e1 = v1 - v0;
+                float3 e2 = v2 - v0;
+	
+                float3 h = cross(d, e2);
+                float  a = dot(e1,h);
+	
+                if (a > -1e-26f && a < 1e-26f)
+                        /* if (a > -0.000001f && a < 0.00001f) */
+                        continue;
+
+                float  f = 1.f/a;
+                float3 s = p - v0;
+                float  u = f * dot(s,h);
+                if (u < 0.f || u > 1.f) 
+                        continue;
+
+                float3 q = cross(s,e1);
+                float  v = f * dot(d,q);
+                if (v < 0.f || u+v > 1.f)
+                        continue;
+
+                float t = f * dot(e2,q);
+                if (t < ray.tMax && t > ray.tMin)
+                        return true;
+
 	}
 	return false;
-
-}
-
-RayReflectInfo 
-triangle_reflect(global Vertex* vertex_buffer,
-		 global int* index_buffer,
-		 float3 L,
-		 RayHitInfo info,
-		 Ray ray){
-
-	RayReflectInfo ref;
-
-	global Vertex* vx0 = &vertex_buffer[index_buffer[3*info.id]];
-	global Vertex* vx1 = &vertex_buffer[index_buffer[3*info.id+1]];
-	global Vertex* vx2 = &vertex_buffer[index_buffer[3*info.id+2]];
-
-	float3 n0 = normalize(vx0->normal);
-	float3 n1 = normalize(vx1->normal);
-	float3 n2 = normalize(vx2->normal);
-
-	float3 d = ray.dir.xyz;
-
-	float u = info.uv.s0;
- 	float v = info.uv.s1;
-	float w = 1.f - (u+v);
-	
-	ref.n = (w * n0 + v * n2 + u * n1);
-
-	/* If the normal points out, we need to invert it (and day we did) */
-	if (dot(ref.n,d) > 0) { 
-		ref.inv_n = true;
-		ref.n = -ref.n;
-	} else {
-		ref.inv_n = false;
-	}
-	
-
-	ref.r = d - 2.f * ref.n * (dot(d,ref.n));
-
-	ref.cosL = clamp(dot(ref.n,-L),0.f,1.f);
-	ref.cosL = pow(ref.cosL,2);
-
-	ref.spec = clamp(dot(ref.r,-L),0.f,1.f);
-	ref.spec = pow(ref.spec,8);
-	ref.spec *= ref.cosL;
-		
-	return ref;
 }
 
 bool trace_shadow_ray(Ray ray,

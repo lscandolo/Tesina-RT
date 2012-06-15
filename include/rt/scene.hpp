@@ -11,6 +11,7 @@
 #include <rt/material.hpp>
 #include <rt/texture-atlas.hpp>
 #include <rt/bvh.hpp>
+#include <rt/kdtree.hpp>
 #include <rt/multi-bvh.hpp>
 #include <rt/light.hpp>
 #include <rt/geom.hpp>
@@ -41,6 +42,11 @@ struct Object {
         vec3 slack;
 };
 
+typedef enum {
+        BVH_ACCELERATOR,
+        KDTREE_ACCELERATOR
+} AcceleratorType;
+
 class Scene {
 
 public:
@@ -50,15 +56,25 @@ public:
         bool    valid();
         bool    valid_aggregate();
         bool    valid_bvhs();
+        bool    ready();
 
         int32_t create_aggregate_mesh();
+        int32_t create_aggregate_accelerator();
         int32_t create_aggregate_bvh();
+        int32_t create_aggregate_kdtree();
 
         Mesh&   get_aggregate_mesh(){return aggregate_mesh;}
         BVH&    get_aggregate_bvh (){return aggregate_bvh;}
+        KDTree& get_aggregate_kdtree (){return aggregate_kdtree;}
+        BBox&   bbox(){return aggregate_bbox;}
 
         int32_t transfer_aggregate_mesh_to_device();
+        int32_t transfer_aggregate_accelerator_to_device();
         int32_t transfer_aggregate_bvh_to_device();
+        int32_t transfer_aggregate_kdtree_to_device();
+
+        void    set_accelerator_type(AcceleratorType type);
+        AcceleratorType get_accelerator_type(){return m_accelerator_type;}
 
         int32_t create_bvhs();
         int32_t transfer_meshes_to_device();
@@ -66,6 +82,7 @@ public:
 
         Mesh&    get_mesh(mesh_id mid);
         BVH&     get_object_bvh(object_id oid);
+        int32_t  update_aggregate_mesh_vertices(mesh_id mid);
         int32_t  update_mesh_vertices(mesh_id mid);
         uint32_t update_bvh_roots();
         
@@ -97,6 +114,8 @@ public:
         DeviceMemory& material_map_mem();
         DeviceMemory& bvh_nodes_mem();
         DeviceMemory& bvh_roots_mem();
+        DeviceMemory& kdtree_nodes_mem();
+        DeviceMemory& kdtree_leaf_tris_mem();
         DeviceMemory& lights_mem();
 
         std::vector<material_cl>& get_material_list (){return material_list;}
@@ -113,6 +132,8 @@ private:
 
         Mesh aggregate_mesh;
         BVH  aggregate_bvh;
+        KDTree  aggregate_kdtree;
+        BBox aggregate_bbox;
 
         std::vector<Object> objects;
         std::vector<Mesh> mesh_atlas;
@@ -129,10 +150,17 @@ private:
         std::vector<BVHRoot> bvh_roots;
 
 private:
+
+        AcceleratorType m_accelerator_type;
+
         bool m_initialized;
         bool m_aggregate_mesh_built;
         bool m_aggregate_bvh_built;
+        bool m_aggregate_kdt_built;
         bool m_bvhs_built;
+
+        bool m_aggregate_bvh_transfered;
+        bool m_aggregate_kdt_transfered;
 
         lights_cl lights;
 
@@ -142,6 +170,8 @@ private:
         memory_id mat_map_id;
         memory_id mat_list_id;
         memory_id bvh_id;
+        memory_id kdt_nodes_id;
+        memory_id kdt_leaf_tris_id;
         memory_id lights_id;
         memory_id bvh_roots_id;
 };

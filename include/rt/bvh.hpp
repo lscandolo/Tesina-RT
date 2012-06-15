@@ -7,21 +7,8 @@
 #include <rt/mesh.hpp>
 #include <rt/math.hpp>
 #include <rt/vector.hpp>
+#include <rt/bbox.hpp>
 #include <rt/cl_aux.hpp>
-
-struct BBox {
-
-	BBox();
-	BBox(const Vertex& a, const Vertex& b, const Vertex& c);
-	void set(const Vertex& a, const Vertex& b, const Vertex& c);
-	void merge(const BBox& b);
-	void add_slack(const vec3& slack);
-	uint8_t largestAxis() const;
-	vec3 centroid() const;
-	float surfaceArea() const;
-
-	cl_float3 hi,lo;
-};
 
 RT_ALIGN(16)
 class BVHNode {
@@ -56,12 +43,20 @@ public:
                 m_parent = parent;
         }
 
+        BBox bbox() {return m_bbox;}
+
 private:
 
 	BBox m_bbox;
-	cl_uint m_l_child, m_r_child;
+        union {
+                cl_uint m_l_child;
+                cl_uint m_start_index;
+        };
+        union {
+                cl_uint m_r_child;
+                cl_uint m_end_index;
+        };
 	cl_uint m_parent;
-	cl_uint m_start_index, m_end_index;
 	cl_char m_split_axis;
 	cl_char m_leaf; /* Leaf is not bool because of the inability of OpenCL to 
 			   handle byte aligned structs (at least my work implementation)*/
@@ -81,8 +76,8 @@ class BVH {
 
 public:
 
-	bool construct(Mesh& m_mesh, int32_t node_offset = 0, int32_t tri_offset = 0);
-	bool construct_and_map(Mesh& m_mesh, std::vector<cl_int>& map, 
+	int32_t construct(Mesh& m_mesh, int32_t node_offset = 0, int32_t tri_offset = 0);
+	int32_t construct_and_map(Mesh& m_mesh, std::vector<cl_int>& map, 
                                int32_t node_offset = 0, int32_t tri_offset = 0);
 
 	BVHNode* nodeArray()

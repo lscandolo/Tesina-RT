@@ -234,6 +234,7 @@ shade_secondary(global ColorInt* image,
 
 		valrgb *= (1.f-mat.reflectiveness);
 
+
 		/* Code to paint mesh edges green */
 		/* float u,v,w; */
 		/* u = info.uv.s0; */

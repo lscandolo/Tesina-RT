@@ -24,6 +24,7 @@
 #include <rt/obj-loader.hpp>
 #include <rt/scene.hpp>
 #include <rt/bvh.hpp>
+#include <rt/kdtree.hpp>
 #include <rt/cl_aux.hpp>
 
 void pause_and_exit(int val)

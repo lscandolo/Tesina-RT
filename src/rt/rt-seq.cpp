@@ -475,12 +475,12 @@ int main (int argc, char** argv)
 
 		/* ------------------*/
 
-		
+                scenes[i].set_accelerator_type(KDTREE_ACCELERATOR);
 		scenes[i].create_aggregate_mesh();
-		scenes[i].create_aggregate_bvh();
+		scenes[i].create_aggregate_accelerator();
 		Mesh& scene_mesh = scenes[i].get_aggregate_mesh();
                 if (scenes[i].transfer_aggregate_mesh_to_device() 
-                    || scenes[i].transfer_aggregate_bvh_to_device())
+                    || scenes[i].transfer_aggregate_accelerator_to_device())
                         std::cerr << "Failed to transfer scene info to device"<< std::endl;
 
 

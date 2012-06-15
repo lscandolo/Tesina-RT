@@ -50,7 +50,7 @@ vec<N,F> inv(const vec<N,F>& v)
 
 /* Take angle (in radians) to [-Pi,Pi]*/
 float normalize_angle(float a);
-float clamp(float& x, float& xMin, float& xMax );
+float clamp(float x, float xMin, float xMax );
 float lerp( const float& a, const float& b, const float& t );
 vec3 cross(const vec3& v1, const vec3& v2 );
 

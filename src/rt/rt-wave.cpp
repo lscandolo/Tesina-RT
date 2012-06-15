@@ -5,8 +5,9 @@
 #include <cl-gl/opencl-init.hpp>
 #include <rt/rt.hpp>
 
-#define MAX_BOUNCE 5
 #define WAVE_HEIGHT 0.2
+
+int MAX_BOUNCE = 5;
 
 CLInfo clinfo;
 GLInfo glinfo;
@@ -75,6 +76,12 @@ void gl_key(unsigned char key, int x, int y)
 				      { 0.f   , 0.33f, 0.11111f},
 				      { 0.33f , 0.33f, 0.11111f}};
 	switch (key){
+        case '+':
+                MAX_BOUNCE = std::min(MAX_BOUNCE+1, 10);
+                break;
+        case '-':
+                MAX_BOUNCE = std::max(MAX_BOUNCE-1, 0);
+                break;
 	case 'a':
 		camera.panRight(-delta);
 		break;
@@ -409,16 +416,18 @@ int main (int argc, char** argv)
 	std::cout << "Created scene aggregate succesfully." << std::endl;
 
 	rt_time.snap_time();
-	scene.create_aggregate_bvh();
-	BVH& scene_bvh   = scene.get_aggregate_bvh ();
-	double bvh_build_time = rt_time.msec_since_snap();
-	std::cout << "Created BVH succesfully (build time: " 
-		  << bvh_build_time << " msec, " 
-		  << scene_bvh.nodeArraySize() << " nodes)." << std::endl;
+
+        scene.set_accelerator_type(BVH_ACCELERATOR);
+	scene.create_aggregate_accelerator();
+	// BVH& scene_bvh   = scene.get_aggregate_bvh ();
+	// double bvh_build_time = rt_time.msec_since_snap();
+	// std::cout << "Created BVH succesfully (build time: " 
+	// 	  << bvh_build_time << " msec, " 
+	// 	  << scene_bvh.nodeArraySize() << " nodes)." << std::endl;
 
 
         scene.transfer_aggregate_mesh_to_device();
-        scene.transfer_aggregate_bvh_to_device();
+        scene.transfer_aggregate_accelerator_to_device();
 	/*---------------------- Set initial Camera paramaters -----------------------*/
 	camera.set(makeVector(0,3,-30), makeVector(0,0,1), makeVector(0,1,0), M_PI/4.,
 		   window_size[0] / (float)window_size[1]);

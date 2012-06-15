@@ -44,12 +44,18 @@ typedef struct {
 
 typedef struct {
 
-        BBox bbox;
-        unsigned int l_child, r_child;
-        unsigned int parent;
-        unsigned int start_index, end_index;
-        char split_axis;
-        char leaf;
+	BBox bbox;
+        union {
+                unsigned int l_child;
+                unsigned int start_index;
+        };
+        union {
+                unsigned int r_child;
+                unsigned int end_index;
+        };
+	unsigned int parent;
+	char split_axis;
+	char leaf;
 
 } BVHNode;
 
@@ -281,60 +287,60 @@ float2 compute_texCoord(global Vertex* vertex_buffer,
         return w * n0 + v * n2 + u * n1;
 }
 
-RayHitInfo 
-triangle_hit(global Vertex* vertex_buffer,
-             global int* index_buffer,
-             int triangle,
-             Ray ray){
+/* RayHitInfo  */
+/* triangle_hit(global Vertex* vertex_buffer, */
+/*              global int* index_buffer, */
+/*              int triangle, */
+/*              Ray ray){ */
 
-        RayHitInfo info;
-        info.hit = false;
-        info.shadow_hit = false;
-        info.inverse_n = false;
+/*         RayHitInfo info; */
+/*         info.hit = false; */
+/*         info.shadow_hit = false; */
+/*         info.inverse_n = false; */
 
-        float3 p = ray.ori.xyz;
-        float3 d = ray.dir.xyz;
+/*         float3 p = ray.ori.xyz; */
+/*         float3 d = ray.dir.xyz; */
 
-        global Vertex* vx0 = &vertex_buffer[index_buffer[3*triangle]];
-        global Vertex* vx1 = &vertex_buffer[index_buffer[3*triangle+1]];
-        global Vertex* vx2 = &vertex_buffer[index_buffer[3*triangle+2]];
+/*         global Vertex* vx0 = &vertex_buffer[index_buffer[3*triangle]]; */
+/*         global Vertex* vx1 = &vertex_buffer[index_buffer[3*triangle+1]]; */
+/*         global Vertex* vx2 = &vertex_buffer[index_buffer[3*triangle+2]]; */
 
-        float3 v0 = vx0->position;
-        float3 v1 = vx1->position;
-        float3 v2 = vx2->position;
+/*         float3 v0 = vx0->position; */
+/*         float3 v1 = vx1->position; */
+/*         float3 v2 = vx2->position; */
         
-        float3 e1 = v1 - v0;
-        float3 e2 = v2 - v0;
+/*         float3 e1 = v1 - v0; */
+/*         float3 e2 = v2 - v0; */
         
-        float3 h = cross(d, e2);
-        float  a = dot(e1,h);
+/*         float3 h = cross(d, e2); */
+/*         float  a = dot(e1,h); */
         
-        if (a > -1e-26f && a < 1e-26f)
-	/* if (a > -0.000001f && a < 0.00001f) */
-                return info;
+/*         if (a > -1e-26f && a < 1e-26f) */
+/* 	/\* if (a > -0.000001f && a < 0.00001f) *\/ */
+/*                 return info; */
 
-        float  f = 1.f/a;
-        float3 s = p - v0;
-        float  u = f * dot(s,h);
-        if (u < 0.f || u > 1.f) 
-                return info;
+/*         float  f = 1.f/a; */
+/*         float3 s = p - v0; */
+/*         float  u = f * dot(s,h); */
+/*         if (u < 0.f || u > 1.f)  */
+/*                 return info; */
 
-        float3 q = cross(s,e1);
-        float  v = f * dot(d,q);
-        if (v < 0.f || u+v > 1.f)
-                return info;
+/*         float3 q = cross(s,e1); */
+/*         float  v = f * dot(d,q); */
+/*         if (v < 0.f || u+v > 1.f) */
+/*                 return info; */
 
-        info.t = f * dot(e2,q);
-        bool t_is_within_bounds = (info.t < ray.tMax && info.t > ray.tMin);
+/*         info.t = f * dot(e2,q); */
+/*         bool t_is_within_bounds = (info.t < ray.tMax && info.t > ray.tMin); */
 
-        if (t_is_within_bounds) {
-                info.hit = true;
-                info.id = triangle;
-                info.uv.s0 = u;
-                info.uv.s1 = v;
-        }
-        return info;
-}
+/*         if (t_is_within_bounds) { */
+/*                 info.hit = true; */
+/*                 info.id = triangle; */
+/*                 info.uv.s0 = u; */
+/*                 info.uv.s1 = v; */
+/*         } */
+/*         return info; */
+/* } */
 
 RayHitInfo 
 leaf_hit(BVHNode node,
@@ -342,45 +348,64 @@ leaf_hit(BVHNode node,
          global int* index_buffer,
          Ray ray){
 
-        RayHitInfo best_hit;
-        best_hit.hit = false;
-        best_hit.t = ray.tMax;
+        RayHitInfo info;
+        info.hit = false;
+        info.t = ray.tMax;
 
         for (int i = node.start_index; i < node.end_index; ++i) {
                 int triangle = i;
-                RayHitInfo tri_hit = triangle_hit(vertex_buffer,
-                                                index_buffer,
-                                                triangle,
-                                                ray);
 
-                merge_hit_info(&best_hit, &tri_hit);
+                float3 p = ray.ori.xyz;
+                float3 d = ray.dir.xyz;
 
-                if (best_hit.hit)
-                        ray.tMax = best_hit.t;
+                global Vertex* vx0 = &vertex_buffer[index_buffer[3*triangle]];
+                global Vertex* vx1 = &vertex_buffer[index_buffer[3*triangle+1]];
+                global Vertex* vx2 = &vertex_buffer[index_buffer[3*triangle+2]];
+                
+                float3 v0 = vx0->position;
+                float3 v1 = vx1->position;
+                float3 v2 = vx2->position;
+                
+                float3 e1 = v1 - v0;
+                float3 e2 = v2 - v0;
+                
+                float3 h = cross(d, e2);
+                float  a = dot(e1,h);
+                
+                if (a > -1e-26f && a < 1e-26f)
+                        /* if (a > -0.000001f && a < 0.00001f) */
+                        continue;
+                
+                float  f = 1.f/a;
+                float3 s = p - v0;
+                float  u = f * dot(s,h);
+                if (u < 0.f || u > 1.f) 
+                        continue;
+                
+                float3 q = cross(s,e1);
+                float  v = f * dot(d,q);
+                if (v < 0.f || u+v > 1.f)
+                        continue;
+                
+                float t = f * dot(e2,q);
+                bool t_is_within_bounds = (t <= info.t && t >= ray.tMin);
+
+                if (t_is_within_bounds) {
+                        info.t = t;
+                        info.hit = true;
+                        info.id = triangle;
+                        info.uv.s0 = u;
+                        info.uv.s1 = v;
+                }
         }
-        return best_hit;
+
+        if (info.hit)
+                ray.tMax = info.t;
+
+        return info;
 }
 
-void
-try_leaf_hit(RayHitInfo* best_info,
-             BVHNode node,
-             global Vertex* vertex_buffer,
-             global int* index_buffer,
-             Ray ray){
-
-        for (int i = node.start_index; i < node.end_index; ++i) {
-                int triangle = i;
-                RayHitInfo tri_hit = triangle_hit(vertex_buffer,
-                                                index_buffer,
-                                                triangle,
-                                                ray);
-
-                merge_hit_info(best_info, &tri_hit);
-
-                if (best_info->hit)
-                        ray.tMax = best_info->t;
-        }
-}
+#define MAX_LEVELS 64
 
 RayHitInfo trace_ray(Ray ray,
                      global Vertex* vertex_buffer,
@@ -394,12 +419,12 @@ RayHitInfo trace_ray(Ray ray,
         best_hit_info.inverse_n = false;
         best_hit_info.t = ray.tMax;
 
-        bool going_up = false;
+        unsigned int levels[MAX_LEVELS];
+        unsigned int level = 0;
 
-        unsigned int last = bvh_root;
         unsigned int curr = bvh_root;
         
-        BVHNode current_node;
+        private BVHNode current_node;
 
         unsigned int first_child, second_child;
         bool childrenOrder = true;
@@ -409,14 +434,41 @@ RayHitInfo trace_ray(Ray ray,
         float max_dir_val = fmax(adir.x, fmax(adir.y,adir.z)) - 0.00001f;
         adir = fdim(adir, (float3)(max_dir_val,max_dir_val,max_dir_val));
 
-        /* int depth = 0; */
-        /* int maxdepth = 0; */
         while (true) {
-                /* maxdepth = max(depth,maxdepth); */
                 current_node = bvh_nodes[curr];
 
+                if (!bbox_hit(current_node.bbox, ray)) {
+
+                        if (level > 0 && level < MAX_LEVELS) {
+                                level--;
+                                curr  = levels[level];
+                                continue;
+                        }
+                        else {
+                                return best_hit_info;
+                        }
+                }
+
+                if (current_node.leaf) {
+                        RayHitInfo leaf_info = leaf_hit(current_node,
+                                                        vertex_buffer,
+                                                        index_buffer,
+                                                        ray);
+                        merge_hit_info(&best_hit_info, &leaf_info);
+                        if (best_hit_info.hit)
+                                ray.tMax = best_hit_info.t;
+
+                        if (level > 0 && level < MAX_LEVELS) {
+                                level--;
+                                curr  = levels[level];
+                                continue;
+                        }
+                        else {
+                                return best_hit_info;
+                        }
+                } else {
+
                 /* Compute node children traversal order if its an interior node*/
-                if (!current_node.leaf) {
                         float3 lbbox_vals = bvh_nodes[current_node.l_child].bbox.lo;
                         float3 rbbox_vals = bvh_nodes[current_node.r_child].bbox.lo;
                         float3 choice_vec = dot(rdir,rbbox_vals - lbbox_vals);
@@ -437,64 +489,126 @@ RayHitInfo trace_ray(Ray ray,
                         }
                 }
 
-                if (going_up) {
-                        // I'm going up from the root, so break
-                        if (last == bvh_root) {
-                                break;
-
-                                // I'm going up from my first child, do the second one
-                        } else if (last == first_child) {
-                                last = curr;
-                                curr = second_child;
-                                going_up = false;
-                                /* depth++; */
-
-                        // I'm going up from my second child, go up one more level
-                        } else /*if (last == second_child)*/ {
-                                last = curr;
-                                curr = current_node.parent;
-                                going_up = true;
-                                /* depth--; */
-                        }
-                } else {
-                        // If it hit, and closer to the closest hit up to now, check it
-                        if (bbox_hit(current_node.bbox, ray)) {
-                                // If it's a leaf, check all primitives in the leaf, 
-                                // then go up
-                                if (current_node.leaf) {
-                                        // Check all primitives in leaf
-                                        RayHitInfo leaf_info = leaf_hit(current_node,
-                                                                        vertex_buffer,
-                                                                        index_buffer,
-                                                                        ray);
-                                        merge_hit_info(&best_hit_info, &leaf_info);
-                                        if (best_hit_info.hit)
-                                                ray.tMax = best_hit_info.t;
-                                        last = curr;
-                                        curr = current_node.parent;
-                                        going_up = true;
-
-                                        // If it hit and it isn't a leaf, 
-                                        // go to the first child
-                                } else {
-                                        last = curr;
-                                        curr = first_child;
-                                        going_up = false;
-                                        /* depth++; */
-                                }
-                
-                                // If it didn't hit, go up
-                        } else {
-                                last = curr;
-                                curr = current_node.parent;
-                                going_up = true;
-                                /* depth--; */
-                        }
-                }        
+                levels[level] = second_child;
+                level++;
+                curr = first_child;
         }
-        /* best_hit_info.n.s0 = maxdepth; */
         return best_hit_info;
 }
+
+/* RayHitInfo trace_ray(Ray ray, */
+/*                      global Vertex* vertex_buffer, */
+/*                      global int* index_buffer, */
+/*                      global BVHNode* bvh_nodes, */
+/*                      int bvh_root) */
+/* { */
+/*         RayHitInfo best_hit_info; */
+/*         best_hit_info.hit = false; */
+/*         best_hit_info.shadow_hit = false; */
+/*         best_hit_info.inverse_n = false; */
+/*         best_hit_info.t = ray.tMax; */
+
+/*         bool going_up = false; */
+
+/*         unsigned int last = bvh_root; */
+/*         unsigned int curr = bvh_root; */
+        
+/*         BVHNode current_node; */
+
+/*         unsigned int first_child, second_child; */
+/*         bool childrenOrder = true; */
+
+/*         float3 rdir = ray.dir; */
+/*         float3 adir = fabs(rdir); */
+/*         float max_dir_val = fmax(adir.x, fmax(adir.y,adir.z)) - 0.00001f; */
+/*         adir = fdim(adir, (float3)(max_dir_val,max_dir_val,max_dir_val)); */
+
+/*         /\* int depth = 0; *\/ */
+/*         /\* int maxdepth = 0; *\/ */
+/*         while (true) { */
+/*                 /\* maxdepth = max(depth,maxdepth); *\/ */
+/*                 current_node = bvh_nodes[curr]; */
+
+/*                 /\* Compute node children traversal order if its an interior node*\/ */
+/*                 if (!current_node.leaf) { */
+/*                         float3 lbbox_vals = bvh_nodes[current_node.l_child].bbox.lo; */
+/*                         float3 rbbox_vals = bvh_nodes[current_node.r_child].bbox.lo; */
+/*                         float3 choice_vec = dot(rdir,rbbox_vals - lbbox_vals); */
+/*                         if (adir.x > 0.f) { */
+/*                                 childrenOrder = choice_vec.x > 0.f; */
+/*                         } else if (adir.y > 0.f) { */
+/*                                 childrenOrder = choice_vec.y > 0.f; */
+/*                         } else { */
+/*                                 childrenOrder = choice_vec.z > 0.f; */
+/*                         } */
+                
+/*                         if (childrenOrder) { */
+/*                                 first_child = current_node.l_child; */
+/*                                 second_child = current_node.r_child; */
+/*                         } else { */
+/*                                 first_child = current_node.r_child; */
+/*                                 second_child = current_node.l_child; */
+/*                         } */
+/*                 } */
+
+/*                 if (going_up) { */
+/*                         // I'm going up from the root, so break */
+/*                         if (last == bvh_root) { */
+/*                                 break; */
+
+/*                                 // I'm going up from my first child, do the second one */
+/*                         } else if (last == first_child) { */
+/*                                 last = curr; */
+/*                                 curr = second_child; */
+/*                                 going_up = false; */
+/*                                 /\* depth++; *\/ */
+
+/*                         // I'm going up from my second child, go up one more level */
+/*                         } else /\*if (last == second_child)*\/ { */
+/*                                 last = curr; */
+/*                                 curr = current_node.parent; */
+/*                                 going_up = true; */
+/*                                 /\* depth--; *\/ */
+/*                         } */
+/*                 } else { */
+/*                         // If it hit, and closer to the closest hit up to now, check it */
+/*                         if (bbox_hit(current_node.bbox, ray)) { */
+/*                                 // If it's a leaf, check all primitives in the leaf, */
+/*                                 // then go up */
+/*                                 if (current_node.leaf) { */
+/*                                         // Check all primitives in leaf */
+/*                                         RayHitInfo leaf_info = leaf_hit(current_node, */
+/*                                                                         vertex_buffer, */
+/*                                                                         index_buffer, */
+/*                                                                         ray); */
+/*                                         merge_hit_info(&best_hit_info, &leaf_info); */
+/*                                         if (best_hit_info.hit) */
+/*                                                 ray.tMax = best_hit_info.t; */
+/*                                         last = curr; */
+/*                                         curr = current_node.parent; */
+/*                                         going_up = true; */
+
+/*                                         // If it hit and it isn't a leaf, */
+/*                                         // go to the first child */
+/*                                 } else { */
+/*                                         last = curr; */
+/*                                         curr = first_child; */
+/*                                         going_up = false; */
+/*                                         /\* depth++; *\/ */
+/*                                 } */
+                
+/*                                 // If it didn't hit, go up */
+/*                         } else { */
+/*                                 last = curr; */
+/*                                 curr = current_node.parent; */
+/*                                 going_up = true; */
+/*                                 /\* depth--; *\/ */
+/*                         } */
+/*                 } */
+/*         } */
+/*         /\* best_hit_info.n.s0 = maxdepth; *\/ */
+/*         return best_hit_info; */
+/* } */
 
 
 kernel void 

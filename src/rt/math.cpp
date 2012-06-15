@@ -18,9 +18,9 @@ float lerp( const float& a, const float& b, const float& t )
         return a + (b-a)*t;
 }
 
-float clamp(float& x, float& xMin, float& xMax )
+float clamp(float x, float xMin, float xMax )
 {
-        ASSERT(xMax >= xMin );
+        // ASSERT(xMax >= xMin );
         return x <= xMin ? xMin : (x >= xMax ? xMax : x);
 }
 

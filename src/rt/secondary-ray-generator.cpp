@@ -71,6 +71,8 @@ SecondaryRayGenerator::generate(Scene& scene, RayBundle& ray_in, size_t rays_in,
         if (generator.set_arg(6, sizeof(cl_int), &m_max_rays))
                 return -1;
 
+        int group_size = 256;
+
         size_t global_size[] = {rays_in, 0 , 0};
         generator.set_global_size(global_size);
 
