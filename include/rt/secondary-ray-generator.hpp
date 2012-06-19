@@ -24,7 +24,10 @@ public:
 private:
 
         DeviceInterface device;
-        memory_id ray_count_id;
+        function_id marker_id;
+        function_id totals_prefix_sum_id;
+        function_id local_prefix_sum_id;
+        function_id global_prefix_sum_id;
         function_id generator_id;
 
 	cl_int m_generated_rays;
@@ -34,6 +37,11 @@ private:
 	bool         m_timing;
 	rt_time_t    m_timer;
 	double       m_time_ms;
+
+
+        memory_id count_in_id;
+        memory_id count_out_id;
+        memory_id totals_id;
 };
 
 #endif /* RT_SECONDARY_RAY_GENERATOR_HPP */

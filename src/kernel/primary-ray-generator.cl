@@ -40,8 +40,8 @@ generate_primary_rays(global RayPlus* ray_buffer,
 	int offset = get_global_offset(0);
   	int index = (gid-offset);
 
-    int pixels = width * height;
-    int i = gid%pixels;
+        int pixels = width * height;
+        int i = gid%pixels;
 	Sample sample = samples[gid/pixels];
 
   	global Ray* ray = &(ray_buffer[index].ray);
@@ -51,7 +51,6 @@ generate_primary_rays(global RayPlus* ray_buffer,
 
 	int block_rays = x_blocks * y_blocks * (BLOCK_SIZE);
 	int right_rays = (width - x_blocks * BLOCK_SIDE) * height;
-	/* int top_rays = width*height - (block_rays + right_rays); */
 
 	int x,y;
 
@@ -125,7 +124,6 @@ _generate_primary_rays(global RayPlus* ray_buffer,
 
 	int block_rays = x_blocks * y_blocks * (BLOCK_SIZE);
 	int right_rays = (width - x_blocks * BLOCK_SIDE) * height;
-	/* int top_rays = width*height - (block_rays + right_rays); */
 
 	int x,y;
 
@@ -164,22 +162,6 @@ _generate_primary_rays(global RayPlus* ray_buffer,
 	ray->ori = pos.xyz;
 	ray->dir = normalize(dir.xyz + (right * (xPosNDC * 2.f - 1.f) + 
 					up * (yPosNDC * 2.f - 1.f)).xyz);
-
-	/* const float focal_dist = 6.f; */
-	/* const float dispersion = 1.f; */
-
-	/* float3 orig_dir = normalize((dir + right * (xPosNDC * 2.f - 1.f) +  */
-	/* 			     up * (yPosNDC * 2.f - 1.f)).xyz); */
-	/* float3 orig_stop = pos.xyz + orig_dir * focal_dist; */
-
-	
-	/* ray->ori = pos.xyz; */
-	/* ray->ori += (right * (xPosNDC * 2.f - 1.f) +  */
-	/* 	     up * (yPosNDC * 2.f - 1.f)).xyz  */
-	/* 	* dispersion; */
-
-	/* ray->dir = normalize(orig_stop - ray->ori); */
-
 	ray->invDir = 1.f / ray->dir;
 	ray->tMin = 0.f;
 	ray->tMax = 1e37f;

@@ -81,6 +81,15 @@ init_cl(const GLInfo& glinfo, CLInfo* clinfo)
 	if (error_cl(err, "clGetDeviceInfo CL_DEVICE_GLOBAL_MEM_SIZE"))
 	    return err;
 
+	// Get size of local memory in the device
+	err = clGetDeviceInfo (clinfo->device_id,
+			       CL_DEVICE_LOCAL_MEM_SIZE, 
+			       sizeof(cl_ulong),
+			       &clinfo->local_mem_size, 
+			       &bytes_returned);
+	if (error_cl(err, "clGetDeviceInfo CL_DEVICE_LOCAL_MEM_SIZE"))
+	    return err;
+
 	// Get bool stating if cl device supports images
 	err = clGetDeviceInfo (clinfo->device_id,
 			       CL_DEVICE_IMAGE_SUPPORT, 
@@ -422,6 +431,8 @@ void print_cl_info(const CLInfo& clinfo)
 		  << max_samplers << std::endl;
 	std::cout << "\tOpenCL device global mem size: " 
 		  << clinfo.global_mem_size << std::endl;
+	std::cout << "\tOpenCL device local mem size: " 
+		  << clinfo.local_mem_size << std::endl;
 	std::cout << "\tOpenCL device maximum mem alloc size: " 
 		  << clinfo.max_mem_alloc_size << std::endl;
 	std::cout << "\tOpenCL device image2d max size: " 
@@ -568,13 +579,15 @@ int create_cl_mem_from_gl_tex(const CLInfo& clinfo, const GLuint gl_tex, cl_mem*
 	return 0;
 }
 
-inline int error_cl(cl_int err_num, std::string msg)
+inline int32_t __error_cl(cl_int err_num, std::string msg, 
+                          const char* file, const char* func,  int line)
 {
 	if (err_num != CL_SUCCESS){
 		std::cerr << " *** OpenCL error: " << msg 
 			  << " (error code " << err_num << ")" 
                           << std::endl
-                          << " File: " << __FILE__ << " Line: " << __LINE__ 
+                          << " Function: " << func  
+                          << " (File: " << file << " Line: " << line  << ")"
                           << std::endl;
 		return 1;
 	}

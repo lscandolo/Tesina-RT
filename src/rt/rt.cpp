@@ -51,20 +51,20 @@ bool custom_logging = false;
 int  stats_logged = 0;
 
 //ben
-vec3 stats_camera_pos[] = {makeVector(0.198037,0.799047,0.392632) ,
-                           makeVector(-56.9387, -2.41959, 29.574) ,
-                           makeVector(68.6859, 5.18034, 13.6691) };
-vec3 stats_camera_dir[] = {makeVector(-0.329182,-0.636949,-0.697091),
-                           makeVector(0.927574, -0.22893, -0.295292) ,
-                           makeVector(-0.820819, -0.478219, -0.31235) };
-
-///Buddha
-// vec3 stats_camera_pos[] = {makeVector(0.741773, -1.754, 4.95699) ,
+// vec3 stats_camera_pos[] = {makeVector(0.198037,0.799047,0.392632) ,
 //                            makeVector(-56.9387, -2.41959, 29.574) ,
 //                            makeVector(68.6859, 5.18034, 13.6691) };
-// vec3 stats_camera_dir[] = {makeVector(-0.179715, -0.0878783, -0.979786),
+// vec3 stats_camera_dir[] = {makeVector(-0.329182,-0.636949,-0.697091),
 //                            makeVector(0.927574, -0.22893, -0.295292) ,
 //                            makeVector(-0.820819, -0.478219, -0.31235) };
+
+///Buddha
+vec3 stats_camera_pos[] = {makeVector(0.741773, -1.754, 4.95699) ,
+                           makeVector(-56.9387, -2.41959, 29.574) ,
+                           makeVector(68.6859, 5.18034, 13.6691) };
+vec3 stats_camera_dir[] = {makeVector(-0.179715, -0.0878783, -0.979786),
+                           makeVector(0.927574, -0.22893, -0.295292) ,
+                           makeVector(-0.820819, -0.478219, -0.31235) };
 
 // vec3 stats_camera_pos[] = {makeVector(20.0186, -5.49632, 71.8718) ,
 //                            makeVector(-56.9387, -2.41959, 29.574) ,
@@ -282,14 +282,13 @@ void gl_loop()
         int32_t sample_count = pixel_count * prim_ray_gen.get_spp();
         for (int32_t offset = 0; offset < sample_count; offset+= tile_size) {
 
-                
-                RayBundle* ray_in =  &ray_bundle_1;
-                RayBundle* ray_out = &ray_bundle_2;
+		RayBundle* ray_in =  &ray_bundle_1;
+		RayBundle* ray_out = &ray_bundle_2;
 
                 if (sample_count - offset < tile_size)
                         tile_size = sample_count - offset;
 
-                if (prim_ray_gen.set_rays(camera, ray_bundle_1, window_size,
+                if (prim_ray_gen.set_rays(camera, *ray_in, window_size,
                                            tile_size, offset)) {
                         std::cerr << "Error seting primary ray bundle" << std::endl;
                         pause_and_exit(1);
@@ -327,12 +326,12 @@ void gl_loop()
                                 pause_and_exit(1);
                         }
                         sec_gen_time += sec_ray_gen.get_exec_time();
+                        
+			std::swap(ray_in,ray_out);
 
-                        std::swap(ray_in,ray_out);
- 
                         if (!sec_ray_count)
                                 break;
-                        if (sec_ray_count == ray_bundle_1.count())
+                        if (sec_ray_count == ray_out->count())
                                 std::cerr << "Max sec rays reached!\n";
 
                         total_ray_count += sec_ray_count;
@@ -515,8 +514,8 @@ int main (int argc, char** argv)
 
         //// Boat
         // mesh_id floor_mesh_id = 
-        //         // scene.load_obj_file_as_aggregate("models/obj/frame_water1.obj");
-        //         scene.load_obj_file_as_aggregate("models/obj/grid100.obj");
+        //         scene.load_obj_file_as_aggregate("models/obj/frame_water1.obj");
+        //         // scene.load_obj_file_as_aggregate("models/obj/grid100.obj");
         // object_id floor_obj_id  = scene.add_object(floor_mesh_id);
         // Object& floor_obj = scene.object(floor_obj_id);
         // floor_obj.geom.setScale(2.f);
@@ -537,27 +536,27 @@ int main (int argc, char** argv)
         //  boat_obj.mat.reflectiveness = 0.0f;
 
         //// Buddha
-        // std::vector<mesh_id> box_meshes = 
-        //         scene.load_obj_file("models/obj/box-no-ceil.obj");
-        // std::vector<object_id> box_objs = scene.add_objects(box_meshes);
+        std::vector<mesh_id> box_meshes = 
+                scene.load_obj_file("models/obj/box-no-ceil.obj");
+        std::vector<object_id> box_objs = scene.add_objects(box_meshes);
 
-        // for (uint32_t i = 0; i < box_objs.size(); ++i) {
-        //         Object& obj = scene.object(box_objs[i]);
-        //         obj.geom.setRpy(makeVector(0.f,0.f,0.4f));
-        //         if (obj.mat.texture > 0)
-        //                 obj.mat.reflectiveness = 0.8f;
-        //         // obj.geom.setPos(makeVector(0.f,-30.f,0.f));
-        // }
+        for (uint32_t i = 0; i < box_objs.size(); ++i) {
+                Object& obj = scene.object(box_objs[i]);
+                obj.geom.setRpy(makeVector(0.f,0.f,0.4f));
+                if (obj.mat.texture > 0)
+                        obj.mat.reflectiveness = 0.8f;
+                // obj.geom.setPos(makeVector(0.f,-30.f,0.f));
+        }
 
-        //  mesh_id buddha_mesh_id = 
-        //          scene.load_obj_file_as_aggregate("models/obj/buddha.obj");
-        //  object_id buddha_obj_id = scene.add_object(buddha_mesh_id);
-        //  Object& buddha_obj = scene.object(buddha_obj_id);
-        //  buddha_obj.geom.setPos(makeVector(0.f,-4.f,0.f));
-        //  buddha_obj.geom.setRpy(makeVector(0.f,0.f,0.f));
-        //  buddha_obj.geom.setScale(0.3f);
-        //  buddha_obj.mat.diffuse = White;
-        //  buddha_obj.mat.shininess = 1.f;
+         mesh_id buddha_mesh_id = 
+                 scene.load_obj_file_as_aggregate("models/obj/buddha.obj");
+         object_id buddha_obj_id = scene.add_object(buddha_mesh_id);
+         Object& buddha_obj = scene.object(buddha_obj_id);
+         buddha_obj.geom.setPos(makeVector(0.f,-4.f,0.f));
+         buddha_obj.geom.setRpy(makeVector(0.f,0.f,0.f));
+         buddha_obj.geom.setScale(0.3f);
+         buddha_obj.mat.diffuse = White;
+         buddha_obj.mat.shininess = 1.f;
 
         /// Dragon
         // mesh_id floor_mesh_id = 
@@ -582,7 +581,7 @@ int main (int argc, char** argv)
         //  dragon_obj.mat.reflectiveness = 0.7f;
 
         /// Ben
-        scene.load_obj_file_and_make_objs("models/obj/ben/ben_00.obj");
+        // scene.load_obj_file_and_make_objs("models/obj/ben/ben_00.obj");
 
 
 #if 1
@@ -663,16 +662,16 @@ int main (int argc, char** argv)
         int32_t ray_bundle_size = best_tile_size * 3;
 
         if (ray_bundle_1.initialize(ray_bundle_size, clinfo)) {
-                std::cerr << "Error initializing ray bundle 1" << std::endl;
+                std::cerr << "Error initializing ray bundle" << std::endl;
                 std::cerr.flush();
                 pause_and_exit(1);
         }
 
-        if (ray_bundle_2.initialize(ray_bundle_size, clinfo)) {
-                std::cerr << "Error initializing ray bundle 2" << std::endl;
-                std::cerr.flush();
-                pause_and_exit(1);
-        }
+	if (ray_bundle_2.initialize(ray_bundle_size, clinfo)) {
+		std::cerr << "Error initializing ray bundle 2" << std::endl;
+		std::cerr.flush();
+		exit(1);
+	}
         std::cout << "Initialized ray bundles succesfully" << std::endl;
 
         /*---------------------- Initialize hit bundle -----------------------------*/
@@ -754,7 +753,7 @@ int main (int argc, char** argv)
         /*------------------------- Count mem usage -----------------------------------*/
         int32_t total_cl_mem = 0;
         total_cl_mem += pixel_count * 4; /* 4bpp texture */
-        total_cl_mem += ray_bundle_1.mem().size() + ray_bundle_2.mem().size();
+        total_cl_mem += ray_bundle_1.mem().size()*2;
         total_cl_mem += hit_bundle.mem().size();
         total_cl_mem += cubemap.positive_x_mem().size() * 6;
         total_cl_mem += framebuffer.image_mem().size();

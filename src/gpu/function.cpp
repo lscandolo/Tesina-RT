@@ -142,7 +142,7 @@ int32_t DeviceFunction::set_global_size(size_t size[3])
         if (!valid())
                 return -1;
 
-        for (int8_t i = 0; i < m_work_dim; ++i){ 
+        for (int8_t i = 0; i < 3; ++i){ 
                 m_global_size[i] = size[i];
         }
 
@@ -154,7 +154,7 @@ int32_t DeviceFunction::set_global_offset(size_t offset[3])
         if (!valid())
                 return -1;
 
-        for (int8_t i = 0; i < m_work_dim; ++i){ 
+        for (int8_t i = 0; i < 3; ++i){ 
                 m_global_offset[i] = offset[i];
         }
         return 0;
@@ -165,7 +165,7 @@ int32_t DeviceFunction::set_local_size(size_t size[3])
         if (!valid())
                 return -1;
 
-        for (int8_t i = 0; i < m_work_dim; ++i){ 
+        for (int8_t i = 0; i < 3; ++i){ 
                 m_local_size[i] = size[i];
         }
         return 0;
@@ -221,6 +221,61 @@ int32_t DeviceFunction::execute()
 	/* finish command queue */
 	err = clFinish(m_clinfo.command_queue);
 	if (error_cl(err, "clFinish"))
+		return -1;
+
+	return 0;	
+}
+
+int32_t DeviceFunction::enqueue()
+{
+        if (!valid())
+                return -1;
+
+	cl_int err;
+	
+	//enqueue the kernel command for execution
+
+	if (m_work_dim < 1 || m_work_dim > 3) {
+		std::cerr << "Kernel work dimensions not set" << std::endl;
+		return -1;
+	}
+
+	for (int8_t i = 0; i < m_work_dim; ++i) {
+		if (m_global_size[i] <= 0) {
+			std::cerr << "Kernel global work size not set" << std::endl;
+			return -1;
+		}
+	}
+
+	bool local_size_set = true;
+
+	for (int8_t i = 0; i < m_work_dim; ++i)
+		local_size_set = local_size_set && (m_local_size[i] > 0);
+
+	// Enqueueing the kernel command for execution
+	if (local_size_set)
+		err = clEnqueueNDRangeKernel(m_clinfo.command_queue,
+					     m_kernel,
+					     m_work_dim,
+					     m_global_offset,
+					     m_global_size,
+					     m_local_size,
+					     0,NULL,NULL);
+	else
+		err = clEnqueueNDRangeKernel(m_clinfo.command_queue,
+					     m_kernel,
+					     m_work_dim,
+					     m_global_offset,
+					     m_global_size,
+					     NULL,
+					     0,NULL,NULL);
+
+	if (error_cl(err, "clEnqueueNDRangeKernel"))
+		return -1;
+
+	/* finish command queue */
+	err = clFlush(m_clinfo.command_queue);
+	if (error_cl(err, "clEnqueue"))
 		return -1;
 
 	return 0;	

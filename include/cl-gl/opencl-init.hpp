@@ -9,6 +9,10 @@
   #include <CL/cl.h>
   #include <CL/cl_gl.h>
 
+  #ifndef __func__
+  #define __func__ __FUNCTION__
+  #endif
+
 #elif defined __linux__
   #include <GL/gl.h>
   #include <CL/cl.h>
@@ -34,6 +38,7 @@ struct CLInfo
 	cl_context_properties properties[10];
 
 	cl_ulong global_mem_size;
+	cl_ulong local_mem_size;
 	cl_bool  image_support;
 	size_t image2d_max_height,image2d_max_width;
 
@@ -100,6 +105,10 @@ size_t cl_mem_size(const cl_mem& mem);
 
 int32_t acquire_gl_tex(cl_mem& tex_mem, const CLInfo& clinfo);
 int32_t release_gl_tex(cl_mem& tex_mem, const CLInfo& clinfo);
-inline int32_t error_cl(cl_int err_num, std::string msg);
+
+#define error_cl(x,y) __error_cl(x,y,__FILE__,__func__,__LINE__)
+
+inline int32_t __error_cl(cl_int err_num, std::string msg,
+                          const char* file, const char* func,  int line);
 
 #endif //OPENCL_INIT_HPP

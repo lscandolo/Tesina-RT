@@ -66,7 +66,7 @@ public:
 	~RayBundle();
 
 	int32_t initialize(const size_t rays,
-			const CLInfo& clinfo); // Create mem object
+                           const CLInfo& clinfo); // Create mem object
 	bool    valid();                    // Check that it's correctly initialized 
 	int32_t count();                // Return number of rays in the bundle
         DeviceMemory& mem();           // Return mem object

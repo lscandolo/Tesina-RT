@@ -34,6 +34,7 @@ public:
         int32_t set_global_offset(size_t offset[3]);
         int32_t set_local_size(size_t size[3]);
         int32_t execute();
+        int32_t enqueue();
         int32_t release();
 private:
         bool m_initialized;
@@ -45,6 +46,7 @@ private:
 	size_t m_global_size[3];
 	size_t m_global_offset[3];
 	size_t m_local_size[3];
+
 };
 
 #endif /* GPU_FUNCTION_HPP */

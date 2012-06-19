@@ -35,6 +35,10 @@ public:
         int32_t acquire_graphic_resource(memory_id tex_id);
         int32_t release_graphic_resource(memory_id tex_id);
 
+        int32_t finish_commands();
+
+        size_t  max_group_size(uint32_t dim);
+
 private:
         CLInfo m_clinfo;
         bool m_initialized;

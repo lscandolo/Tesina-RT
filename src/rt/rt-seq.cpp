@@ -215,7 +215,7 @@ void gl_loop()
 		if (sample_count - offset < tile_size)
 			tile_size = sample_count - offset;
 
-		if (prim_ray_gen.set_rays(camera, ray_bundle_1, window_size,
+		if (prim_ray_gen.set_rays(camera, *ray_in, window_size,
                                           tile_size, offset)) {
 			std::cerr << "Error seting primary ray bundle" << std::endl;
 			exit(1);
@@ -475,7 +475,8 @@ int main (int argc, char** argv)
 
 		/* ------------------*/
 
-                scenes[i].set_accelerator_type(KDTREE_ACCELERATOR);
+                // scenes[i].set_accelerator_type(KDTREE_ACCELERATOR);
+                scenes[i].set_accelerator_type(BVH_ACCELERATOR);
 		scenes[i].create_aggregate_mesh();
 		scenes[i].create_aggregate_accelerator();
 		Mesh& scene_mesh = scenes[i].get_aggregate_mesh();
@@ -502,7 +503,7 @@ int main (int argc, char** argv)
 	best_tile_size = std::min(pixel_count, best_tile_size);
 
 	/*---------------------- Initialize ray bundles -----------------------------*/
-	int32_t ray_bundle_size = best_tile_size * 3;
+	int32_t ray_bundle_size = best_tile_size * 4;
 
 	if (ray_bundle_1.initialize(ray_bundle_size, clinfo)) {
 		std::cerr << "Error initializing ray bundle 1" << std::endl;

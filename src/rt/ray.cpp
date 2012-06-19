@@ -77,7 +77,7 @@ RayBundle::count()
 DeviceMemory&
 RayBundle::mem()
 {
-	return device.memory(ray_id);
+                return device.memory(ray_id);
 }
 
 /* --------------------------------- HitBundle methods ----------------------------*/

@@ -16,6 +16,8 @@ DeviceInterface::initialize(CLInfo clinfo)
 {
         m_clinfo = clinfo;
         m_initialized = true;
+        memory_objects.reserve(1024);
+        function_objects.reserve(1024);
         return 0;
 }
 
@@ -126,5 +128,26 @@ DeviceInterface::release_graphic_resource(memory_id tex_id)
         err = clFinish(m_clinfo.command_queue);
         if (error_cl(err, "clFinish"))
                 return -1;
+        return 0;
+}
+
+int32_t 
+DeviceInterface::finish_commands(){
+        if (!good())
+                return -1;
+
+        cl_int err;
+	err = clFinish(m_clinfo.command_queue);
+	if (error_cl(err, "clFinish"))
+		return -1;
+
+        return 0;
+}
+
+size_t  
+DeviceInterface::max_group_size(uint32_t dim)
+{
+        if (dim < 3)
+                return m_clinfo.max_work_item_sizes[dim];
         return 0;
 }

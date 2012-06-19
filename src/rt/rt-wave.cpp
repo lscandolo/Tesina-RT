@@ -439,7 +439,7 @@ int main (int argc, char** argv)
 	best_tile_size = std::min(pixel_count, best_tile_size);
 
 	/*---------------------- Initialize ray bundles -----------------------------*/
-	int32_t ray_bundle_size = best_tile_size * 3;
+	int32_t ray_bundle_size = best_tile_size * 4;
 
 	if (ray_bundle_1.initialize(ray_bundle_size, clinfo)) {
 		std::cerr << "Error initializing ray bundle 1" << std::endl;
