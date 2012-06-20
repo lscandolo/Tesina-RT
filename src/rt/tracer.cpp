@@ -192,7 +192,6 @@ Tracer::trace(Scene& scene, int32_t ray_count,
 {
         if (!m_initialized || !device.good() || !scene.ready())
                 return -1;
-
         switch (scene.get_accelerator_type()) {
         case (KDTREE_ACCELERATOR):
                 return trace_kdtree(scene, ray_count, rays, hits, secondary);

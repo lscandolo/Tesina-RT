@@ -79,12 +79,14 @@
     <ClInclude Include="..\..\include\cl-gl\opencl-init.hpp" />
     <ClInclude Include="..\..\include\cl-gl\opengl-init.hpp" />
     <ClInclude Include="..\..\include\rt\assert.hpp" />
+    <ClInclude Include="..\..\include\rt\bbox.hpp" />
     <ClInclude Include="..\..\include\rt\bvh.hpp" />
     <ClInclude Include="..\..\include\rt\camera.hpp" />
     <ClInclude Include="..\..\include\rt\cl_aux.hpp" />
     <ClInclude Include="..\..\include\rt\cubemap.hpp" />
     <ClInclude Include="..\..\include\rt\framebuffer.hpp" />
     <ClInclude Include="..\..\include\rt\geom.hpp" />
+    <ClInclude Include="..\..\include\rt\kdtree.hpp" />
     <ClInclude Include="..\..\include\rt\light.hpp" />
     <ClInclude Include="..\..\include\rt\material.hpp" />
     <ClInclude Include="..\..\include\rt\math.hpp" />
@@ -103,12 +105,14 @@
     <ClInclude Include="..\..\include\rt\vector.hpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\src\rt\bbox.cpp" />
     <ClCompile Include="..\..\src\rt\bvh.cpp" />
     <ClCompile Include="..\..\src\rt\camera.cpp" />
     <ClCompile Include="..\..\src\rt\cl_aux.cpp" />
     <ClCompile Include="..\..\src\rt\cubemap.cpp" />
     <ClCompile Include="..\..\src\rt\framebuffer.cpp" />
     <ClCompile Include="..\..\src\rt\geom.cpp" />
+    <ClCompile Include="..\..\src\rt\kdtree.cpp" />
     <ClCompile Include="..\..\src\rt\material.cpp" />
     <ClCompile Include="..\..\src\rt\math.cpp" />
     <ClCompile Include="..\..\src\rt\matrix.cpp" />

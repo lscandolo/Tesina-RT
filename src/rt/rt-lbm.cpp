@@ -480,6 +480,7 @@ int main (int argc, char** argv)
 		pause_and_exit(1);
 	}
 	std::cout << "Initialized scene succesfully." << std::endl;
+    scene.set_accelerator_type(BVH_ACCELERATOR);
 
     mesh_id floor_mesh_id = scene.load_obj_file_as_aggregate("models/obj/grid100.obj");
     object_id floor_obj_id  = scene.add_object(floor_mesh_id);

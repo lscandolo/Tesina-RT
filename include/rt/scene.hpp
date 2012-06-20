@@ -161,6 +161,7 @@ private:
 
         bool m_aggregate_bvh_transfered;
         bool m_aggregate_kdt_transfered;
+        bool m_bvhs_transfered;
 
         lights_cl lights;
 

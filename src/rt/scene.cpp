@@ -44,7 +44,8 @@ Scene::Scene()
         m_bvhs_built = false;
         m_aggregate_bvh_transfered = false;
         m_aggregate_kdt_transfered = false;
-        m_accelerator_type = KDTREE_ACCELERATOR;
+        m_bvhs_transfered = false;
+        m_accelerator_type = BVH_ACCELERATOR;
 }
 
 int32_t 
@@ -97,14 +98,15 @@ Scene::valid()
 bool 
 Scene::ready()
 {
-        if (!device.good || !m_initialized)
+        if (!device.good() || !m_initialized)
                 return false;
 
         switch (m_accelerator_type) {
         case (KDTREE_ACCELERATOR):
                 return m_aggregate_kdt_built && m_aggregate_kdt_transfered;
         case (BVH_ACCELERATOR):
-                return m_aggregate_bvh_built && m_aggregate_bvh_transfered;
+                return (m_aggregate_bvh_built && m_aggregate_bvh_transfered) ||
+                       (m_bvhs_built && m_bvhs_transfered);
         default:
                 return -1;
         }
@@ -518,12 +520,13 @@ Scene::create_bvhs()
                 BVH bvh;
                 Mesh& mesh = mesh_atlas[obj->id];
 
-		material_list.push_back(obj->mat);
-		cl_int map_index = cl_int(material_list.size() - 1);
-		material_map.resize(tri_offset + mesh.triangleCount(), map_index);
+                material_list.push_back(obj->mat);
+                cl_int map_index = cl_int(material_list.size() - 1);
+                material_map.resize(tri_offset + mesh.triangleCount(), map_index);
 
-                if (!bvh.construct(mesh, node_offset, tri_offset))
+                if (bvh.construct(mesh, node_offset, tri_offset)) {
                         return -1;
+                }
 
                 bvh_order.push_back(obj->id);
                 bvhs[obj->id] = bvh;
@@ -667,7 +670,8 @@ Scene::transfer_bvhs_to_device()
                                              READ_ONLY_MEMORY))
 			return -1;
         }
-        return 0;
+    m_bvhs_transfered = true;
+    return 0;
 }
 
 Mesh&
