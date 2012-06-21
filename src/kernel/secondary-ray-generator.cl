@@ -153,56 +153,34 @@ generate_secondary_rays(global RayHitInfo* ray_hit_info,
                         global RayPlus* ray_out,
                         global int* ray_count,
                         global int* totals,
-                        int    in_ray_count,
-                        local  int* local_count)
+                        int    max_ray_count)
 {
         int local_size = get_local_size(0);
         int group_id   = get_group_id(0);
         int l_idx = get_local_id(0);
 	int index = get_global_id(0);
 
-        int local_start_idx = group_id * local_size * 2;
+        int local_start_idx = group_id * local_size;
         ray_count += local_start_idx;
 
         local int total;
         if (l_idx == 0) {
-                if (group_id == 0)
+                if (group_id < 2)
                         total = 0;
                 else
-                        total = totals[group_id-1];
+                        total = totals[(group_id>>1)-1];
         }
         barrier(CLK_GLOBAL_MEM_FENCE);
 
-        local_count[2*l_idx] = ray_count[2*l_idx] + total;
-        local_count[2*l_idx+1] = ray_count[2*l_idx+1] + total;
-
-        barrier(CLK_GLOBAL_MEM_FENCE);
-
-        if (index >= in_ray_count)
-                return;
-
 	RayHitInfo info  = ray_hit_info[index];
-	RayPlus rayplus = ray_in[index];
-
 	if (!info.hit)
 		return;
 
-        int reflect_count_id = 2*l_idx;
-        int refract_count_id = 2*l_idx+1;
+        int new_ray_id = ray_count[l_idx] + total;
+        if (new_ray_id >= max_ray_count)
+                return;
 
-        int reflect_ray_id = -1;
-        int refract_ray_id = -1;
-
-        if (l_idx == 0) {
-                if (local_count[0] != total)
-                        reflect_ray_id = total;
-        } else {
-                if (local_count[reflect_count_id] != local_count[reflect_count_id-1])
-                        reflect_ray_id = local_count[reflect_count_id]-1;
-        }
-
-        if (local_count[refract_count_id] != local_count[refract_count_id-1])
-                refract_ray_id = local_count[refract_count_id]-1;
+	RayPlus rayplus = ray_in[index];
 
 	int material_index = material_map[info.id];
 	Material mat = material_list[material_index];
@@ -214,7 +192,7 @@ generate_secondary_rays(global RayHitInfo* ray_hit_info,
         new_ray.tMin = 0.0001f;
         new_ray.tMax = 1e37f;
 
-	if (refract_ray_id >= 0) {
+	if (mat.refractive_index > 0.f) {
 
 		float etai;
 		float etat;
@@ -245,23 +223,24 @@ generate_secondary_rays(global RayHitInfo* ray_hit_info,
                         new_ray.ori = info.hit_point;
 			new_ray.dir = normalize((w-k)* n - etai*d);
 			new_ray.invDir = 1.f/new_ray.dir;
-			ray_out[refract_ray_id].ray = new_ray;
-			ray_out[refract_ray_id].pixel = rayplus.pixel;
-			ray_out[refract_ray_id].contribution =
+			ray_out[new_ray_id].ray = new_ray;
+			ray_out[new_ray_id].pixel = rayplus.pixel;
+			ray_out[new_ray_id].contribution =
 				rayplus.contribution * mat.reflectiveness * (1.f-R);
+                        new_ray_id++;
 		}
         }
 
-        if (reflect_ray_id >= 0) {
+        if (mat.reflectiveness > 0.f) {
 
 		d = -d;
 
                 new_ray.ori = info.hit_point;
 		new_ray.dir = d - 2.f * n * (dot(d,n));
 		new_ray.invDir = 1.f/new_ray.dir;
-		ray_out[reflect_ray_id].ray = new_ray;
-		ray_out[reflect_ray_id].pixel = rayplus.pixel;
-		ray_out[reflect_ray_id].contribution =
+		ray_out[new_ray_id].ray = new_ray;
+		ray_out[new_ray_id].pixel = rayplus.pixel;
+		ray_out[new_ray_id].contribution =
 			rayplus.contribution * mat.reflectiveness * R;
 
 	}
@@ -278,11 +257,13 @@ mark_secondary_rays(global RayHitInfo* ray_hit_info,
 	int index = get_global_id(0);
 	RayHitInfo info  = ray_hit_info[index];
 
-        int reflect_ray_id = 2*index;
-        int refract_ray_id = 2*index+1;
+        /* int reflect_ray_id = 2*index; */
+        /* int refract_ray_id = 2*index+1; */
 
-        ray_count[refract_ray_id] = 0;
-        ray_count[reflect_ray_id] = 0;
+        ray_count[index] = 0;
+
+        /* ray_count[refract_ray_id] = 0; */
+        /* ray_count[reflect_ray_id] = 0; */
 
 	if (!info.hit)
 		return;
@@ -314,13 +295,13 @@ mark_secondary_rays(global RayHitInfo* ray_hit_info,
 
 		if (k > 0.f) {
 
-                        ray_count[refract_ray_id] = 1;
+                        ray_count[index]+=1;
 		}
         }
 
         if (mat.reflectiveness > 0.f) {
 
-                ray_count[reflect_ray_id] = 1;
+                ray_count[index]+=1;
 	}
 
 }
@@ -379,13 +360,13 @@ kernel void local_prefix_sum(global int* in,
         barrier(CLK_GLOBAL_MEM_FENCE);
 
         if (l_idx == 0) {
-                aux[local_size*2 ] = sum;
+                /* aux[local_size*2 ] = sum; */
                 totals[group_id] = sum;
         }
         barrier(CLK_GLOBAL_MEM_FENCE);
 
-        out[2*l_idx]   = aux[2*l_idx +1];
-        out[2*l_idx+1] = aux[2*l_idx+1 +1];
+        out[2*l_idx]   = aux[2*l_idx ];
+        out[2*l_idx+1] = aux[2*l_idx+1 ];
         
         
 }
@@ -415,9 +396,6 @@ kernel void global_prefix_sum(global int* in,
         in  += in_start_idx;
         out += in_start_idx;
         
-        int fst = 0;
-        int snd = 0;
-
         if (group_id == 0) return;
 
         if (l_idx == 0) {

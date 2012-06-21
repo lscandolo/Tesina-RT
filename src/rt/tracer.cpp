@@ -327,12 +327,15 @@ Tracer::trace_bvh(Scene& scene, int32_t ray_count,
         if (tracer.set_arg(4, scene.bvh_nodes_mem()))
                     return -1;
 
-        if (tracer.set_arg(5, scene.bvh_roots_mem()))
-                    return -1;
+        if (scene.root_count() > 1) {
 
-        cl_int root_cant = scene.root_count();
-        if (tracer.set_arg(6, sizeof(cl_int), &root_cant))
-                    return -1;
+                if (tracer.set_arg(5, scene.bvh_roots_mem()))
+                        return -1;
+
+                cl_int root_cant = scene.root_count();
+                if (tracer.set_arg(6, sizeof(cl_int), &root_cant))
+                        return -1;
+        }
 
         size_t global_size[]   = {0, 0, 0};
         size_t global_offset[] = {0, 0, 0};
@@ -437,18 +440,22 @@ Tracer::shadow_trace_bvh(Scene& scene, int32_t ray_count,
         if (shadow.set_arg(3, scene.triangle_mem()))
                 return -1;
 
-        cl_int root_count = scene.root_count();
-        if (shadow.set_arg(4, sizeof(cl_int), &root_count))
+        if (shadow.set_arg(4, scene.bvh_nodes_mem()))
                 return -1;
 
-        if (shadow.set_arg(5, scene.bvh_roots_mem()))
+        if (shadow.set_arg(5, scene.lights_mem()))
                 return -1;
 
-        if (shadow.set_arg(6, scene.bvh_nodes_mem()))
-                return -1;
+        if (scene.root_count() > 1) {
 
-        if (shadow.set_arg(7, scene.lights_mem()))
-                return -1;
+                if (shadow.set_arg(6, scene.bvh_roots_mem()))
+                        return -1;
+
+                cl_int root_count = scene.root_count();
+                if (shadow.set_arg(7, sizeof(cl_int), &root_count))
+                        return -1;
+        }
+
 
         size_t global_size[]   = {0, 0, 0};
         size_t global_offset[] = {0, 0, 0};

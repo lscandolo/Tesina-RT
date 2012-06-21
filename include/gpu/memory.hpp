@@ -25,6 +25,7 @@ public:
         int32_t initialize_from_gl_texture(const GLuint gl_tex);
         size_t write(size_t nbytes, const void* values, size_t offset = 0);
         size_t read(size_t nbytes, void* buffer, size_t offset = 0);
+        int32_t resize(size_t new_size);
         int32_t release();
         size_t size() const;
         cl_mem* ptr();
@@ -33,6 +34,7 @@ private:
         CLInfo m_clinfo;
         cl_mem m_mem;
         size_t m_size;
+        DeviceMemoryMode m_mode;
 };
 
 #endif /* GPU_MEMORY_HPP */

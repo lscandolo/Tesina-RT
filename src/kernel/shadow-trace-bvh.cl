@@ -296,10 +296,10 @@ shadow_trace_multi(global RayHitInfo* trace_info,
                    global RayPlus* rays,
                    global Vertex* vertex_buffer,
                    global int* index_buffer,
-                   int    root_count,
-                   global BVHRoot* roots,
                    global BVHNode* bvh_nodes,
-                   global Lights* lights)
+                   constant Lights* lights,
+                   global BVHRoot* roots,
+                   int    root_count)
 {
 	int index = get_global_id(0);
 
@@ -341,10 +341,8 @@ shadow_trace_single(global RayHitInfo* trace_info,
                     global RayPlus* rays,
                     global Vertex* vertex_buffer,
                     global int* index_buffer,
-                    int    root_count,
-                    global BVHRoot* roots,
                     global BVHNode* bvh_nodes,
-                    global Lights* lights)
+                    constant Lights* lights)
 {
 	int index = get_global_id(0);
 

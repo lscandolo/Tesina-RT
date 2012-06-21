@@ -288,69 +288,78 @@ float2 compute_texCoord(global Vertex* vertex_buffer,
 }
 
 /* RayHitInfo  */
-/* triangle_hit(global Vertex* vertex_buffer, */
-/*              global int* index_buffer, */
-/*              int triangle, */
-/*              Ray ray){ */
+/* leaf_hit(BVHNode node, */
+/*          global Vertex* vertex_buffer, */
+/*          global int* index_buffer, */
+/*          Ray ray){ */
 
 /*         RayHitInfo info; */
 /*         info.hit = false; */
-/*         info.shadow_hit = false; */
-/*         info.inverse_n = false; */
+/*         info.t = ray.tMax; */
 
-/*         float3 p = ray.ori.xyz; */
-/*         float3 d = ray.dir.xyz; */
+/*         for (int i = node.start_index; i < node.end_index; ++i) { */
+/*                 int triangle = i; */
 
-/*         global Vertex* vx0 = &vertex_buffer[index_buffer[3*triangle]]; */
-/*         global Vertex* vx1 = &vertex_buffer[index_buffer[3*triangle+1]]; */
-/*         global Vertex* vx2 = &vertex_buffer[index_buffer[3*triangle+2]]; */
+/*                 float3 p = ray.ori.xyz; */
+/*                 float3 d = ray.dir.xyz; */
 
-/*         float3 v0 = vx0->position; */
-/*         float3 v1 = vx1->position; */
-/*         float3 v2 = vx2->position; */
-        
-/*         float3 e1 = v1 - v0; */
-/*         float3 e2 = v2 - v0; */
-        
-/*         float3 h = cross(d, e2); */
-/*         float  a = dot(e1,h); */
-        
-/*         if (a > -1e-26f && a < 1e-26f) */
-/* 	/\* if (a > -0.000001f && a < 0.00001f) *\/ */
-/*                 return info; */
+/*                 global Vertex* vx0 = &vertex_buffer[index_buffer[3*triangle]]; */
+/*                 global Vertex* vx1 = &vertex_buffer[index_buffer[3*triangle+1]]; */
+/*                 global Vertex* vx2 = &vertex_buffer[index_buffer[3*triangle+2]]; */
+                
+/*                 float3 v0 = vx0->position; */
+/*                 float3 v1 = vx1->position; */
+/*                 float3 v2 = vx2->position; */
+                
+/*                 float3 e1 = v1 - v0; */
+/*                 float3 e2 = v2 - v0; */
+                
+/*                 float3 h = cross(d, e2); */
+/*                 float  a = dot(e1,h); */
+                
+/*                 if (a > -1e-26f && a < 1e-26f) */
+/*                         /\* if (a > -0.000001f && a < 0.00001f) *\/ */
+/*                         continue; */
+                
+/*                 float  f = 1.f/a; */
+/*                 float3 s = p - v0; */
+/*                 float  u = f * dot(s,h); */
+/*                 if (u < 0.f || u > 1.f)  */
+/*                         continue; */
+                
+/*                 float3 q = cross(s,e1); */
+/*                 float  v = f * dot(d,q); */
+/*                 if (v < 0.f || u+v > 1.f) */
+/*                         continue; */
+                
+/*                 float t = f * dot(e2,q); */
+/*                 bool t_is_within_bounds = (t <= info.t && t >= ray.tMin); */
 
-/*         float  f = 1.f/a; */
-/*         float3 s = p - v0; */
-/*         float  u = f * dot(s,h); */
-/*         if (u < 0.f || u > 1.f)  */
-/*                 return info; */
-
-/*         float3 q = cross(s,e1); */
-/*         float  v = f * dot(d,q); */
-/*         if (v < 0.f || u+v > 1.f) */
-/*                 return info; */
-
-/*         info.t = f * dot(e2,q); */
-/*         bool t_is_within_bounds = (info.t < ray.tMax && info.t > ray.tMin); */
-
-/*         if (t_is_within_bounds) { */
-/*                 info.hit = true; */
-/*                 info.id = triangle; */
-/*                 info.uv.s0 = u; */
-/*                 info.uv.s1 = v; */
+/*                 if (t_is_within_bounds) { */
+/*                         info.t = t; */
+/*                         info.hit = true; */
+/*                         info.id = triangle; */
+/*                         info.uv.s0 = u; */
+/*                         info.uv.s1 = v; */
+/*                 } */
 /*         } */
+
+/*         if (info.hit) */
+/*                 ray.tMax = info.t; */
+
 /*         return info; */
 /* } */
 
-RayHitInfo 
-leaf_hit(BVHNode node,
+void
+leaf_hit(RayHitInfo* best_info,
+         BVHNode node,
          global Vertex* vertex_buffer,
          global int* index_buffer,
          Ray ray){
 
-        RayHitInfo info;
-        info.hit = false;
-        info.t = ray.tMax;
+        /* RayHitInfo info; */
+        /* info.hit = false; */
+        /* info.t = ray.tMax; */
 
         for (int i = node.start_index; i < node.end_index; ++i) {
                 int triangle = i;
@@ -388,21 +397,21 @@ leaf_hit(BVHNode node,
                         continue;
                 
                 float t = f * dot(e2,q);
-                bool t_is_within_bounds = (t <= info.t && t >= ray.tMin);
+                bool t_is_within_bounds = (t <= best_info->t && t >= ray.tMin);
 
                 if (t_is_within_bounds) {
-                        info.t = t;
-                        info.hit = true;
-                        info.id = triangle;
-                        info.uv.s0 = u;
-                        info.uv.s1 = v;
+                        best_info->t = t;
+                        best_info->hit = true;
+                        best_info->id = triangle;
+                        best_info->uv.s0 = u;
+                        best_info->uv.s1 = v;
                 }
         }
 
-        if (info.hit)
-                ray.tMax = info.t;
+        /* if (info.hit) */
+        /*         ray.tMax = info.t; */
 
-        return info;
+        /* return info; */
 }
 
 #define MAX_LEVELS 64
@@ -427,7 +436,7 @@ RayHitInfo trace_ray(Ray ray,
         private BVHNode current_node;
 
         unsigned int first_child, second_child;
-        bool childrenOrder = true;
+        bool children_order = true;
 
         float3 rdir = ray.dir;
         float3 adir = fabs(rdir);
@@ -450,11 +459,11 @@ RayHitInfo trace_ray(Ray ray,
                 }
 
                 if (current_node.leaf) {
-                        RayHitInfo leaf_info = leaf_hit(current_node,
-                                                        vertex_buffer,
-                                                        index_buffer,
-                                                        ray);
-                        merge_hit_info(&best_hit_info, &leaf_info);
+                        leaf_hit(&best_hit_info,
+                                 current_node,
+                                 vertex_buffer,
+                                 index_buffer,
+                                 ray);
                         if (best_hit_info.hit)
                                 ray.tMax = best_hit_info.t;
 
@@ -473,14 +482,14 @@ RayHitInfo trace_ray(Ray ray,
                         float3 rbbox_vals = bvh_nodes[current_node.r_child].bbox.lo;
                         float3 choice_vec = dot(rdir,rbbox_vals - lbbox_vals);
                         if (adir.x > 0.f) {
-                                childrenOrder = choice_vec.x > 0.f;
+                                children_order = choice_vec.x > 0.f;
                         } else if (adir.y > 0.f) {
-                                childrenOrder = choice_vec.y > 0.f;
+                                children_order = choice_vec.y > 0.f;
                         } else {
-                                childrenOrder = choice_vec.z > 0.f;
+                                children_order = choice_vec.z > 0.f;
                         }
-                
-                        if (childrenOrder) {
+                        
+                        if (children_order) {
                                 first_child = current_node.l_child;
                                 second_child = current_node.r_child;
                         } else {
@@ -516,7 +525,7 @@ RayHitInfo trace_ray(Ray ray,
 /*         BVHNode current_node; */
 
 /*         unsigned int first_child, second_child; */
-/*         bool childrenOrder = true; */
+/*         bool children_order = true; */
 
 /*         float3 rdir = ray.dir; */
 /*         float3 adir = fabs(rdir); */
@@ -535,14 +544,14 @@ RayHitInfo trace_ray(Ray ray,
 /*                         float3 rbbox_vals = bvh_nodes[current_node.r_child].bbox.lo; */
 /*                         float3 choice_vec = dot(rdir,rbbox_vals - lbbox_vals); */
 /*                         if (adir.x > 0.f) { */
-/*                                 childrenOrder = choice_vec.x > 0.f; */
+/*                                 children_order = choice_vec.x > 0.f; */
 /*                         } else if (adir.y > 0.f) { */
-/*                                 childrenOrder = choice_vec.y > 0.f; */
+/*                                 children_order = choice_vec.y > 0.f; */
 /*                         } else { */
-/*                                 childrenOrder = choice_vec.z > 0.f; */
+/*                                 children_order = choice_vec.z > 0.f; */
 /*                         } */
                 
-/*                         if (childrenOrder) { */
+/*                         if (children_order) { */
 /*                                 first_child = current_node.l_child; */
 /*                                 second_child = current_node.r_child; */
 /*                         } else { */
@@ -662,9 +671,7 @@ trace_single(global RayHitInfo* trace_info,
              global RayPlus* rays,
              global Vertex* vertex_buffer,
              global int* index_buffer,
-             global BVHNode* bvh_nodes,
-             global BVHRoot* roots,
-             int root_count)
+             global BVHNode* bvh_nodes)
 {
         int index = get_global_id(0);
         Ray ray = rays[index].ray;

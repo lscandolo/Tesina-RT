@@ -13,7 +13,6 @@
 #define trav_cost .125f
 #define isec_cost 1.f
 
-RT_ALIGN(16)
 class KDTNode {
 
 public:

@@ -41,6 +41,7 @@ int32_t DeviceMemory::initialize(size_t size, DeviceMemoryMode mode)
 	if (error_cl(err, "clCreateBuffer"))
 		return -1;
 
+        m_mode = mode;
         m_initialized = true;
         m_size = size;
 	return 0;
@@ -77,6 +78,7 @@ int32_t DeviceMemory::initialize(size_t size, const void* values, DeviceMemoryMo
 	if (error_cl(err, "clCreateBuffer"))
 		return 1;
 
+        m_mode = mode;
         m_initialized = true;
         m_size = size;
 	return 0;
@@ -98,6 +100,7 @@ int32_t DeviceMemory::initialize_from_gl_texture(const GLuint gl_tex)
 	if (error_cl(err, "clCreateFromGLTexture2D"))
 		return -1;
 
+        m_mode = READ_WRITE_MEMORY;
         m_initialized = true;
         /* TODO: set appropiate size! */
         return 0;
@@ -152,6 +155,45 @@ size_t DeviceMemory::read(size_t nbytes, void* buffer, size_t offset)
 		return -1;
 
 	return 0;
+}
+
+int32_t
+DeviceMemory::resize(size_t new_size)
+{
+        if (!new_size)
+                return -1;
+
+        if (release())
+                return -1;
+
+        cl_int err;
+        cl_mem_flags flags;
+        switch (m_mode)
+        {
+        case(READ_ONLY_MEMORY):
+                flags = CL_MEM_READ_ONLY;
+                break;
+        case(WRITE_ONLY_MEMORY):
+                flags = CL_MEM_WRITE_ONLY;
+                break;
+        case(READ_WRITE_MEMORY):
+                flags = CL_MEM_READ_WRITE;
+                break;
+        default:
+                return -1;
+        }
+
+	m_mem = clCreateBuffer(m_clinfo.context,
+                               flags,
+                               new_size,
+                               NULL,
+                               &err);
+	if (error_cl(err, "clCreateBuffer"))
+		return -1;
+
+        m_initialized = true;
+        m_size = new_size;
+        return 0;
 }
 
 int32_t
