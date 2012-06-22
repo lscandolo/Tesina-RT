@@ -177,7 +177,7 @@ void gl_key(unsigned char key, int x, int y)
                 logged = true;
                 stats_logged = 0;
                 // MAX_BOUNCE = 5;
-                MAX_BOUNCE = 0;
+                MAX_BOUNCE = 2;
                 break;
         case 'b':
                 rt_log.silent = !rt_log.silent;
@@ -513,28 +513,28 @@ int main (int argc, char** argv)
         // scene.load_obj_file_and_make_objs("models/obj/fairy_forest/f000.obj");
 
         //// Boat
-        mesh_id floor_mesh_id = 
-                scene.load_obj_file_as_aggregate("models/obj/frame_water1.obj");
-                // scene.load_obj_file_as_aggregate("models/obj/grid100.obj");
-        object_id floor_obj_id  = scene.add_object(floor_mesh_id);
-        Object& floor_obj = scene.object(floor_obj_id);
-        floor_obj.geom.setScale(2.f);
-        floor_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
-        floor_obj.mat.diffuse = White;
-        // floor_obj.mat.diffuse = Blue;
-        floor_obj.mat.reflectiveness = 0.98f;
-        floor_obj.mat.refractive_index = 1.333f;
+        // mesh_id floor_mesh_id = 
+        //         scene.load_obj_file_as_aggregate("models/obj/frame_water1.obj");
+        //         // scene.load_obj_file_as_aggregate("models/obj/grid100.obj");
+        // object_id floor_obj_id  = scene.add_object(floor_mesh_id);
+        // Object& floor_obj = scene.object(floor_obj_id);
+        // floor_obj.geom.setScale(2.f);
+        // floor_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
+        // floor_obj.mat.diffuse = White;
+        // // floor_obj.mat.diffuse = Blue;
+        // floor_obj.mat.reflectiveness = 0.98f;
+        // floor_obj.mat.refractive_index = 1.333f;
 
-         mesh_id boat_mesh_id = 
-                 scene.load_obj_file_as_aggregate("models/obj/frame_boat1.obj");
-         object_id boat_obj_id = scene.add_object(boat_mesh_id);
-         Object& boat_obj = scene.object(boat_obj_id);
-         boat_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
-         boat_obj.geom.setRpy(makeVector(0.f,0.f,0.f));
-         boat_obj.geom.setScale(2.f);
-         boat_obj.mat.diffuse = Red;
-         boat_obj.mat.shininess = 1.f;
-         boat_obj.mat.reflectiveness = 0.0f;
+        //  mesh_id boat_mesh_id = 
+        //          scene.load_obj_file_as_aggregate("models/obj/frame_boat1.obj");
+        //  object_id boat_obj_id = scene.add_object(boat_mesh_id);
+        //  Object& boat_obj = scene.object(boat_obj_id);
+        //  boat_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
+        //  boat_obj.geom.setRpy(makeVector(0.f,0.f,0.f));
+        //  boat_obj.geom.setScale(2.f);
+        //  boat_obj.mat.diffuse = Red;
+        //  boat_obj.mat.shininess = 1.f;
+        //  boat_obj.mat.reflectiveness = 0.0f;
 
         //// Buddha
         // std::vector<mesh_id> box_meshes = 
@@ -560,26 +560,26 @@ int main (int argc, char** argv)
         //  buddha_obj.mat.shininess = 1.f;
 
         /// Dragon
-        // mesh_id floor_mesh_id = 
-        //         scene.load_obj_file_as_aggregate("models/obj/frame_water1.obj");
-        // object_id floor_obj_id  = scene.add_object(floor_mesh_id);
-        // Object& floor_obj = scene.object(floor_obj_id);
-        // floor_obj.geom.setScale(2.f);
-        // floor_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
-        // floor_obj.mat.diffuse = Blue;
-        // floor_obj.mat.reflectiveness = 0.9f;
-        // floor_obj.mat.refractive_index = 1.333f;
+        mesh_id floor_mesh_id = 
+                scene.load_obj_file_as_aggregate("models/obj/frame_water1.obj");
+        object_id floor_obj_id  = scene.add_object(floor_mesh_id);
+        Object& floor_obj = scene.object(floor_obj_id);
+        floor_obj.geom.setScale(2.f);
+        floor_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
+        floor_obj.mat.diffuse = Blue;
+        floor_obj.mat.reflectiveness = 0.9f;
+        floor_obj.mat.refractive_index = 1.333f;
 
-        //  mesh_id dragon_mesh_id = 
-        //          scene.load_obj_file_as_aggregate("models/obj/dragon.obj");
-        //  object_id dragon_obj_id = scene.add_object(dragon_mesh_id);
-        //  Object& dragon_obj = scene.object(dragon_obj_id);
-        //  dragon_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
-        //  dragon_obj.geom.setRpy(makeVector(0.f,0.f,0.f));
-        //  dragon_obj.geom.setScale(2.f);
-        //  dragon_obj.mat.diffuse = Red;
-        //  dragon_obj.mat.shininess = 1.f;
-        //  dragon_obj.mat.reflectiveness = 0.7f;
+         mesh_id dragon_mesh_id = 
+                 scene.load_obj_file_as_aggregate("models/obj/dragon.obj");
+         object_id dragon_obj_id = scene.add_object(dragon_mesh_id);
+         Object& dragon_obj = scene.object(dragon_obj_id);
+         dragon_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
+         dragon_obj.geom.setRpy(makeVector(0.f,0.f,0.f));
+         dragon_obj.geom.setScale(2.f);
+         dragon_obj.mat.diffuse = Red;
+         dragon_obj.mat.shininess = 1.f;
+         dragon_obj.mat.reflectiveness = 0.7f;
 
         /// Ben
         // scene.load_obj_file_and_make_objs("models/obj/ben/ben_00.obj");

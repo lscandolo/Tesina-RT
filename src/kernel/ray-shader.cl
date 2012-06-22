@@ -287,78 +287,21 @@ shade_sample(write_only global ColorInt* image,
 	float3 f_rgb = clamp(ray_plus.contribution * valrgb,minrgb,maxrgb);
 	ColorInt rgb = to_color_int(f_rgb);
 
-        if (use_atomics) {
-                global unsigned int* r_ptr = &(image[ray_plus.pixel].r);
-                global unsigned int* g_ptr = &(image[ray_plus.pixel].g);
-                global unsigned int* b_ptr = &(image[ray_plus.pixel].b);
+        /* if (use_atomics) { */
+        /*         global unsigned int* r_ptr = &(image[ray_plus.pixel].r); */
+        /*         global unsigned int* g_ptr = &(image[ray_plus.pixel].g); */
+        /*         global unsigned int* b_ptr = &(image[ray_plus.pixel].b); */
                 
-                atomic_add(r_ptr, rgb.r);
-                atomic_add(g_ptr, rgb.g);
-                atomic_add(b_ptr, rgb.b);
+        /*         atomic_add(r_ptr, rgb.r); */
+        /*         atomic_add(g_ptr, rgb.g); */
+        /*         atomic_add(b_ptr, rgb.b); */
 
-        } else {
+        /* } else { */
                 image[ray_plus.pixel].r += rgb.r;
                 image[ray_plus.pixel].g += rgb.g;
                 image[ray_plus.pixel].b += rgb.b;
-        }
+        /* } */
 
-}
-
-
-kernel void 
-shade_secondary(write_only global ColorInt* image,
-                read_only global RayHitInfo* trace_info,
-                read_only global RayPlus* rays,
-                read_only global Material* material_list,
-                read_only global unsigned int* material_map,
-                read_only image2d_t x_pos, read_only image2d_t x_neg,
-                read_only image2d_t y_pos, read_only image2d_t y_neg,
-                read_only image2d_t z_pos, read_only image2d_t z_neg,
-                read_only image2d_t texture_0, read_only image2d_t texture_1,
-                read_only image2d_t texture_2, read_only image2d_t texture_3,
-                read_only image2d_t texture_4, read_only image2d_t texture_5,
-                read_only image2d_t texture_6, read_only image2d_t texture_7,
-                read_only image2d_t texture_8, read_only image2d_t texture_9,
-                read_only image2d_t texture_10, read_only image2d_t texture_11,
-                read_only image2d_t texture_12, read_only image2d_t texture_13,
-                read_only image2d_t texture_14, read_only image2d_t texture_15,
-                read_only image2d_t texture_16, read_only image2d_t texture_17,
-                read_only image2d_t texture_18, read_only image2d_t texture_19,
-                read_only image2d_t texture_20, read_only image2d_t texture_21,
-                read_only image2d_t texture_22, read_only image2d_t texture_23,
-                read_only image2d_t texture_24, read_only image2d_t texture_25,
-                int use_cubemap, constant Lights* lights)
-{
-
-        RayHitInfo hit_info = trace_info[get_global_id(0)];
-        RayPlus    ray_plus = rays[get_global_id(0)];
-
-        shade_sample(image,
-                     /* trace_info, */
-                     /* rays, */
-                     hit_info,
-                     ray_plus,
-                     material_list,
-                     material_map,
-                     x_pos, x_neg,
-                     y_pos, y_neg,
-                     z_pos, z_neg,
-                     texture_0, texture_1,
-                     texture_2, texture_3,
-                     texture_4, texture_5,
-                     texture_6, texture_7,
-                     texture_8, texture_9,
-                     texture_10, texture_11,
-                     texture_12, texture_13,
-                     texture_14, texture_15,
-                     texture_16, texture_17,
-                     texture_18, texture_19,
-                     texture_20, texture_21,
-                     texture_22, texture_23,
-                     texture_24, texture_25,
-                     use_cubemap,
-                     true,
-                     lights);
 }
 
 kernel void 
@@ -389,8 +332,6 @@ shade_primary(write_only global ColorInt* image,
         RayPlus    ray_plus = rays[get_global_id(0)];
 
         shade_sample(image,
-                     /* trace_info, */
-                     /* rays, */
                      hit_info,
                      ray_plus,
                      material_list,
@@ -412,20 +353,76 @@ shade_primary(write_only global ColorInt* image,
                      texture_22, texture_23,
                      texture_24, texture_25,
                      use_cubemap,
-                     false,
                      lights);
 }
 
+kernel void 
+shade_secondary(write_only global ColorInt* image,
+                read_only global RayHitInfo* trace_info,
+                read_only global RayPlus* rays,
+                read_only global Material* material_list,
+                read_only global unsigned int* material_map,
+                read_only image2d_t x_pos, read_only image2d_t x_neg,
+                read_only image2d_t y_pos, read_only image2d_t y_neg,
+                read_only image2d_t z_pos, read_only image2d_t z_neg,
+                read_only image2d_t texture_0, read_only image2d_t texture_1,
+                read_only image2d_t texture_2, read_only image2d_t texture_3,
+                read_only image2d_t texture_4, read_only image2d_t texture_5,
+                read_only image2d_t texture_6, read_only image2d_t texture_7,
+                read_only image2d_t texture_8, read_only image2d_t texture_9,
+                read_only image2d_t texture_10, read_only image2d_t texture_11,
+                read_only image2d_t texture_12, read_only image2d_t texture_13,
+                read_only image2d_t texture_14, read_only image2d_t texture_15,
+                read_only image2d_t texture_16, read_only image2d_t texture_17,
+                read_only image2d_t texture_18, read_only image2d_t texture_19,
+                read_only image2d_t texture_20, read_only image2d_t texture_21,
+                read_only image2d_t texture_22, read_only image2d_t texture_23,
+                read_only image2d_t texture_24, read_only image2d_t texture_25,
+                constant Lights* lights)
+{
+        size_t index = get_global_id(0);
+        size_t ray_count = get_global_size(0);
 
+        RayHitInfo hit_info = trace_info[index];
+        RayPlus    ray_plus = rays[index];
 
+        int pixel = ray_plus.pixel;
 
-
-
-
-
-
-
-
-
-
-
+        if (index != 0) {
+                if (rays[index-1].pixel == pixel) {
+                        return;
+                }
+        }
+        
+        while(1) {
+                shade_sample(image,
+                             hit_info,
+                             ray_plus,
+                             material_list,
+                             material_map,
+                             x_pos, x_neg,
+                             y_pos, y_neg,
+                             z_pos, z_neg,
+                             texture_0, texture_1,
+                             texture_2, texture_3,
+                             texture_4, texture_5,
+                             texture_6, texture_7,
+                             texture_8, texture_9,
+                             texture_10, texture_11,
+                             texture_12, texture_13,
+                             texture_14, texture_15,
+                             texture_16, texture_17,
+                             texture_18, texture_19,
+                             texture_20, texture_21,
+                             texture_22, texture_23,
+                             texture_24, texture_25,
+                             use_cubemap,
+                             lights);
+                index++;
+                ray_plus = rays[index];
+                if (ray_plus.pixel != pixel || index >= ray_count)
+                        return;
+                hit_info = trace_info[index];
+        }
+                
+}
