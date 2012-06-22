@@ -64,8 +64,11 @@ private:
 	rt_time_t    m_shadow_timer;
 	double       m_shadow_time_ms;
 
-        static const int KDT_SECONDARY_GROUP_SIZE = 64;
-        static const int BVH_SECONDARY_GROUP_SIZE = 64;
 };
+
+namespace RT{
+        static const size_t KDT_SECONDARY_GROUP_SIZE = 64;
+        static const size_t BVH_SECONDARY_GROUP_SIZE = 64;
+}
 
 #endif /* RT_TRACER_HPP */

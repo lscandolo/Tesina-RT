@@ -130,7 +130,6 @@ shade_sample(write_only global ColorInt* image,
              read_only image2d_t texture_24,
              read_only image2d_t texture_25,
              const int use_cubemap,
-             const bool use_atomics,
              constant Lights* lights)
 {
 
@@ -378,7 +377,7 @@ shade_secondary(write_only global ColorInt* image,
                 read_only image2d_t texture_20, read_only image2d_t texture_21,
                 read_only image2d_t texture_22, read_only image2d_t texture_23,
                 read_only image2d_t texture_24, read_only image2d_t texture_25,
-                constant Lights* lights)
+                int use_cubemap, constant Lights* lights)
 {
         size_t index = get_global_id(0);
         size_t ray_count = get_global_size(0);

@@ -135,16 +135,70 @@ RayShader::shade(RayBundle& rays, HitBundle& hb, Scene& scene,
         if (shade_function.set_arg(38,scene.lights_mem()))
 		return -1;
 
-        size_t shade_work_size[] = {size, 0, 0};
-        shade_function.set_global_size(shade_work_size);
+        // size_t shade_work_size[] = {size, 0, 0};
+        // shade_function.set_global_size(shade_work_size);
+	// if (shade_function.execute())
+	// 	return -1;
 
-	if (shade_function.execute())
-		return -1;
+	// if (m_timing)
+	// 	m_time_ms = m_timer.msec_since_snap();
+
+	// return 0;
+
+
+        size_t global_size[]   = {0, 0, 0};
+        size_t global_offset[] = {0, 0, 0};
+        size_t local_size[]    = {0, 0, 0};
+
+        size_t leftover_global_size[]   = {0, 0, 0};
+        size_t leftover_global_offset[] = {0, 0, 0};
+        size_t leftover_local_size[]    = {0, 0, 0};
+        size_t sec_size = device.max_group_size(0)/2;
+	size_t leftover = size%sec_size;
+
+	bool do_leftover = false;
+
+	if (!primary) {
+		if (size >= sec_size) {
+                        global_size[0] = size - leftover;
+                        global_offset[0] = 0;
+                        local_size[0]  = sec_size;
+			if (leftover) {
+                                leftover_global_size[0] = leftover;
+                                leftover_global_offset[0] = size - leftover;
+                                leftover_local_size[0] = 0;
+                                do_leftover = true;
+			}
+		} else {
+                        global_size[0] = size;
+                        global_offset[0] = 0;
+                        local_size[0] = 0;
+		}
+	} else {
+                global_size[0] = size;
+                global_offset[0] = 0;
+                local_size[0] = 0;
+	}
+
+        shade_function.set_global_size(global_size);
+        shade_function.set_global_offset(global_offset);
+        shade_function.set_local_size(local_size);
+
+        if (shade_function.execute())
+                return -1;
+
+        if (do_leftover) {
+                shade_function.set_global_size(leftover_global_size);
+                shade_function.set_global_offset(leftover_global_offset);
+                shade_function.set_local_size(leftover_local_size);
+                if (shade_function.execute())
+                        return -1;
+        }                
+
 
 	if (m_timing)
 		m_time_ms = m_timer.msec_since_snap();
-
-	return 0;
+        return 0;
 }
 
 void

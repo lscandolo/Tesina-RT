@@ -138,7 +138,7 @@ Tracer::trace(Scene& scene, DeviceMemory& bvh_mem, int32_t ray_count,
         size_t leftover_global_offset[] = {0, 0, 0};
         size_t leftover_local_size[]    = {0, 0, 0};
 
-	const size_t  sec_size = BVH_SECONDARY_GROUP_SIZE;
+        size_t sec_size = std::min(RT::BVH_SECONDARY_GROUP_SIZE,device.max_group_size(0));
 	size_t leftover = ray_count%sec_size;
 
 	bool do_leftover = false;
@@ -248,7 +248,7 @@ Tracer::trace_kdtree(Scene& scene, int32_t ray_count,
         size_t leftover_global_offset[] = {0, 0, 0};
         size_t leftover_local_size[]    = {0, 0, 0};
 
-        const size_t  sec_size = KDT_SECONDARY_GROUP_SIZE;
+        size_t sec_size = std::min(RT::KDT_SECONDARY_GROUP_SIZE,device.max_group_size(0));
         size_t leftover = ray_count%sec_size;
 
         bool do_leftover = false;
@@ -345,7 +345,7 @@ Tracer::trace_bvh(Scene& scene, int32_t ray_count,
         size_t leftover_global_offset[] = {0, 0, 0};
         size_t leftover_local_size[]    = {0, 0, 0};
 
-        const size_t  sec_size = BVH_SECONDARY_GROUP_SIZE;
+        size_t sec_size = std::min(RT::BVH_SECONDARY_GROUP_SIZE,device.max_group_size(0));
         size_t leftover = ray_count%sec_size;
 
         bool do_leftover = false;
@@ -465,7 +465,7 @@ Tracer::shadow_trace_bvh(Scene& scene, int32_t ray_count,
         size_t leftover_global_offset[] = {0, 0, 0};
         size_t leftover_local_size[]    = {0, 0, 0};
 
-	const size_t  sec_size = BVH_SECONDARY_GROUP_SIZE;
+        size_t sec_size = std::min(RT::BVH_SECONDARY_GROUP_SIZE,device.max_group_size(0));
 	size_t leftover = ray_count%sec_size;
 
 	bool do_leftover = false;
@@ -562,7 +562,7 @@ Tracer::shadow_trace(Scene& scene, DeviceMemory& bvh_mem, int32_t ray_count,
         size_t leftover_global_offset[] = {0, 0, 0};
         size_t leftover_local_size[]    = {0, 0, 0};
 
-	const size_t  sec_size = KDT_SECONDARY_GROUP_SIZE;
+        size_t sec_size = std::min(RT::KDT_SECONDARY_GROUP_SIZE,device.max_group_size(0));
 	size_t leftover = ray_count%sec_size;
 
 	bool do_leftover = false;
@@ -660,7 +660,7 @@ Tracer::shadow_trace_kdtree(Scene& scene, int32_t ray_count,
         size_t leftover_global_offset[] = {0, 0, 0};
         size_t leftover_local_size[]    = {0, 0, 0};
 
-        const size_t  sec_size = BVH_SECONDARY_GROUP_SIZE;
+        size_t sec_size = std::min(RT::BVH_SECONDARY_GROUP_SIZE,device.max_group_size(0));
         size_t leftover = ray_count%sec_size;
 
         bool do_leftover = false;
