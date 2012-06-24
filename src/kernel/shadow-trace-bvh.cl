@@ -23,7 +23,7 @@ typedef struct
 	Ray   ray;
 	int   pixel;
 	float contribution;
-} RayPlus;
+} Sample;
 
 typedef struct 
 {
@@ -70,7 +70,7 @@ typedef struct {
 	float3 n;
         float3 hit_point;
   
-} RayHitInfo;
+} SampleTraceInfo;
 
 
 typedef float3 Color;
@@ -128,7 +128,7 @@ Ray transform_ray(Ray ray, sqmat4 tr)
         return ray;
 }
 
-RayHitInfo transform_hit_info(RayHitInfo hit_info, sqmat4 tr)
+SampleTraceInfo transform_hit_info(SampleTraceInfo hit_info, sqmat4 tr)
 {
         hit_info.n = multiply_vector(hit_info.n, tr);
         return hit_info;
@@ -292,8 +292,8 @@ bool trace_shadow_ray(Ray ray,
 }
 
 kernel void 
-shadow_trace_multi(global RayHitInfo* trace_info,
-                   global RayPlus* rays,
+shadow_trace_multi(global SampleTraceInfo* trace_info,
+                   global Sample* samples,
                    global Vertex* vertex_buffer,
                    global int* index_buffer,
                    global BVHNode* bvh_nodes,
@@ -303,20 +303,20 @@ shadow_trace_multi(global RayHitInfo* trace_info,
 {
 	int index = get_global_id(0);
 
-	/* Ray original_ray = rays[index].ray; */
+	Ray original_ray = samples[index].ray;
 
-	RayHitInfo info  = trace_info[index];
+	SampleTraceInfo info  = trace_info[index];
 
 	if (!info.hit){
 		return;
 	}
 
 	Ray ray;
+        ray.ori = original_ray.ori + original_ray.dir * info.t;
+        ray.ori = info.hit_point;
 	ray.dir = -lights->directional.dir;
 	ray.invDir = 1.f/ray.dir;
-        ray.ori = info.hit_point;
-	/* ray.ori = original_ray.ori + original_ray.dir * info.t; */
-  	ray.tMin = 0.0001f; ray.tMax = 1e37f;
+  	ray.tMin = 0.01f; ray.tMax = 1e37f;
 
         trace_info[index].shadow_hit = false;
         for (int i = 0; i < root_count; ++i) {
@@ -337,8 +337,8 @@ shadow_trace_multi(global RayHitInfo* trace_info,
 }
 
 kernel void 
-shadow_trace_single(global RayHitInfo* trace_info,
-                    global RayPlus* rays,
+shadow_trace_single(global SampleTraceInfo* trace_info,
+                    global Sample* samples,
                     global Vertex* vertex_buffer,
                     global int* index_buffer,
                     global BVHNode* bvh_nodes,
@@ -346,31 +346,25 @@ shadow_trace_single(global RayHitInfo* trace_info,
 {
 	int index = get_global_id(0);
 
-	/* Ray original_ray = rays[index].ray; */
+	Ray original_ray = samples[index].ray;
 
-	RayHitInfo info  = trace_info[index];
+	SampleTraceInfo info  = trace_info[index];
 
 	if (!info.hit){
 		return;
 	}
 
 	Ray ray;
-	ray.dir = lights->directional.dir;
+        ray.ori = original_ray.ori + original_ray.dir * info.t;
+        ray.ori = info.hit_point;
+	ray.dir = -lights->directional.dir;
 	ray.invDir = 1.f/ray.dir;
-        ray.ori = info.hit_point - ray.dir * 1000.f;
-  	/* ray.tMin = 0.01f; ray.tMax = 1e37f; */
-  	ray.tMin = 0.01f; ray.tMax = 999.999f;
-
-	/* Ray ray; */
-	/* ray.dir = -lights->directional.dir; */
-	/* ray.invDir = 1.f/ray.dir; */
-        /* ray.ori = info.hit_point; */
-  	/* ray.tMin = 0.01f; ray.tMax = 1e37f; */
+  	ray.tMin = 0.01f; ray.tMax = 1e37f;
 
         trace_info[index].shadow_hit = trace_shadow_ray(ray, 
                                                         vertex_buffer, 
                                                         index_buffer, 
                                                         bvh_nodes,
                                                         0);
-        return;
+
 }

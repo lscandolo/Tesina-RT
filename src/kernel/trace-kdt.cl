@@ -12,7 +12,7 @@ typedef struct
         Ray   ray;
         int   pixel;
         float contribution;
-} RayPlus;
+} Sample;
 
 typedef struct 
 {
@@ -59,7 +59,7 @@ typedef struct {
         float3 n;
         float3 hit_point;
  
-} RayHitInfo;
+} SampleTraceInfo;
 
 typedef struct 
 {
@@ -68,10 +68,10 @@ typedef struct
 } kdt_level;
 
 void __attribute__((always_inline))
-complete_hit_info(Ray ray, 
-                  RayHitInfo* hit_info, 
-                  global Vertex* vertex_buffer,
-                  global int* index_buffer)
+complete_trace_info(Ray ray, 
+                    SampleTraceInfo* hit_info, 
+                    global Vertex* vertex_buffer,
+                    global int* index_buffer)
 {
 
         hit_info->hit_point = ray.ori + ray.dir * hit_info->t;
@@ -136,14 +136,14 @@ bbox_hit(BBox bbox,
         return lev;
 }
 
-RayHitInfo 
+SampleTraceInfo 
 leaf_hit(KDTNode node,
          global unsigned int* leaf_indices,
          global Vertex* vertex_buffer,
          global int* index_buffer,
          Ray ray, float t_min, float t_max){
 
-        RayHitInfo hit_info;
+        SampleTraceInfo hit_info;
         hit_info.hit = false;
         hit_info.inverse_n = false;
         t_min *= 0.9999f;
@@ -241,14 +241,14 @@ compute_below_first(Ray ray, KDTNode current_node, float t_split)
         }
 }
 
-RayHitInfo trace_ray(Ray ray,
+SampleTraceInfo trace_ray(Ray ray,
                      global Vertex* vertex_buffer,
                      global int* index_buffer,
                      global KDTNode* kdt_nodes,
                      global unsigned int* leaf_indices,
                      BBox           scene_bbox)
 {
-        RayHitInfo hit_info;
+        SampleTraceInfo hit_info;
         hit_info.hit = false;
         hit_info.shadow_hit = false;
         hit_info.inverse_n = false;
@@ -328,8 +328,8 @@ RayHitInfo trace_ray(Ray ray,
 }
 
 kernel void 
-trace_single(global RayHitInfo* trace_info,
-             global RayPlus* rays,
+trace_single(global SampleTraceInfo* sample_trace_info,
+             global Sample* samples,
              global Vertex* vertex_buffer,
              global int* index_buffer,
              global KDTNode* kdt_nodes,
@@ -337,12 +337,12 @@ trace_single(global RayHitInfo* trace_info,
                     BBox scene_bbox)
 {
         int index = get_global_id(0);
-        Ray ray = rays[index].ray;
-        RayHitInfo hit_info = trace_ray(ray,vertex_buffer,index_buffer,
-                                        kdt_nodes, leaf_indices, scene_bbox);
+        Ray ray = samples[index].ray;
+        SampleTraceInfo trace_info = trace_ray(ray,vertex_buffer,index_buffer,
+                                               kdt_nodes, leaf_indices, scene_bbox);
         
-        if (hit_info.hit)
-                complete_hit_info(ray, &hit_info, vertex_buffer, index_buffer);
+        if (trace_info.hit)
+                complete_trace_info(ray, &trace_info, vertex_buffer, index_buffer);
 
-        trace_info[index] = hit_info;
+        sample_trace_info[index] = trace_info;
 }

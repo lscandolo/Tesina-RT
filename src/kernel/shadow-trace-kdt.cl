@@ -12,7 +12,7 @@ typedef struct
         Ray   ray;
         int   pixel;
         float contribution;
-} RayPlus;
+} Sample;
 
 typedef struct 
 {
@@ -59,7 +59,7 @@ typedef struct {
         float3 n;
         float3 hit_point;
  
-} RayHitInfo;
+} SampleTraceInfo;
 
 typedef float3 Color;
 
@@ -272,8 +272,8 @@ trace_shadow_ray(Ray ray,
 }
 
 kernel void 
-shadow_trace_single(global RayHitInfo* trace_info,
-                    global RayPlus* rays,
+shadow_trace_single(global SampleTraceInfo* trace_info,
+                    global Sample* samples,
                     global Vertex* vertex_buffer,
                     global int* index_buffer,
                     global KDTNode* kdt_nodes,
@@ -282,7 +282,7 @@ shadow_trace_single(global RayHitInfo* trace_info,
                     global Lights* lights)
 {
 	int index = get_global_id(0);
-	RayHitInfo info  = trace_info[index];
+	SampleTraceInfo info  = trace_info[index];
 
 	if (!info.hit)
 		return;

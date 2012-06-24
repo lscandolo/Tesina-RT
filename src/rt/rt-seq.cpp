@@ -20,8 +20,8 @@ memory_id tex_id;
 
 RayBundle                ray_bundle_1,ray_bundle_2;
 HitBundle                hit_bundle;
-PrimaryRayGenerator     prim_ray_gen;
-SecondaryRayGenerator   sec_ray_gen;
+PrimaryRayGenerator      prim_ray_gen;
+SecondaryRayGenerator    sec_ray_gen;
 RayShader                ray_shader;
 std::vector<Scene>       scenes;
 Cubemap                  cubemap;
@@ -62,8 +62,8 @@ void gl_key(unsigned char key, int x, int y)
 {
 	float delta = 2.f;
 
-	sample_cl samples1[] = {{ 0.f , 0.f, 1.f}};
-	sample_cl samples4[] = {{ 0.25f , 0.25f, 0.25f},
+	pixel_sample_cl samples1[] = {{ 0.f , 0.f, 1.f}};
+	pixel_sample_cl samples4[] = {{ 0.25f , 0.25f, 0.25f},
 				{ 0.25f ,-0.25f, 0.25f},
 				{-0.25f , 0.25f, 0.25f},
 				{-0.25f ,-0.25f, 0.25f}};
@@ -631,11 +631,11 @@ int main (int argc, char** argv)
 	std::cerr << "ray_cl size: "
 		  << sizeof(ray_cl)
 		  << std::endl;
-	std::cerr << "ray_plus_cl size: "
-		  << sizeof(ray_plus_cl)
+	std::cerr << "sample_cl size: "
+		  << sizeof(sample_cl)
 		  << std::endl;
-	std::cerr << "ray_hit_info_cl size: "
-		  << sizeof(ray_hit_info_cl)
+	std::cerr << "sample_trace_info_cl size: "
+		  << sizeof(sample_trace_info_cl)
 		  << std::endl;
 
 	/*------------------------ Set GLUT and misc functions -----------------------*/

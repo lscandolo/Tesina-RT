@@ -15,17 +15,17 @@ typedef struct
 	Ray   ray;
 	int  pixel;
 	float contribution;
-} RayPlus;
+} Sample;
 
 typedef struct
 {
 	float ox;
 	float oy;
 	float contribution;
-} Sample;
+} PixelSample;
 
 kernel void
-generate_primary_rays(global RayPlus* ray_buffer,
+generate_primary_rays(global Sample* samples,
 		      read_only float4 pos,
 		      read_only float4 dir,
 		      read_only float4 right,
@@ -33,7 +33,7 @@ generate_primary_rays(global RayPlus* ray_buffer,
 		      read_only int width,
 		      read_only int height,
 		      read_only int spp,
-		      global    Sample* samples)
+		      global    PixelSample* pixel_samples)
 
 {
 	int gid = get_global_id(0);
@@ -42,9 +42,9 @@ generate_primary_rays(global RayPlus* ray_buffer,
 
         int pixels = width * height;
         int i = gid%pixels;
-	Sample sample = samples[gid/pixels];
+	PixelSample psample = pixel_samples[gid/pixels];
 
-  	global Ray* ray = &(ray_buffer[index].ray);
+  	global Ray* ray = &(samples[index].ray);
 
 	int x_blocks = width / BLOCK_SIDE;
 	int y_blocks = height / BLOCK_SIDE;
@@ -82,31 +82,34 @@ generate_primary_rays(global RayPlus* ray_buffer,
 		y = start_y + top_i % slab_size;
 	}
 
-	float xPosNDC = (0.5f + (float)x + sample.ox) / (float)width;
-	float yPosNDC = (0.5f + (float)y + sample.oy) / (float)height;
+	float xPosNDC = (0.5f + (float)x + psample.ox) / (float)width;
+	float yPosNDC = (0.5f + (float)y + psample.oy) / (float)height;
 	
 	ray->ori = pos.xyz;
-	ray->dir = (dir + right * (xPosNDC * 2.f - 1.f) + up * (yPosNDC * 2.f - 1.f)).xyz;
+	ray->dir = normalize((dir + 
+                              right * (xPosNDC * 2.f - 1.f) + 
+                              up * (yPosNDC * 2.f - 1.f)).xyz);
+        
 
 	ray->invDir = 1.f / ray->dir;
 
 	ray->tMin = 0.f;
 	ray->tMax = 1e37f;
 
-	ray_buffer[index].pixel = width * y + x;
-	ray_buffer[index].contribution = sample.contribution;
+	samples[index].pixel = width * y + x;
+	samples[index].contribution = psample.contribution;
 }
 
 kernel void
-_generate_primary_rays(global RayPlus* ray_buffer,
-		      read_only float4 pos,
-		      read_only float4 dir,
-		      read_only float4 right,
-		      read_only float4 up,
-		      read_only int width,
-		      read_only int height,
-		      read_only int spp,
-		      global    Sample* samples)
+_generate_primary_rays(global Sample* samples,
+                       read_only float4 pos,
+                       read_only float4 dir,
+                       read_only float4 right,
+                       read_only float4 up,
+                       read_only int width,
+                       read_only int height,
+                       read_only int spp,
+                       global    PixelSample* pixel_samples)
 
 {
 	int gid = get_global_id(0);
@@ -114,10 +117,10 @@ _generate_primary_rays(global RayPlus* ray_buffer,
   	int index = (gid-offset);
 
 	int i = gid / spp;
-	Sample sample = samples[gid%spp];
+	PixelSample psample = pixel_samples[gid%spp];
 
 
-  	global Ray* ray = &(ray_buffer[index].ray);
+  	global Ray* ray = &(samples[index].ray);
 
 	int x_blocks = width / BLOCK_SIDE;
 	int y_blocks = height / BLOCK_SIDE;
@@ -155,8 +158,8 @@ _generate_primary_rays(global RayPlus* ray_buffer,
 		y = start_y + top_i % slab_size;
 	}
 
-	float xPosNDC = (0.5f + (float)x + sample.ox) / (float)width;
-	float yPosNDC = (0.5f + (float)y + sample.oy) / (float)height;
+	float xPosNDC = (0.5f + (float)x + psample.ox) / (float)width;
+	float yPosNDC = (0.5f + (float)y + psample.oy) / (float)height;
 	
 
 	ray->ori = pos.xyz;
@@ -166,6 +169,6 @@ _generate_primary_rays(global RayPlus* ray_buffer,
 	ray->tMin = 0.f;
 	ray->tMax = 1e37f;
 
-	ray_buffer[index].pixel = width * y + x;
-	ray_buffer[index].contribution = sample.contribution;
+	samples[index].pixel = width * y + x;
+	samples[index].contribution = psample.contribution;
 }

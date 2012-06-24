@@ -36,7 +36,7 @@ public:
 };
 
 RT_ALIGN(16)
-struct ray_plus_cl
+struct sample_cl
 {
 public:
 	ray_cl     ray;
@@ -45,7 +45,7 @@ public:
 };
 
 RT_ALIGN(16)
-class ray_hit_info_cl {
+class sample_trace_info_cl {
 
 	cl_bool hit;
 	cl_bool shadow_hit;

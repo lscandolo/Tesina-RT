@@ -7,7 +7,7 @@
 #include <rt/camera.hpp>
 
 RT_ALIGN(4)
-struct sample_cl{
+struct pixel_sample_cl{
 
 	cl_float ox;
 	cl_float oy;
@@ -19,9 +19,9 @@ class PrimaryRayGenerator{
 public:
 	int32_t initialize(const CLInfo& clinfo);
 
-	int32_t set_spp(size_t spp, sample_cl const* samples);
+	int32_t set_spp(size_t spp, pixel_sample_cl const* psamples);
 	size_t  get_spp() const;
-	DeviceMemory&       get_samples();
+	DeviceMemory&       get_pixel_samples();
 
 
 	int32_t set_rays(const Camera& cam, RayBundle& bundle, size_t size[2],
@@ -34,7 +34,7 @@ private:
 
         DeviceInterface device;
         function_id generator_id;
-        memory_id samples_id;
+        memory_id pixel_samples_id;
 
 	// CLKernelInfo ray_clk;
 

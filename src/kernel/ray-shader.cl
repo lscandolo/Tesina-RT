@@ -37,7 +37,7 @@ typedef struct
 	Ray  ray;
 	int  pixel;
 	float contribution;
-} RayPlus;
+} Sample;
 
 typedef struct {
 
@@ -51,7 +51,7 @@ typedef struct {
 	float3 n;
         float3 hit_point;
   
-} RayHitInfo;
+} SampleTraceInfo;
 
 typedef struct 
 {
@@ -91,10 +91,10 @@ in_range(float f1,float f2){
 
 void 
 shade_sample(write_only global ColorInt* image,
-             /* global RayHitInfo* trace_info, */
-             /* global RayPlus*   rays, */
-             const  RayHitInfo info,
-             const  RayPlus ray_plus,
+             /* global SampleTraceInfo* trace_info, */
+             /* global Sample*   samples, */
+             const  SampleTraceInfo info,
+             const  Sample sample,
              read_only global Material* material_list,
              read_only global unsigned int* material_map,
              read_only image2d_t x_pos,
@@ -103,32 +103,19 @@ shade_sample(write_only global ColorInt* image,
              read_only image2d_t y_neg,
              read_only image2d_t z_pos,
              read_only image2d_t z_neg,
-             read_only image2d_t texture_0,
-             read_only image2d_t texture_1,
-             read_only image2d_t texture_2,
-             read_only image2d_t texture_3,
-             read_only image2d_t texture_4,
-             read_only image2d_t texture_5,
-             read_only image2d_t texture_6,
-             read_only image2d_t texture_7,
-             read_only image2d_t texture_8,
-             read_only image2d_t texture_9,
-             read_only image2d_t texture_10,
-             read_only image2d_t texture_11,
-             read_only image2d_t texture_12,
-             read_only image2d_t texture_13,
-             read_only image2d_t texture_14,
-             read_only image2d_t texture_15,
-             read_only image2d_t texture_16,
-             read_only image2d_t texture_17,
-             read_only image2d_t texture_18,
-             read_only image2d_t texture_19,
-             read_only image2d_t texture_20,
-             read_only image2d_t texture_21,
-             read_only image2d_t texture_22,
-             read_only image2d_t texture_23,
-             read_only image2d_t texture_24,
-             read_only image2d_t texture_25,
+             read_only image2d_t texture_0, read_only image2d_t texture_1,
+             read_only image2d_t texture_2, read_only image2d_t texture_3,
+             read_only image2d_t texture_4, read_only image2d_t texture_5,
+             read_only image2d_t texture_6, read_only image2d_t texture_7,
+             read_only image2d_t texture_8, read_only image2d_t texture_9,
+             read_only image2d_t texture_10, read_only image2d_t texture_11,
+             read_only image2d_t texture_12, read_only image2d_t texture_13,
+             read_only image2d_t texture_14, read_only image2d_t texture_15,
+             read_only image2d_t texture_16, read_only image2d_t texture_17,
+             read_only image2d_t texture_18, read_only image2d_t texture_19,
+             read_only image2d_t texture_20, read_only image2d_t texture_21,
+             read_only image2d_t texture_22, read_only image2d_t texture_23,
+             read_only image2d_t texture_24, read_only image2d_t texture_25,
              const int use_cubemap,
              constant Lights* lights)
 {
@@ -139,8 +126,8 @@ shade_sample(write_only global ColorInt* image,
 		CLK_FILTER_LINEAR;
 
 	/* int index = get_global_id(0); */
-        /* RayHitInfo info = trace_info[get_global_id(0)]; */
-        /* RayPlus    ray_plus = rays[get_global_id(0)]; */
+        /* SampleTraceInfo info = trace_info[get_global_id(0)]; */
+        /* Sample    sample = samples[get_global_id(0)]; */
 
 	float3 L = lights->directional.dir; 
 
@@ -216,7 +203,7 @@ shade_sample(write_only global ColorInt* image,
 		/* If it's not in shadow, compute diffuse and specular component */
 		if (!info.shadow_hit) {
 
-			float3 d = ray_plus.ray.dir;
+			float3 d = sample.ray.dir;
 			float3 n = info.n;
 			float3 r = d - 2.f * n * (dot(d,n));
 			float cosL = clamp(dot(n,-L),0.f,1.f);
@@ -245,33 +232,33 @@ shade_sample(write_only global ColorInt* image,
 	/* Miss branch: compute color from cubemap */
 	} else if (use_cubemap) {
 		
-		float3 x_proy = ray_plus.ray.dir *  ray_plus.ray.invDir.x;
-		float3 y_proy = ray_plus.ray.dir *  ray_plus.ray.invDir.y;
-		float3 z_proy = ray_plus.ray.dir *  ray_plus.ray.invDir.z;
+		float3 x_proy = sample.ray.dir *  sample.ray.invDir.x;
+		float3 y_proy = sample.ray.dir *  sample.ray.invDir.y;
+		float3 z_proy = sample.ray.dir *  sample.ray.invDir.z;
 
 		float2 cm_coords;
 
-		if (ray_plus.ray.dir.x > 0.f && in_range(x_proy.y, x_proy.z)) {
+		if (sample.ray.dir.x > 0.f && in_range(x_proy.y, x_proy.z)) {
 			cm_coords.s0 = (-x_proy.z+1.f) * 0.5f;
 			cm_coords.s1 = (x_proy.y+1.f) * 0.5f;
 			valrgb = read_imagef(x_pos, sampler, cm_coords).xyz;		
-		} else if (ray_plus.ray.dir.x < 0.f && in_range(x_proy.y, x_proy.z)) {
+		} else if (sample.ray.dir.x < 0.f && in_range(x_proy.y, x_proy.z)) {
 			cm_coords.s0 = (-x_proy.z+1.f) * 0.5f;
 			cm_coords.s1 = (-x_proy.y+1.f) * 0.5f;
 			valrgb = read_imagef(x_neg, sampler, cm_coords).xyz;		
-		} else if (ray_plus.ray.dir.y > 0.f && in_range(y_proy.x, y_proy.z)) {
+		} else if (sample.ray.dir.y > 0.f && in_range(y_proy.x, y_proy.z)) {
 			cm_coords.s0 = (y_proy.x+1.f) * 0.5f;
 			cm_coords.s1 = (-y_proy.z+1.f) * 0.5f;
 			valrgb = read_imagef(y_pos, sampler, cm_coords).xyz;		
-		} else if (ray_plus.ray.dir.y < 0.f && in_range(y_proy.x, y_proy.z)) {
+		} else if (sample.ray.dir.y < 0.f && in_range(y_proy.x, y_proy.z)) {
 			cm_coords.s0 = (-y_proy.x+1.f) * 0.5f;
 			cm_coords.s1 = (-y_proy.z+1.f) * 0.5f;
 			valrgb = read_imagef(y_neg, sampler, cm_coords).xyz;		
-		} else if (ray_plus.ray.dir.z > 0.f && in_range(z_proy.x, z_proy.y)) {
+		} else if (sample.ray.dir.z > 0.f && in_range(z_proy.x, z_proy.y)) {
 			cm_coords.s0 = (z_proy.x+1.f) * 0.5f;
 			cm_coords.s1 = (z_proy.y+1.f) * 0.5f;
 			valrgb = read_imagef(z_pos, sampler, cm_coords).xyz;		
-		} else if (ray_plus.ray.dir.z < 0.f && in_range(z_proy.x, z_proy.y)) {
+		} else if (sample.ray.dir.z < 0.f && in_range(z_proy.x, z_proy.y)) {
 			cm_coords.s0 = (z_proy.x+1.f) * 0.5f;
 			cm_coords.s1 = (-z_proy.y+1.f) * 0.5f;
 			valrgb = read_imagef(z_neg, sampler, cm_coords).xyz;		
@@ -283,30 +270,30 @@ shade_sample(write_only global ColorInt* image,
 	const float3 minrgb = (float3)(0.f,0.f,0.f);
 	const float3 maxrgb = (float3)(1.f,1.f,1.f);
 
-	float3 f_rgb = clamp(ray_plus.contribution * valrgb,minrgb,maxrgb);
+	float3 f_rgb = clamp(sample.contribution * valrgb,minrgb,maxrgb);
 	ColorInt rgb = to_color_int(f_rgb);
 
         /* if (use_atomics) { */
-        /*         global unsigned int* r_ptr = &(image[ray_plus.pixel].r); */
-        /*         global unsigned int* g_ptr = &(image[ray_plus.pixel].g); */
-        /*         global unsigned int* b_ptr = &(image[ray_plus.pixel].b); */
+        /*         global unsigned int* r_ptr = &(image[sample.pixel].r); */
+        /*         global unsigned int* g_ptr = &(image[sample.pixel].g); */
+        /*         global unsigned int* b_ptr = &(image[sample.pixel].b); */
                 
         /*         atomic_add(r_ptr, rgb.r); */
         /*         atomic_add(g_ptr, rgb.g); */
         /*         atomic_add(b_ptr, rgb.b); */
 
         /* } else { */
-                image[ray_plus.pixel].r += rgb.r;
-                image[ray_plus.pixel].g += rgb.g;
-                image[ray_plus.pixel].b += rgb.b;
+                image[sample.pixel].r += rgb.r;
+                image[sample.pixel].g += rgb.g;
+                image[sample.pixel].b += rgb.b;
         /* } */
 
 }
 
 kernel void 
 shade_primary(write_only global ColorInt* image,
-              read_only global RayHitInfo* trace_info,
-              read_only global RayPlus* rays,
+              read_only global SampleTraceInfo* trace_info,
+              read_only global Sample* samples,
               read_only global Material* material_list,
               read_only global unsigned int* material_map,
               read_only image2d_t x_pos, read_only image2d_t x_neg,
@@ -327,12 +314,12 @@ shade_primary(write_only global ColorInt* image,
               read_only image2d_t texture_24, read_only image2d_t texture_25,
               int use_cubemap, constant Lights* lights)
 {
-        RayHitInfo hit_info = trace_info[get_global_id(0)];
-        RayPlus    ray_plus = rays[get_global_id(0)];
+        SampleTraceInfo hit_info = trace_info[get_global_id(0)];
+        Sample    sample = samples[get_global_id(0)];
 
         shade_sample(image,
                      hit_info,
-                     ray_plus,
+                     sample,
                      material_list,
                      material_map,
                      x_pos, x_neg,
@@ -357,8 +344,8 @@ shade_primary(write_only global ColorInt* image,
 
 kernel void 
 shade_secondary(write_only global ColorInt* image,
-                read_only global RayHitInfo* trace_info,
-                read_only global RayPlus* rays,
+                read_only global SampleTraceInfo* trace_info,
+                read_only global Sample* samples,
                 read_only global Material* material_list,
                 read_only global unsigned int* material_map,
                 read_only image2d_t x_pos, read_only image2d_t x_neg,
@@ -380,15 +367,15 @@ shade_secondary(write_only global ColorInt* image,
                 int use_cubemap, constant Lights* lights)
 {
         size_t index = get_global_id(0);
-        size_t ray_count = get_global_size(0);
+        size_t sample_count = get_global_size(0);
 
-        RayHitInfo hit_info = trace_info[index];
-        RayPlus    ray_plus = rays[index];
+        SampleTraceInfo hit_info = trace_info[index];
+        Sample    sample = samples[index];
 
-        int pixel = ray_plus.pixel;
+        int pixel = sample.pixel;
 
         if (index != 0) {
-                if (rays[index-1].pixel == pixel) {
+                if (samples[index-1].pixel == pixel) {
                         return;
                 }
         }
@@ -396,7 +383,7 @@ shade_secondary(write_only global ColorInt* image,
         while(1) {
                 shade_sample(image,
                              hit_info,
-                             ray_plus,
+                             sample,
                              material_list,
                              material_map,
                              x_pos, x_neg,
@@ -418,8 +405,8 @@ shade_secondary(write_only global ColorInt* image,
                              use_cubemap,
                              lights);
                 index++;
-                ray_plus = rays[index];
-                if (ray_plus.pixel != pixel || index >= ray_count)
+                sample = samples[index];
+                if (sample.pixel != pixel || index >= sample_count)
                         return;
                 hit_info = trace_info[index];
         }

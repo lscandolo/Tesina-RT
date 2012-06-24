@@ -54,7 +54,7 @@ RayBundle::initialize(const size_t rays, const CLInfo& clinfo)
 
         ray_id = device.new_memory();
         DeviceMemory& ray_mem = device.memory(ray_id);
-        if (ray_mem.initialize(rays * sizeof(ray_plus_cl), READ_WRITE_MEMORY))
+        if (ray_mem.initialize(rays * sizeof(sample_cl), READ_WRITE_MEMORY))
                 return -1;
 
 	m_initialized = true;
@@ -77,7 +77,7 @@ RayBundle::count()
 DeviceMemory&
 RayBundle::mem()
 {
-                return device.memory(ray_id);
+        return device.memory(ray_id);
 }
 
 /* --------------------------------- HitBundle methods ----------------------------*/
@@ -100,7 +100,7 @@ HitBundle::initialize(const size_t sz, const CLInfo& clinfo)
 
         hit_id = device.new_memory();
         DeviceMemory& hit_mem = device.memory(hit_id);
-        if (hit_mem.initialize(sz * sizeof(ray_hit_info_cl), READ_WRITE_MEMORY))
+        if (hit_mem.initialize(sz * sizeof(sample_trace_info_cl), READ_WRITE_MEMORY))
                 return -1;
 
 

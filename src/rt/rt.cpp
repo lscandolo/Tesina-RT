@@ -99,8 +99,8 @@ void gl_key(unsigned char key, int x, int y)
         static float scale = 1.f;
         static float tilt = 0.f;
 
-        const sample_cl samples1[] = {{ 0.f , 0.f, 1.f}};
-        const sample_cl samples4[] = {{ 0.25f , 0.25f, 0.25f},
+        const pixel_sample_cl samples1[] = {{ 0.f , 0.f, 1.f}};
+        const pixel_sample_cl samples4[] = {{ 0.25f , 0.25f, 0.25f},
                                       { 0.25f ,-0.25f, 0.25f},
                                       {-0.25f , 0.25f, 0.25f},
                                       {-0.25f ,-0.25f, 0.25f}};
@@ -513,51 +513,51 @@ int main (int argc, char** argv)
         // scene.load_obj_file_and_make_objs("models/obj/fairy_forest/f000.obj");
 
         //// Boat
-        // mesh_id floor_mesh_id = 
-        //         scene.load_obj_file_as_aggregate("models/obj/frame_water1.obj");
-        //         // scene.load_obj_file_as_aggregate("models/obj/grid100.obj");
-        // object_id floor_obj_id  = scene.add_object(floor_mesh_id);
-        // Object& floor_obj = scene.object(floor_obj_id);
-        // floor_obj.geom.setScale(2.f);
-        // floor_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
-        // floor_obj.mat.diffuse = White;
-        // // floor_obj.mat.diffuse = Blue;
-        // floor_obj.mat.reflectiveness = 0.98f;
-        // floor_obj.mat.refractive_index = 1.333f;
+        mesh_id floor_mesh_id = 
+                scene.load_obj_file_as_aggregate("models/obj/frame_water1.obj");
+                // scene.load_obj_file_as_aggregate("models/obj/grid100.obj");
+        object_id floor_obj_id  = scene.add_object(floor_mesh_id);
+        Object& floor_obj = scene.object(floor_obj_id);
+        floor_obj.geom.setScale(2.f);
+        floor_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
+        floor_obj.mat.diffuse = White;
+        // floor_obj.mat.diffuse = Blue;
+        floor_obj.mat.reflectiveness = 0.98f;
+        floor_obj.mat.refractive_index = 1.333f;
 
-        //  mesh_id boat_mesh_id = 
-        //          scene.load_obj_file_as_aggregate("models/obj/frame_boat1.obj");
-        //  object_id boat_obj_id = scene.add_object(boat_mesh_id);
-        //  Object& boat_obj = scene.object(boat_obj_id);
-        //  boat_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
-        //  boat_obj.geom.setRpy(makeVector(0.f,0.f,0.f));
-        //  boat_obj.geom.setScale(2.f);
-        //  boat_obj.mat.diffuse = Red;
-        //  boat_obj.mat.shininess = 1.f;
-        //  boat_obj.mat.reflectiveness = 0.0f;
+         mesh_id boat_mesh_id = 
+                 scene.load_obj_file_as_aggregate("models/obj/frame_boat1.obj");
+         object_id boat_obj_id = scene.add_object(boat_mesh_id);
+         Object& boat_obj = scene.object(boat_obj_id);
+         boat_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
+         boat_obj.geom.setRpy(makeVector(0.f,0.f,0.f));
+         boat_obj.geom.setScale(2.f);
+         boat_obj.mat.diffuse = Red;
+         boat_obj.mat.shininess = 1.f;
+         boat_obj.mat.reflectiveness = 0.0f;
 
         //// Buddha
-        std::vector<mesh_id> box_meshes = 
-                scene.load_obj_file("models/obj/box-no-ceil.obj");
-        std::vector<object_id> box_objs = scene.add_objects(box_meshes);
+        // std::vector<mesh_id> box_meshes = 
+        //         scene.load_obj_file("models/obj/box-no-ceil.obj");
+        // std::vector<object_id> box_objs = scene.add_objects(box_meshes);
 
-        for (uint32_t i = 0; i < box_objs.size(); ++i) {
-                Object& obj = scene.object(box_objs[i]);
-                obj.geom.setRpy(makeVector(0.f,0.f,0.4f));
-                if (obj.mat.texture > 0)
-                        obj.mat.reflectiveness = 0.8f;
-                // obj.geom.setPos(makeVector(0.f,-30.f,0.f));
-        }
+        // for (uint32_t i = 0; i < box_objs.size(); ++i) {
+        //         Object& obj = scene.object(box_objs[i]);
+        //         obj.geom.setRpy(makeVector(0.f,0.f,0.4f));
+        //         if (obj.mat.texture > 0)
+        //                 obj.mat.reflectiveness = 0.8f;
+        //         // obj.geom.setPos(makeVector(0.f,-30.f,0.f));
+        // }
 
-         mesh_id buddha_mesh_id = 
-                 scene.load_obj_file_as_aggregate("models/obj/buddha.obj");
-         object_id buddha_obj_id = scene.add_object(buddha_mesh_id);
-         Object& buddha_obj = scene.object(buddha_obj_id);
-         buddha_obj.geom.setPos(makeVector(0.f,-4.f,0.f));
-         buddha_obj.geom.setRpy(makeVector(0.f,0.f,0.f));
-         buddha_obj.geom.setScale(0.3f);
-         buddha_obj.mat.diffuse = White;
-         buddha_obj.mat.shininess = 1.f;
+        //  mesh_id buddha_mesh_id = 
+        //          scene.load_obj_file_as_aggregate("models/obj/buddha.obj");
+        //  object_id buddha_obj_id = scene.add_object(buddha_mesh_id);
+        //  Object& buddha_obj = scene.object(buddha_obj_id);
+        //  buddha_obj.geom.setPos(makeVector(0.f,-4.f,0.f));
+        //  buddha_obj.geom.setRpy(makeVector(0.f,0.f,0.f));
+        //  buddha_obj.geom.setScale(0.3f);
+        //  buddha_obj.mat.diffuse = White;
+        //  buddha_obj.mat.shininess = 1.f;
 
         /// Dragon
         // mesh_id floor_mesh_id = 
@@ -594,8 +594,8 @@ int main (int argc, char** argv)
                  std::cout << "Created aggregate mesh succesfully" << std::endl;
          }
 
-         // scene.set_accelerator_type(KDTREE_ACCELERATOR);
-         scene.set_accelerator_type(BVH_ACCELERATOR);
+         scene.set_accelerator_type(KDTREE_ACCELERATOR);
+         // scene.set_accelerator_type(BVH_ACCELERATOR);
 
 
          if (scene.create_aggregate_accelerator()) {
@@ -791,11 +791,11 @@ int main (int argc, char** argv)
         std::cerr << "ray_cl size: "
                   << sizeof(ray_cl)
                   << std::endl;
-        std::cerr << "ray_plus_cl size: "
-                  << sizeof(ray_plus_cl)
+        std::cerr << "sample_cl size: "
+                  << sizeof(sample_cl)
                   << std::endl;
-        std::cerr << "ray_hit_info_cl size: "
-                  << sizeof(ray_hit_info_cl)
+        std::cerr << "sample_trace_info_cl size: "
+                  << sizeof(sample_trace_info_cl)
                   << std::endl;
 
 

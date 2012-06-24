@@ -346,6 +346,8 @@ Tracer::trace_bvh(Scene& scene, int32_t ray_count,
         size_t leftover_local_size[]    = {0, 0, 0};
 
         size_t sec_size = std::min(RT::BVH_SECONDARY_GROUP_SIZE,device.max_group_size(0));
+        secondary = true;
+        sec_size = 128;
         size_t leftover = ray_count%sec_size;
 
         bool do_leftover = false;
