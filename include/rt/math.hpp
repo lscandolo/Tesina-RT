@@ -1,3 +1,4 @@
+#pragma once
 #ifndef RT_MATH_HPP
 #define RT_MATH_HPP
 

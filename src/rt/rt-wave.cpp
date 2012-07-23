@@ -13,7 +13,7 @@ CLInfo clinfo;
 GLInfo glinfo;
 Scene scene;
 
-DeviceInterface device;
+DeviceInterface& device = *DeviceInterface::instance();
 memory_id tex_id;
 function_id mangler_id;
 
@@ -394,7 +394,7 @@ int main (int argc, char** argv)
                 exit(1);
         }
 	/*---------------------- Set up scene ---------------------------*/
-        if (scene.initialize(clinfo)) {
+        if (scene.initialize()) {
                 std::cerr << "Failed to initialize scene" << std::endl;
                 exit(1);
         } else {
@@ -441,13 +441,13 @@ int main (int argc, char** argv)
 	/*---------------------- Initialize ray bundles -----------------------------*/
 	int32_t ray_bundle_size = best_tile_size * 4;
 
-	if (ray_bundle_1.initialize(ray_bundle_size, clinfo)) {
+	if (ray_bundle_1.initialize(ray_bundle_size)) {
 		std::cerr << "Error initializing ray bundle 1" << std::endl;
 		std::cerr.flush();
 		exit(1);
 	}
 
-	if (ray_bundle_2.initialize(ray_bundle_size, clinfo)) {
+	if (ray_bundle_2.initialize(ray_bundle_size)) {
 		std::cerr << "Error initializing ray bundle 2" << std::endl;
 		std::cerr.flush();
 		exit(1);
@@ -457,7 +457,7 @@ int main (int argc, char** argv)
 	/*---------------------- Initialize hit bundle -----------------------------*/
 	int32_t hit_bundle_size = ray_bundle_size;
 
-	if (hit_bundle.initialize(hit_bundle_size, clinfo)) {
+	if (hit_bundle.initialize(hit_bundle_size)) {
 		std::cerr << "Error initializing hit bundle" << std::endl;
 		std::cerr.flush();
 		exit(1);
@@ -471,15 +471,14 @@ int main (int argc, char** argv)
                                "textures/cubemap/Path/posy.jpg",
                                "textures/cubemap/Path/negy.jpg",
                                "textures/cubemap/Path/posz.jpg",
-                               "textures/cubemap/Path/negz.jpg",
-                               clinfo)) {
+                               "textures/cubemap/Path/negz.jpg")) {
 		std::cerr << "Failed to initialize cubemap." << std::endl;
 		exit(1);
 	}
 	std::cerr << "Initialized cubemap succesfully." << std::endl;
 
 	/*------------------------ Initialize FrameBuffer ---------------------------*/
-	if (framebuffer.initialize(clinfo, window_size)) {
+	if (framebuffer.initialize(window_size)) {
 		std::cerr << "Error initializing framebuffer." << std::endl;
 		exit(1);
 	}
@@ -487,7 +486,7 @@ int main (int argc, char** argv)
 
 	/* ------------------ Initialize ray tracer kernel ----------------------*/
 
-	if (tracer.initialize(clinfo)){
+	if (tracer.initialize()){
 		std::cerr << "Failed to initialize tracer." << std::endl;
 		return 0;
 	}
@@ -496,7 +495,7 @@ int main (int argc, char** argv)
 
 	/* ------------------ Initialize Primary Ray Generator ----------------------*/
 
-	if (prim_ray_gen.initialize(clinfo)) {
+	if (prim_ray_gen.initialize()) {
 		std::cerr << "Error initializing primary ray generator." << std::endl;
 		exit(1);
 	}
@@ -504,7 +503,7 @@ int main (int argc, char** argv)
 
 
 	/* ------------------ Initialize Secondary Ray Generator ----------------------*/
-	if (sec_ray_gen.initialize(clinfo)) {
+	if (sec_ray_gen.initialize()) {
 		std::cerr << "Error initializing secondary ray generator." << std::endl;
 		exit(1);
 	}
@@ -512,7 +511,7 @@ int main (int argc, char** argv)
 	std::cout << "Initialized secondary ray generator succesfully." << std::endl;
 
 	/*------------------------ Initialize RayShader ---------------------------*/
-	if (ray_shader.initialize(clinfo)) {
+	if (ray_shader.initialize()) {
 		std::cerr << "Error initializing ray shader." << std::endl;
 		exit(1);
 	}

@@ -26,7 +26,6 @@
 #include <string>
 #include <iostream>
 
-
 struct CLInfo
 {
 	cl_context context;
@@ -48,8 +47,12 @@ struct CLInfo
 	size_t   max_work_item_sizes[3];
 
 	bool initialized;	
+        // bool sync;
 
-	CLInfo(){initialized = false;}
+        void set_sync(bool s);
+        bool sync();
+
+	CLInfo(bool _sync = false){initialized = false;}
 	void release_resources()
 		{
 			if (!initialized) return;

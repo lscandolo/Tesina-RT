@@ -1,3 +1,4 @@
+#pragma once
 #ifndef RT_FRAMEBUFFER_HPP
 #define RT_FRAMEBUFFER_HPP
 
@@ -14,7 +15,9 @@ class FrameBuffer {
 	
 public:
 
-	int32_t initialize(CLInfo& clinfo, size_t sz[2]);
+        FrameBuffer() : device(*DeviceInterface::instance()) {}
+
+	int32_t initialize(size_t sz[2]);
 
         DeviceMemory& image_mem(){return device.memory(img_mem_id);}
 
@@ -27,7 +30,7 @@ public:
 
 private:
 
-        DeviceInterface device;
+        DeviceInterface& device;
 
 	size_t size[2];
 

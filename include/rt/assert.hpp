@@ -1,3 +1,4 @@
+#pragma once
 #ifndef RT_ASSERT_HPP
 #define RT_ASSERT_HPP
 

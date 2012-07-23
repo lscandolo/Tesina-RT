@@ -47,7 +47,6 @@ generate_secondary_rays(global SampleTraceInfo* sample_trace_info,
                         global unsigned int* material_map,
                         global Sample* new_samples,
                         global int* sample_count,
-                        global int* totals,
                         int    max_sample_count)
 {
         int local_size = get_local_size(0);
@@ -55,23 +54,11 @@ generate_secondary_rays(global SampleTraceInfo* sample_trace_info,
         int l_idx = get_local_id(0);
 	int index = get_global_id(0);
 
-        int local_start_idx = group_id * local_size;
-        sample_count += local_start_idx;
-
-        local int total;
-        if (l_idx == 0) {
-                if (group_id < 2)
-                        total = 0;
-                else
-                        total = totals[(group_id>>1)-1];
-        }
-        barrier(CLK_GLOBAL_MEM_FENCE);
-
 	SampleTraceInfo info  = sample_trace_info[index];
 	if (!info.hit)
 		return;
 
-        int new_ray_id = sample_count[l_idx] + total;
+        int new_ray_id = sample_count[index];
         if (new_ray_id >= max_sample_count)
                 return;
 
@@ -152,13 +139,7 @@ mark_secondary_rays(global SampleTraceInfo* sample_trace_info,
 	int index = get_global_id(0);
 	SampleTraceInfo info = sample_trace_info[index];
 
-        /* int reflect_ray_id = 2*index; */
-        /* int refract_ray_id = 2*index+1; */
-
         sample_count[index] = 0;
-
-        /* sample_count[refract_ray_id] = 0; */
-        /* sample_count[reflect_ray_id] = 0; */
 
 	if (!info.hit)
 		return;
@@ -200,123 +181,3 @@ mark_secondary_rays(global SampleTraceInfo* sample_trace_info,
 	}
 
 }
-
-kernel void local_prefix_sum(global int* in,
-                             global int* out,
-                             local  int* aux,
-                             global int* totals)
-{
-        int local_size = get_local_size(0);
-        int group_id   = get_group_id(0);
-
-        int in_start_idx = group_id * local_size * 2;
-
-        int g_idx = get_global_id(0);
-        int l_idx = get_local_id(0);
-
-        in  += in_start_idx;
-        out += in_start_idx;
-
-        aux[2*l_idx] = in[2*l_idx];
-        aux[2*l_idx+1] = in[2*l_idx+1];
-        
-        int offset = 1;
-
-        for (int d = local_size; d > 0; d >>= 1) {
-                barrier(CLK_GLOBAL_MEM_FENCE);
-
-                if (l_idx < d) {
-                        int ai = offset * (2*l_idx+1)-1;
-                        int bi = ai + offset;
-                        aux[bi] += aux[ai];
-                }
-                offset <<= 1;
-        }
-        barrier(CLK_GLOBAL_MEM_FENCE);
-
-        int sum = aux[local_size*2-1];
-
-        if (l_idx == 0) {
-                aux[local_size*2 - 1] = 0;
-        }
-        
-        for (int d = 1; d < local_size<<1; d <<= 1) // traverse down tree & build scan  
-        {  
-                offset >>= 1;  
-                barrier(CLK_GLOBAL_MEM_FENCE);
-                if (l_idx < d) {          
-                        int ai = offset * (2*l_idx+1)-1;
-                        int bi = ai + offset;
-                        int t = aux[ai];  
-                        aux[ai] = aux[bi];  
-                        aux[bi] += t;   
-                }
-        }
-        barrier(CLK_GLOBAL_MEM_FENCE);
-
-        if (l_idx == 0) {
-                /* aux[local_size*2 ] = sum; */
-                totals[group_id] = sum;
-        }
-        barrier(CLK_GLOBAL_MEM_FENCE);
-
-        out[2*l_idx]   = aux[2*l_idx ];
-        out[2*l_idx+1] = aux[2*l_idx+1 ];
-        
-        
-}
-
-kernel void totals_prefix_sum(global int* totals,
-                              int n) {
-        for (int i = 1; i < n; ++i)
-                totals[i] += totals[i-1];
-}
-
-
-
-kernel void global_prefix_sum(global int* in,
-                              global int* out,
-                              global int* totals)
-{
-
-        local int sum;
-
-        int local_size = get_local_size(0);
-        int group_id   = get_group_id(0);
-        int num_groups = get_num_groups(0);
-
-        int in_start_idx = group_id * local_size * 2;
-        int g_idx = get_global_id(0);
-        int l_idx = get_local_id(0);
-        in  += in_start_idx;
-        out += in_start_idx;
-        
-        if (group_id == 0) return;
-
-        if (l_idx == 0) {
-                sum = totals[group_id-1];
-        }
-        barrier(CLK_GLOBAL_MEM_FENCE);
-
-        out[2*l_idx]   += sum;
-        out[2*l_idx+1] += sum;
-
-}
-
-
-/* kernel void copy(global Sample *old_samples, */
-/*                  global Sample *new_samples, */
-/*                  global int *count) */
-/* { */
-/*         int g_idx = get_global_id(0); */
-
-/*         if (g_idx == 0) { */
-/*                 if (count[0]) */
-/*                         new_samples[0] = old_samples[0]; */
-/*                 return; */
-/*         } else { */
-/*                 if (count[g_idx] != count[g_idx-1]) */
-/*                         new_samples[count[g_idx]-1] = old_samples[g_idx]; */
-/*                 return; */
-/*         } */
-/* } */

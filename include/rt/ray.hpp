@@ -1,3 +1,4 @@
+#pragma once
 #ifndef RT_RAY_HPP
 #define RT_RAY_HPP
 
@@ -65,15 +66,13 @@ public:
 	RayBundle();
 	~RayBundle();
 
-	int32_t initialize(const size_t rays,
-                           const CLInfo& clinfo); // Create mem object
+	int32_t initialize(const size_t rays); // Create mem object
 	bool    valid();                    // Check that it's correctly initialized 
 	int32_t count();                // Return number of rays in the bundle
         DeviceMemory& mem();           // Return mem object
 
 private:
 
-        DeviceInterface device;
         memory_id ray_id;
 
 	int32_t m_ray_count;
@@ -86,12 +85,11 @@ class HitBundle {
 public:
 
 	HitBundle();
-	int32_t initialize(const size_t sz, const CLInfo& clinfo);
+	int32_t initialize(const size_t sz);
 	DeviceMemory& mem();
 
 private:
 	
-	DeviceInterface device;
         memory_id hit_id;
 
 	size_t m_size;

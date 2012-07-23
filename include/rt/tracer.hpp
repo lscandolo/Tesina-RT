@@ -1,3 +1,4 @@
+#pragma once
 #ifndef RT_TRACER_HPP
 #define RT_TRACER_HPP
 
@@ -12,7 +13,7 @@ class Tracer {
 public:
 
         Tracer();
-	int32_t initialize(const CLInfo& clinfo);
+	int32_t initialize();
 
 	int32_t trace(Scene& scene, int32_t ray_count, 
                       RayBundle& rays, HitBundle& hits, bool secondary = false);
@@ -43,7 +44,6 @@ private:
                                  RayBundle& rays, HitBundle& hits, 
                                  bool secondary = false);
 
-        DeviceInterface device;
         function_id kdt_single_tracer_id;
         function_id kdt_multi_tracer_id;
         function_id kdt_single_shadow_id;

@@ -1,3 +1,4 @@
+#pragma once
 #ifndef RT_TIMING_HPP
 #define RT_TIMING_HPP
 

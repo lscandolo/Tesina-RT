@@ -1,3 +1,4 @@
+#pragma once
 #ifndef RT_KDTREE_HPP
 #define RT_KDTREE_HPP
 

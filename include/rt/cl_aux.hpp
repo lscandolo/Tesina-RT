@@ -1,3 +1,4 @@
+#pragma once
 #ifndef RT_CL_AUX
 #define RT_CL_AUX
 

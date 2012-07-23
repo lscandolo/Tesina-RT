@@ -1,3 +1,4 @@
+#pragma once
 #ifndef MULTI_BVH_HPP
 #define MULTI_BVH_HPP
 

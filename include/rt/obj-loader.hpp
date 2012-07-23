@@ -20,6 +20,7 @@
 // IN THE SOFTWARE.
 //-----------------------------------------------------------------------------
 
+#pragma once
 #if !defined(MODEL_OBJ_H)
 #define MODEL_OBJ_H
 

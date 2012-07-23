@@ -1,3 +1,4 @@
+#pragma once
 #ifndef RT_MATERIAL_HPP
 #define RT_MATERIAL_HPP
 

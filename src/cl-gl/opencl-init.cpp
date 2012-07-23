@@ -651,3 +651,15 @@ int32_t release_gl_tex(cl_mem& tex_mem, const CLInfo& clinfo)
                 return -1;
         return 0;
 }
+
+static bool gpu_sync = false;
+
+void CLInfo::set_sync(bool s)
+{
+        gpu_sync = s;
+}
+
+bool CLInfo::sync()
+{
+        return gpu_sync;
+}

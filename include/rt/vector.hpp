@@ -1,3 +1,4 @@
+#pragma once
 #ifndef RT_VECTOR_HPP
 #define RT_VECTOR_HPP
 

@@ -373,6 +373,7 @@ RayHit trace_ray(Ray ray,
                                  vertex_buffer,
                                  index_buffer,
                                  ray);
+
                         if (best_hit.id >= 0)
                                 ray.tMax = best_hit.t;
 

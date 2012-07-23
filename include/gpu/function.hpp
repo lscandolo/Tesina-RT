@@ -21,9 +21,15 @@
 #include <cl-gl/opencl-init.hpp>
 #include <gpu/memory.hpp>
 
+class DeviceInterface;
+
 class DeviceFunction {
 
+        friend class DeviceInterface;
+
 public:
+        static bool sync;
+
         DeviceFunction(CLInfo clinfo);
         bool valid();
         int32_t initialize(std::string file, std::string name);
@@ -34,9 +40,15 @@ public:
         int32_t set_global_offset(size_t offset[3]);
         int32_t set_local_size(size_t size[3]);
         int32_t execute();
+        int32_t execute_single_dim(size_t global_size, size_t local_size = 0);
         int32_t enqueue();
+        int32_t enqueue_single_dim(size_t global_size, size_t local_size = 0);
         int32_t release();
+
 private:
+
+        int32_t initialize(std::string name);
+
         bool m_initialized;
         CLInfo m_clinfo;
         cl_program m_program;
@@ -46,7 +58,6 @@ private:
 	size_t m_global_size[3];
 	size_t m_global_offset[3];
 	size_t m_local_size[3];
-
 };
 
 #endif /* GPU_FUNCTION_HPP */

@@ -35,6 +35,7 @@ Object::clone()
 
 /*-------------------------- Scene Methods ------------------------------*/
 
+
 Scene::Scene()
 {
         m_initialized = false;
@@ -49,16 +50,17 @@ Scene::Scene()
 }
 
 int32_t 
-Scene::initialize(CLInfo& clinfo)
+Scene::initialize()
 {
-        if (device.initialize(clinfo))
+        DeviceInterface& device = *DeviceInterface::instance();
+        if (!device.good())
                 return -1;
 
-        if (texture_atlas.initialize(clinfo))
+        if (texture_atlas.initialize())
                 return -1;
 
         vert_id = device.new_memory();
-        tri_id = device.new_memory();
+        idx_id = device.new_memory();
         mat_map_id = device.new_memory();
         mat_list_id = device.new_memory();
         bvh_id = device.new_memory();
@@ -91,6 +93,7 @@ Scene::valid_bvhs()
 bool 
 Scene::valid()
 {
+        DeviceInterface& device = *DeviceInterface::instance();
         return device.good() && m_initialized && 
                 (valid_aggregate() || valid_bvhs());
 }
@@ -98,6 +101,7 @@ Scene::valid()
 bool 
 Scene::ready()
 {
+        DeviceInterface& device = *DeviceInterface::instance();
         if (!device.good() || !m_initialized)
                 return false;
 
@@ -127,6 +131,7 @@ Scene::transfer_aggregate_mesh_to_device()
 
 	/*---------------------- Move model data to device -----------------*/
 
+        DeviceInterface& device = *DeviceInterface::instance();
         size_t triangle_count = aggregate_mesh.triangleCount();
         size_t vertex_count = aggregate_mesh.vertexCount();
 
@@ -136,10 +141,10 @@ Scene::transfer_aggregate_mesh_to_device()
         if (vertex_mem.initialize(vertex_mem_size, vertex_ptr, READ_ONLY_MEMORY))
                     return -1;
 
-        DeviceMemory& triangle_mem = device.memory(tri_id);
-        size_t triangle_mem_size = triangle_count * sizeof(Triangle);
-        const void*  triangle_ptr = aggregate_mesh.triangleArray();
-        if (triangle_mem.initialize(triangle_mem_size, triangle_ptr, READ_ONLY_MEMORY))
+        DeviceMemory& index_mem = device.memory(idx_id);
+        size_t index_mem_size = triangle_count * sizeof(Triangle);
+        const void*  index_ptr = aggregate_mesh.triangleArray();
+        if (index_mem.initialize(index_mem_size, index_ptr, READ_ONLY_MEMORY))
                     return -1;
 
 	/*---------------------- Move material data to device ------------*/
@@ -185,6 +190,7 @@ Scene::transfer_aggregate_bvh_to_device()
 
 	/*--------------------- Move bvh to device memory ---------------------*/
 
+        DeviceInterface& device = *DeviceInterface::instance();
         DeviceMemory& bvh_mem = device.memory(bvh_id);
         const void* bvh_ptr = aggregate_bvh.nodeArray();
         size_t bvh_size = aggregate_bvh.nodeArraySize() * sizeof(BVHNode);
@@ -223,6 +229,7 @@ Scene::transfer_aggregate_kdtree_to_device()
 
 	/*--------------------- Move kdt to device memory ---------------------*/
 
+        DeviceInterface& device = *DeviceInterface::instance();
         DeviceMemory& kdt_nodes_mem = device.memory(kdt_nodes_id);
         DeviceMemory& kdt_leaf_tris_mem = device.memory(kdt_leaf_tris_id);
 
@@ -450,6 +457,7 @@ Scene::update_bvh_roots()
         if (!m_bvhs_built)
                 return -1;
         uint32_t root_idx = 0;
+        DeviceInterface& device = *DeviceInterface::instance();
 
 	/*--------------------- Update roots from object info ---------------------*/
         for (uint32_t obj_idx = 0; obj_idx < objects.size(); ++obj_idx) {
@@ -560,6 +568,7 @@ Scene::transfer_meshes_to_device()
 		return -1;
 
         typedef std::vector<mesh_id>::iterator index_iterator_t;
+        DeviceInterface& device = *DeviceInterface::instance();
 
 	/*---------------------- Move model data to OpenCL device -----------------*/
 
@@ -598,7 +607,7 @@ Scene::transfer_meshes_to_device()
         if (vert_mem.initialize(vert_size, vert_ptr, READ_ONLY_MEMORY))
 		return -1;
 
-        DeviceMemory& triangle_mem = device.memory(tri_id);
+        DeviceMemory& triangle_mem = device.memory(idx_id);
         size_t triangle_size = triangles.size() * sizeof(Triangle);
         const void* triangle_ptr = &(triangles[0]);
         if (triangle_mem.initialize(triangle_size, triangle_ptr, READ_ONLY_MEMORY))
@@ -642,6 +651,7 @@ Scene::transfer_bvhs_to_device()
 		return -1;
 
         typedef std::vector<mesh_id>::iterator index_iterator_t;
+        DeviceInterface& device = *DeviceInterface::instance();
 
 	/*--------------------- Move bvh nodes to device memory ---------------------*/
         /* First put them adjacent in order to move them 
@@ -692,37 +702,37 @@ int32_t
 Scene::update_mesh_vertices(mesh_id mid)
 {
 	if (!m_initialized || bvhs.find(mid) == bvhs.end())
-            return -1;
+                return -1;
 
-    typedef std::vector<mesh_id>::iterator mesh_iterator_t;
+        typedef std::vector<mesh_id>::iterator mesh_iterator_t;
 
 	/*---------------------- Move model data to OpenCL device -----------------*/
-
-    std::vector<Vertex> vertices;
-    std::vector<Triangle> triangles;
-
-    size_t vertex_offset = 0;
-
-    for (mesh_iterator_t it = bvh_order.begin(); it < bvh_order.end(); it++) { 
-
-            if (*it != mid) {
-                    Mesh& it_mesh = mesh_atlas[*it];
-                    vertex_offset += it_mesh.vertexCount();
-            }
-            else {
-                    Mesh& mesh = mesh_atlas[mid];
-                    if (vertex_mem().write(mesh.vertexCount() *sizeof(Vertex),
-                                           mesh.vertexArray(),
-                                           vertex_offset))
-                            return -1;
-                    return 0;
-            }
-    }
-    return -1;
+        
+        std::vector<Vertex> vertices;
+        std::vector<Triangle> triangles;
+        
+        size_t vertex_offset = 0;
+        
+        for (mesh_iterator_t it = bvh_order.begin(); it < bvh_order.end(); it++) { 
+                
+                if (*it != mid) {
+                        Mesh& it_mesh = mesh_atlas[*it];
+                        vertex_offset += it_mesh.vertexCount();
+                }
+                else {
+                        Mesh& mesh = mesh_atlas[mid];
+                        if (vertex_mem().write(mesh.vertexCount() *sizeof(Vertex),
+                                               mesh.vertexArray(),
+                                               vertex_offset))
+                                return -1;
+                        return 0;
+                }
+        }
+        return -1;
 }   
 
 int32_t 
-Scene::update_aggregate_mesh_vertices(mesh_id mid)
+Scene::update_aggregate_mesh_vertices()
 {
 	if (!m_initialized || !m_aggregate_mesh_built)
                 return -1;
@@ -730,6 +740,7 @@ Scene::update_aggregate_mesh_vertices(mesh_id mid)
 	/*---------------------- Move model data to OpenCL device -----------------*/
 
 
+        DeviceInterface& device = *DeviceInterface::instance();
         size_t vertex_count = aggregate_mesh.vertexCount();
         DeviceMemory& vertex_mem = device.memory(vert_id);
         size_t vertex_mem_size = vertex_count * sizeof(Vertex);
@@ -752,6 +763,7 @@ Scene::set_dir_light(const directional_light_cl& dl)
 	vdl.normalize();
 	lights.directional.dir = vec3_to_float3(vdl);
 
+        DeviceInterface& device = *DeviceInterface::instance();
         DeviceMemory& light_mem = device.memory(lights_id);
 
         return light_mem.write(sizeof(lights_cl), &lights);
@@ -765,6 +777,7 @@ Scene::set_ambient_light(const color_cl& c)
 
 	lights.ambient = c;
 
+        DeviceInterface& device = *DeviceInterface::instance();
         DeviceMemory& light_mem = device.memory(lights_id);
 
         return light_mem.write(sizeof(lights_cl), &lights);
@@ -797,55 +810,55 @@ Scene::release_graphic_resources()
 DeviceMemory& 
 Scene::vertex_mem()
 {
-        return device.memory(vert_id);
+        return DeviceInterface::instance()->memory(vert_id);
 }
 
 DeviceMemory& 
-Scene::triangle_mem()
+Scene::index_mem()
 {
-        return device.memory(tri_id);
+        return DeviceInterface::instance()->memory(idx_id);
 }
 
 DeviceMemory& 
 Scene::material_list_mem()
 {
-        return device.memory(mat_list_id);
+        return DeviceInterface::instance()->memory(mat_list_id);
 }
 
 DeviceMemory& 
 Scene::material_map_mem()
 {
-        return device.memory(mat_map_id);
+        return DeviceInterface::instance()->memory(mat_map_id);
 }
 
 DeviceMemory&
 Scene::bvh_nodes_mem()
 {
-        return device.memory(bvh_id);
+        return DeviceInterface::instance()->memory(bvh_id);
 }
 
 DeviceMemory&
 Scene::bvh_roots_mem()
 {
-        return device.memory(bvh_roots_id);
+        return DeviceInterface::instance()->memory(bvh_roots_id);
 }
 
 DeviceMemory&
 Scene::kdtree_nodes_mem()
 {
-        return device.memory(kdt_nodes_id);
+        return DeviceInterface::instance()->memory(kdt_nodes_id);
 }
 
 DeviceMemory&
 Scene::kdtree_leaf_tris_mem()
 {
-        return device.memory(kdt_leaf_tris_id);
+        return DeviceInterface::instance()->memory(kdt_leaf_tris_id);
 }
 
 DeviceMemory&
 Scene::lights_mem()
 {
-        return device.memory(lights_id);
+        return DeviceInterface::instance()->memory(lights_id);
 }
 
 

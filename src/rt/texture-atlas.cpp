@@ -1,9 +1,10 @@
 #include <rt/texture-atlas.hpp>
 
 int32_t
-TextureAtlas::initialize(CLInfo& clinfo)
+TextureAtlas::initialize()
 {
-        if (device.initialize(clinfo))
+        DeviceInterface& device = *DeviceInterface::instance();
+        if (!device.good())
                 return -1;
         invalid_tex_mem_id = device.new_memory();
 
@@ -21,6 +22,7 @@ TextureAtlas::initialize(CLInfo& clinfo)
 texture_id
 TextureAtlas::load_texture(std::string filename)
 {
+        DeviceInterface& device = *DeviceInterface::instance();
         if (!m_initialized || !device.good())
                 return invalid_tex_id;
         
@@ -53,6 +55,7 @@ TextureAtlas::load_texture(std::string filename)
 DeviceMemory&
 TextureAtlas::texture_mem(texture_id tex_id)
 {
+        DeviceInterface& device = *DeviceInterface::instance();
         if (tex_id < 0 || tex_id >= tex_mem_ids.size())
                 return device.memory(invalid_tex_mem_id);
 
@@ -62,7 +65,8 @@ TextureAtlas::texture_mem(texture_id tex_id)
 int32_t 
 TextureAtlas::acquire_graphic_resources()
 {
-       if (!m_initialized)
+        DeviceInterface& device = *DeviceInterface::instance();
+        if (!m_initialized)
                 return -1;
 
         if (device.acquire_graphic_resource(invalid_tex_mem_id))
@@ -79,7 +83,8 @@ TextureAtlas::acquire_graphic_resources()
 int32_t 
 TextureAtlas::release_graphic_resources()
 {
-       if (!m_initialized)
+        DeviceInterface& device = *DeviceInterface::instance();
+        if (!m_initialized)
                 return -1;
 
         if (device.release_graphic_resource(invalid_tex_mem_id))

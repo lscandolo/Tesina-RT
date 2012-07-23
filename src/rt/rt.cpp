@@ -6,6 +6,8 @@
 #include <cl-gl/opencl-init.hpp>
 #include <rt/rt.hpp>
 
+#include <sstream> //!!
+
 #define TOTAL_STATS_TO_LOG 12
 #define CONF_STATS_TO_LOG  4
 
@@ -23,7 +25,10 @@ int MAX_BOUNCE = 1;
 CLInfo clinfo;
 GLInfo glinfo;
 
-DeviceInterface device;
+int frame = 0;
+Mesh orig_mesh;
+
+DeviceInterface& device = *DeviceInterface::instance();
 memory_id tex_id;
 
 RayBundle             ray_bundle_1,ray_bundle_2;
@@ -32,9 +37,15 @@ PrimaryRayGenerator   prim_ray_gen;
 SecondaryRayGenerator sec_ray_gen;
 RayShader             ray_shader;
 Scene                 scene;
+
+int model_count = 44; 
+int current_model = 0;
+std::vector<Scene> scenes;
+
 Cubemap               cubemap;
 FrameBuffer           framebuffer;
 Tracer                tracer;
+BVHBuilder            bvh_builder;
 Camera                camera;
 
 GLuint gl_tex;
@@ -169,6 +180,7 @@ void gl_key(unsigned char key, int x, int y)
                 stats_logged = 0;
                 break;
         case 'l':
+                clinfo.set_sync(true);
                 if (logged)
                         break;
                 rt_log.silent = true;
@@ -181,8 +193,12 @@ void gl_key(unsigned char key, int x, int y)
                 break;
         case 'b':
                 rt_log.silent = !rt_log.silent;
+                break;
         case 'f':
                 print_fps = !print_fps;
+                break;
+        case 'e':
+                clinfo.set_sync(!clinfo.sync());
                 break;
         case 'c':
                 cubemap.enabled = !cubemap.enabled;
@@ -213,6 +229,9 @@ void gl_key(unsigned char key, int x, int y)
                 scale /= 1.5f;
                 scene.update_bvh_roots();
                 break;
+        case 'm':
+                current_model = 0;
+                break;
         }
 }
 
@@ -223,6 +242,7 @@ void gl_loop()
         static int dir = 1;
         static int total_ray_count = 0;
 
+        double bvh_build_time = 0;
         double prim_gen_time = 0;
         double sec_gen_time = 0;
         double prim_trace_time = 0;
@@ -278,6 +298,43 @@ void gl_loop()
                 }
                 rt_log << "---------------------" << std::endl;
         }
+
+        if (scenes.size() && false) {
+                Mesh& mesh = scene.get_aggregate_mesh();
+                Mesh& pose_mesh = scenes[current_model].get_aggregate_mesh();
+                
+                for (size_t v = 0; v < mesh.vertexCount(); ++ v) {
+                        mesh.vertex(v) = pose_mesh.vertex(v);
+                }
+                if ( scene.update_aggregate_mesh_vertices()) {
+                        std::cout << "Error updating vertices" << std::endl;
+                }
+                device.finish_commands();
+                
+                current_model = (current_model+1)%model_count;
+
+        }
+
+	Mesh& mesh = scene.get_aggregate_mesh();
+        for (size_t v = 0; v < mesh.vertexCount(); ++ v) {
+		Vertex& vert = mesh.vertex(v);
+		Vertex& orig_vert = orig_mesh.vertex(v);
+                vert.position.s[0] = orig_vert.position.s[0] + sin(frame*0.1);
+                vert.position.s[1] = orig_vert.position.s[1] + cos(frame*0.06);
+                vert.position.s[2] = orig_vert.position.s[2] + sin(frame*0.08);
+                // vert.position.s[0] *= 1.01f;
+                // vert.position.s[1] *= 0.99f;
+                // vert.position.s[2] *= 1.01f;
+        }                
+        scene.update_aggregate_mesh_vertices();
+        frame ++;
+
+        if (bvh_builder.build_bvh(scene)) {
+                std::cout << "BVH builder failed." << std::endl;
+                pause_and_exit(1);
+        }
+        bvh_build_time = bvh_builder.get_exec_time();
+
 
         int32_t sample_count = pixel_count * prim_ray_gen.get_spp();
         for (int32_t offset = 0; offset < sample_count; offset+= tile_size) {
@@ -367,14 +424,15 @@ void gl_loop()
                 pause_and_exit(1);
         }
         fb_copy_time = framebuffer.get_copy_exec_time();
-        double total_msec = rt_time.msec_since_snap();
 
         if (device.release_graphic_resource(tex_id) ||
             cubemap.release_graphic_resources() || 
             scene.release_graphic_resources()) {
             std::cerr << "Error releasing texture resource." << std::endl;
             pause_and_exit(1);
-    }
+        }
+        device.finish_commands();
+        double total_msec = rt_time.msec_since_snap();
         ////////////////// Immediate mode textured quad
         glLoadIdentity();
         glBindTexture(GL_TEXTURE_2D, gl_tex);
@@ -422,7 +480,8 @@ void gl_loop()
         rt_time.snap_time();
         total_ray_count = 0;
 
-        rt_log << "\nPrim Gen time: \t" << prim_gen_time << std::endl;
+        rt_log << "\nBVH Build time:\t" << bvh_build_time << std::endl;
+        rt_log << "Prim Gen time: \t" << prim_gen_time << std::endl;
         rt_log << "Sec Gen time: \t" << sec_gen_time << std::endl;
         rt_log << "Tracer time: \t" << prim_trace_time + sec_trace_time  
                   << " (" <<  prim_trace_time << " - " << sec_trace_time 
@@ -430,7 +489,7 @@ void gl_loop()
         rt_log << "Shadow time: \t" << prim_shadow_trace_time + sec_shadow_trace_time 
                   << " (" <<  prim_shadow_trace_time 
                   << " - " << sec_shadow_trace_time << ")" << std::endl;
-        rt_log << "Shader time: \t " << shader_time << std::endl;
+        rt_log << "Shader time: \t" << shader_time << std::endl;
         rt_log << "Fb clear time: \t" << fb_clear_time << std::endl;
         rt_log << "Fb copy time: \t" << fb_copy_time << std::endl;
         rt_log << std::endl;
@@ -491,7 +550,9 @@ int main (int argc, char** argv)
                 std::cerr << "Failed to initialize device interface" << std::endl;
                 pause_and_exit(1);
         }
-        
+        /* Initialize generic gpu library */
+        DeviceFunctionLibrary::initialize(clinfo);
+
         /*---------------------- Create shared GL-CL texture ----------------------*/
         gl_tex = create_tex_gl(window_size[0],window_size[1]);
         
@@ -501,16 +562,123 @@ int main (int argc, char** argv)
                 std::cerr << "Failed to create memory object from gl texture" << std::endl;
                 pause_and_exit(1);
         }
+
+        //////////////////// test ///////////////////////////////
+        // memory_id in_mem_id  = device.new_memory();
+        // DeviceMemory& in_mem = device.memory(in_mem_id);
+        
+        // int N = 10000;
+        // std::vector<uint32_t> vals(N);
+        // for (int i = 0 ; i < N ; ++i) {
+        //         vals[i] = 1;
+        // }
+
+        // if (in_mem.initialize(sizeof(cl_uint)*N, &(vals[0])))
+        //         return -1;
+
+        // std::cout << "Initialized\n";
+        // gpu_scan_uint(device, in_mem_id, N, in_mem_id);
+
+        // if (in_mem.read(sizeof(cl_uint)*N, &(vals[0])))
+        //         return -1;
+
+        // std::cout << "Vals: " << std::endl;
+        // for (int i = 0 ; i < N ; ++i) {
+        //         std::cout << vals[i] << " ";
+        // }
+        // std::cout << std::endl;
+        // return 0;
+        /////////////////////////////////////////////////////////
+
         /*---------------------- Set up scene ---------------------------*/
-        if (scene.initialize(clinfo)) {
+        if (scene.initialize()) {
                 std::cerr << "Failed to initialize scene" << std::endl;
                 pause_and_exit(1);
         } else {
                 std::cout << "Initialized scene succesfully" << std::endl;
         }
 
+        if (bvh_builder.initialize(clinfo)) {
+                std::cerr << "Failed to initialize bvh builder" << std::endl;
+                pause_and_exit(1);
+        } else {
+                std::cout << "Initialized bvh builder succesfully" << std::endl;
+        }
+
+        //// Ben sequence
+        // // model_count = 1;
+        // model_count = 30;
+        // scene.load_obj_file_and_make_objs("models/obj/ben/ben_00.obj");
+
+        // for (int i = 0; i < model_count; ++i) {
+        //         std::stringstream ss;
+        //         if (i < 10)
+        //                 ss << "models/obj/ben/ben_0" << i << ".obj";
+        //         else
+        //                 ss << "models/obj/ben/ben_" << i << ".obj";
+        //         scenes.push_back(Scene());
+        //         scenes[i].load_obj_file_and_make_objs(ss.str());
+        //         scenes[i].create_aggregate_mesh();
+        // }
+
+        //// Hand sequence
+        // // model_count = 1;
+        // model_count = 44;
+        // scene.load_obj_file_and_make_objs("models/obj/hand/hand_00.obj");
+
+        // for (int i = 0; i < model_count; ++i) {
+        //         std::stringstream ss;
+        //         if (i < 10)
+        //                 ss << "models/obj/hand/hand_0" << i << ".obj";
+        //         else
+        //                 ss << "models/obj/hand/hand_" << i << ".obj";
+        //         scenes.push_back(Scene());
+        //         scenes[i].load_obj_file_and_make_objs(ss.str());
+        //         scenes[i].create_aggregate_mesh();
+        // }
+
+
+        //// Fairy sequence
+        // model_count = 21;
+        // scene.load_obj_file_and_make_objs("models/obj/fairy_forest/f000.obj");
+
+        // for (int i = 0; i < model_count; ++i) {
+        //         std::stringstream ss;
+        //         if (i < 10)
+        //                 ss << "models/obj/fairy_forest/f0" << i << "0.obj";
+        //         else
+        //                 ss << "models/obj/fairy_forest/f" << i << "0.obj";
+        //         scenes.push_back(Scene());
+        //         scenes[i].load_obj_file_and_make_objs(ss.str());
+        //         scenes[i].create_aggregate_mesh();
+        // }
+
         //// Fairy
         // scene.load_obj_file_and_make_objs("models/obj/fairy_forest/f000.obj");
+
+        // Teapots
+        // mesh_id teapot_mesh_id = 
+        //         scene.load_obj_file_as_aggregate("models/obj/teapot2.obj");
+        //         // scene.load_obj_file_as_aggregate("models/obj/grid100.obj");
+        // object_id teapot_obj_id  = scene.add_object(teapot_mesh_id);
+        // Object& teapot_obj = scene.object(teapot_obj_id);
+        // teapot_obj.geom.setScale(2.f);
+        // teapot_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
+        // teapot_obj.mat.diffuse = Green;
+        // // teapot_obj.mat.diffuse = Blue;
+        // teapot_obj.mat.reflectiveness = 0.6f;
+        // // teapot_obj.mat.refractive_index = 1.333f;
+
+        // object_id teapot_2_obj_id  = scene.add_object(teapot_mesh_id);
+        // Object& teapot_2_obj = scene.object(teapot_2_obj_id);
+        // teapot_2_obj.geom.setScale(.8f);
+        // teapot_2_obj.geom.setPos(makeVector(16.f,0.f,0.f));
+        // teapot_2_obj.geom.setRpy(makeVector(-0.4f,0.f,0.f));
+        // teapot_2_obj.mat.diffuse = Blue;
+        // // teapot_2_obj.mat.diffuse = Blue;
+        // teapot_2_obj.mat.reflectiveness = 0.7f;
+        // // teapot_2_obj.mat.refractive_index = 1.333f;
+
 
         //// Boat
         mesh_id floor_mesh_id = 
@@ -594,16 +762,18 @@ int main (int argc, char** argv)
                  std::cout << "Created aggregate mesh succesfully" << std::endl;
          }
 
-         scene.set_accelerator_type(KDTREE_ACCELERATOR);
-         // scene.set_accelerator_type(BVH_ACCELERATOR);
+         orig_mesh = scene.get_aggregate_mesh(); //!!
+
+         // scene.set_accelerator_type(KDTREE_ACCELERATOR);
+         scene.set_accelerator_type(BVH_ACCELERATOR);
 
 
-         if (scene.create_aggregate_accelerator()) {
-                std::cerr << "Failed to create aggregate accelerator" << std::endl;
-                pause_and_exit(1);
-         } else {
-                 std::cout << "Created aggregate accelerator succesfully" << std::endl;
-         }
+         // if (scene.create_aggregate_accelerator()) {
+         //        std::cerr << "Failed to create aggregate accelerator" << std::endl;
+         //        pause_and_exit(1);
+         // } else {
+         //         std::cout << "Created aggregate accelerator succesfully" << std::endl;
+         // }
 
          if (scene.transfer_aggregate_mesh_to_device()) {
                 std::cerr << "Failed to transfer aggregate mesh to device memory" 
@@ -614,14 +784,21 @@ int main (int argc, char** argv)
                            << std::endl;
          }
 
-         if (scene.transfer_aggregate_accelerator_to_device()) {
-                std::cerr << "Failed to transfer aggregate accelerator to device memory" 
-                          << std::endl;
-                pause_and_exit(1);
-         } else {
-                 std::cout << "Transfered aggregate accelerator to device succesfully" 
-                           << std::endl;
+         if (bvh_builder.build_bvh(scene)) {
+                 std::cout << "BVH builder failed." << std::endl;
+                 pause_and_exit(1);
          }
+
+         clinfo.set_sync(true);
+
+         // if (scene.transfer_aggregate_accelerator_to_device()) {
+         //        std::cerr << "Failed to transfer aggregate accelerator to device memory" 
+         //                  << std::endl;
+         //        pause_and_exit(1);
+         // } else {
+         //         std::cout << "Transfered aggregate accelerator to device succesfully" 
+         //                   << std::endl;
+         // }
 
 
 #else
@@ -662,13 +839,13 @@ int main (int argc, char** argv)
         /*---------------------- Initialize ray bundles -----------------------------*/
         int32_t ray_bundle_size = best_tile_size * 3;
 
-        if (ray_bundle_1.initialize(ray_bundle_size, clinfo)) {
+        if (ray_bundle_1.initialize(ray_bundle_size)) {
                 std::cerr << "Error initializing ray bundle" << std::endl;
                 std::cerr.flush();
                 pause_and_exit(1);
         }
 
-	if (ray_bundle_2.initialize(ray_bundle_size, clinfo)) {
+	if (ray_bundle_2.initialize(ray_bundle_size)) {
 		std::cerr << "Error initializing ray bundle 2" << std::endl;
 		std::cerr.flush();
 		exit(1);
@@ -678,7 +855,7 @@ int main (int argc, char** argv)
         /*---------------------- Initialize hit bundle -----------------------------*/
         int32_t hit_bundle_size = ray_bundle_size;
 
-        if (hit_bundle.initialize(hit_bundle_size, clinfo)) {
+        if (hit_bundle.initialize(hit_bundle_size)) {
                 std::cerr << "Error initializing hit bundle" << std::endl;
                 std::cerr.flush();
                 pause_and_exit(1);
@@ -692,15 +869,14 @@ int main (int argc, char** argv)
                                "textures/cubemap/Path/posy.jpg",
                                "textures/cubemap/Path/negy.jpg",
                                "textures/cubemap/Path/posz.jpg",
-                               "textures/cubemap/Path/negz.jpg",
-                               clinfo)) {
+                               "textures/cubemap/Path/negz.jpg")) {
                 std::cerr << "Failed to initialize cubemap." << std::endl;
                 pause_and_exit(1);
         }
         std::cerr << "Initialized cubemap succesfully." << std::endl;
 
         /*------------------------ Initialize FrameBuffer ---------------------------*/
-        if (framebuffer.initialize(clinfo, window_size)) {
+        if (framebuffer.initialize(window_size)) {
                 std::cerr << "Error initializing framebuffer." << std::endl;
                 pause_and_exit(1);
         }
@@ -708,7 +884,7 @@ int main (int argc, char** argv)
 
         /* ------------------ Initialize ray tracer kernel ----------------------*/
 
-        if (tracer.initialize(clinfo)){
+        if (tracer.initialize()){
                 std::cerr << "Failed to initialize tracer." << std::endl;
                 pause_and_exit(1);
         }
@@ -717,7 +893,7 @@ int main (int argc, char** argv)
 
         /* ------------------ Initialize Primary Ray Generator ----------------------*/
 
-        if (prim_ray_gen.initialize(clinfo)) {
+        if (prim_ray_gen.initialize()) {
                 std::cerr << "Error initializing primary ray generator." << std::endl;
                 pause_and_exit(1);
         }
@@ -725,7 +901,7 @@ int main (int argc, char** argv)
                 
 
         /* ------------------ Initialize Secondary Ray Generator ----------------------*/
-        if (sec_ray_gen.initialize(clinfo)) {
+        if (sec_ray_gen.initialize()) {
                 std::cerr << "Error initializing secondary ray generator." << std::endl;
                 pause_and_exit(1);
         }
@@ -733,7 +909,7 @@ int main (int argc, char** argv)
         std::cout << "Initialized secondary ray generator succesfully." << std::endl;
 
         /*------------------------ Initialize RayShader ---------------------------*/
-        if (ray_shader.initialize(clinfo)) {
+        if (ray_shader.initialize()) {
                 std::cerr << "Error initializing ray shader." << std::endl;
                 pause_and_exit(1);
         }

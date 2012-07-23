@@ -1,3 +1,4 @@
+#pragma once
 #ifndef RT_LU_HPP
 #define RT_LU_HPP
 

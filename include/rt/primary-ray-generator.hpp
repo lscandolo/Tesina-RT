@@ -1,3 +1,4 @@
+#pragma once
 #ifndef PRIMARY_RAY_GENERATOR_HPP
 #define PRIMARY_RAY_GENERATOR_HPP
 
@@ -17,7 +18,8 @@ struct pixel_sample_cl{
 class PrimaryRayGenerator{
 
 public:
-	int32_t initialize(const CLInfo& clinfo);
+
+	int32_t initialize();
 
 	int32_t set_spp(size_t spp, pixel_sample_cl const* psamples);
 	size_t  get_spp() const;
@@ -32,7 +34,6 @@ public:
 	
 private:
 
-        DeviceInterface device;
         function_id generator_id;
         memory_id pixel_samples_id;
 

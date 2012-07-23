@@ -1,3 +1,4 @@
+#pragma once
 #ifndef RT_LIGHT_HPP
 #define RT_LIGHT_HPP
 

@@ -1,3 +1,4 @@
+#pragma once
 #ifndef RT_RAY_SHADER_HPP
 #define RT_RAY_SHADER_HPP
 
@@ -13,7 +14,7 @@ class RayShader {
 
 public:
 	
-	int32_t initialize(CLInfo& clinfo);
+	int32_t initialize();
 	int32_t shade(RayBundle& rays, HitBundle& hb, Scene& scene, 
                       Cubemap& cm, FrameBuffer& fb, size_t size, bool primary = false);
 
@@ -22,7 +23,6 @@ public:
 
 private:
 
-        DeviceInterface device;
         function_id p_shade_id;
         function_id s_shade_id;
 

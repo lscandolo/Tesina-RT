@@ -196,6 +196,41 @@ DeviceMemory::resize(size_t new_size)
         return 0;
 }
 
+int32_t 
+DeviceMemory::copy_to(DeviceMemory& dst, size_t bytes, size_t offset, size_t dst_offset)
+{
+        if (!valid() || !dst.valid())
+                return -1;
+
+        if (bytes == 0)
+                bytes = size();
+
+        if (bytes + offset   > size() ||
+            bytes + dst_offset > dst.size())
+                return -1;
+
+        cl_int err;
+        err = clEnqueueCopyBuffer(m_clinfo.command_queue,
+                                  m_mem,
+                                  *dst.ptr(),
+                                  offset,
+                                  dst_offset,
+                                  bytes,
+                                  NULL,NULL,NULL);
+
+        if (error_cl(err, "clEnqueueCopyBuffer"))
+                return -1;
+
+        err = clFinish(m_clinfo.command_queue);
+        if (error_cl(err, "clFinish"))
+                return -1;
+
+        return 0;
+
+}
+
+
+
 int32_t
 DeviceMemory::release()
 {

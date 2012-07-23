@@ -26,10 +26,14 @@ public:
         size_t write(size_t nbytes, const void* values, size_t offset = 0);
         size_t read(size_t nbytes, void* buffer, size_t offset = 0);
         int32_t resize(size_t new_size);
+        int32_t copy_to(DeviceMemory& dst, size_t bytes = 0,
+                        size_t offset = 0, size_t dst_offset = 0);
+
         int32_t release();
         size_t size() const;
         cl_mem* ptr();
 private:
+
         bool m_initialized;
         CLInfo m_clinfo;
         cl_mem m_mem;

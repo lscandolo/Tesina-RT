@@ -1,3 +1,4 @@
+#pragma once
 #ifndef TEXTURE_ATLAS_HPP
 #define TEXTURE_ATLAS_HPP
 
@@ -16,7 +17,7 @@ class TextureAtlas
 {
 
 public:
-        int32_t       initialize(CLInfo& clinfo);
+        int32_t       initialize();
         texture_id    load_texture(std::string filename);
         DeviceMemory& texture_mem(texture_id);
 
@@ -24,7 +25,6 @@ public:
         int32_t release_graphic_resources();
         
 private:
-        DeviceInterface device;
         memory_id invalid_tex_mem_id;
 
         static const texture_id invalid_tex_id = -1;

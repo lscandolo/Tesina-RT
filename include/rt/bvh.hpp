@@ -1,3 +1,4 @@
+#pragma once
 #ifndef RT_BVH_HPP
 #define RT_BVH_HPP
 
@@ -45,7 +46,7 @@ public:
 
         BBox bbox() {return m_bbox;}
 
-private:
+// private:
 
 	BBox m_bbox;
         union {

@@ -3,10 +3,10 @@
 int32_t 
 Cubemap::initialize(std::string posx, std::string negx,
 		    std::string posy, std::string negy,
-		    std::string posz, std::string negz,
-		    const CLInfo& clinfo)
+		    std::string posz, std::string negz)
 {
-        if (device.initialize(clinfo) || m_initialized)
+        DeviceInterface& device = *DeviceInterface::instance();
+        if (!device.good() || m_initialized)
                 return -1;
 
 	if (create_tex_gl_from_file(tex_width,tex_height,posx.c_str(),&posx_tex) ||
@@ -52,6 +52,7 @@ Cubemap::acquire_graphic_resources()
         if (!m_initialized)
                 return -1;
 
+        DeviceInterface& device = *DeviceInterface::instance();
         if (device.acquire_graphic_resource(posx_id) ||
             device.acquire_graphic_resource(posy_id) ||
             device.acquire_graphic_resource(posz_id) ||
@@ -69,6 +70,7 @@ Cubemap::release_graphic_resources()
         if (!m_initialized)
                 return -1;
 
+        DeviceInterface& device = *DeviceInterface::instance();
         if (device.release_graphic_resource(posx_id) ||
             device.release_graphic_resource(posy_id) ||
             device.release_graphic_resource(posz_id) ||

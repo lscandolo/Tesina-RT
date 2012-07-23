@@ -1,3 +1,4 @@
+#pragma once
 #ifndef RT_CAMERA_HPP
 #define RT_CAMERA_HPP
 

@@ -5,12 +5,14 @@
 
 
 int32_t
-PrimaryRayGenerator::initialize(const CLInfo& clinfo)
+PrimaryRayGenerator::initialize()
 {
 
         if (m_initialized)
                 return -1;
-        if (device.initialize(clinfo))
+
+        DeviceInterface& device = *DeviceInterface::instance();
+        if (!device.good())
                 return -1;
 
         generator_id = device.new_function();
@@ -48,6 +50,7 @@ PrimaryRayGenerator::set_rays(const Camera& cam, RayBundle& bundle, size_t size[
 	if (m_timing)
 		m_timer.snap_time();
 
+        DeviceInterface& device = *DeviceInterface::instance();
         DeviceFunction& generator = device.function(generator_id);
 
 	/*-------------- Set cam parameters as arguments ------------------*/
@@ -92,7 +95,8 @@ PrimaryRayGenerator::set_rays(const Camera& cam, RayBundle& bundle, size_t size[
         generator.set_global_offset(global_offset);
 
 	/*------------------- Execute kernel to create rays ------------*/
-        int32_t ret = generator.execute();
+        int32_t ret = generator.enqueue();
+        device.enqueue_barrier();
 
 	if (m_timing)
 		m_time_ms = m_timer.msec_since_snap();
@@ -103,6 +107,8 @@ PrimaryRayGenerator::set_rays(const Camera& cam, RayBundle& bundle, size_t size[
 int32_t 
 PrimaryRayGenerator::set_spp(size_t spp, pixel_sample_cl const* pixel_samples)
 {
+        DeviceInterface& device = *DeviceInterface::instance();
+
         if (!m_initialized || !device.good() || spp < 1)
                 return -1;
 
@@ -110,10 +116,9 @@ PrimaryRayGenerator::set_spp(size_t spp, pixel_sample_cl const* pixel_samples)
 
         DeviceMemory& pixel_samples_mem = device.memory(pixel_samples_id);
 
-        if (pixel_samples_mem.release())
+        if (pixel_samples_mem.resize(spp * sizeof(pixel_sample_cl)))
                 return -1;
-
-        if (pixel_samples_mem.initialize(spp * sizeof(pixel_sample_cl), pixel_samples, READ_ONLY_MEMORY))
+        if (pixel_samples_mem.write(spp * sizeof(pixel_sample_cl), pixel_samples))
                 return -1;
 
 	return 0;
@@ -128,6 +133,7 @@ PrimaryRayGenerator::get_spp() const
 DeviceMemory&
 PrimaryRayGenerator::get_pixel_samples() 
 {
+        DeviceInterface& device = *DeviceInterface::instance();
 	return device.memory(pixel_samples_id);
 }
 

@@ -1,3 +1,4 @@
+#pragma once
 #ifndef RT_GEOM_HPP
 #define RT_GEOM_HPP
 

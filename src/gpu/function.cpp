@@ -3,6 +3,7 @@
 #include <cstring>
 #include <gpu/function.hpp>
 
+
 DeviceFunction::DeviceFunction(CLInfo clinfo) 
 {
         for (int8_t i = 0; i < 3; ++i) {
@@ -92,6 +93,7 @@ DeviceFunction::initialize(std::string file, std::string name)
         m_initialized = true;
 	return 0;
 }
+
 
 
 int32_t DeviceFunction::set_arg(int32_t arg_num, size_t arg_size, void* arg)
@@ -226,6 +228,119 @@ int32_t DeviceFunction::execute()
 	return 0;	
 }
 
+int32_t 
+DeviceFunction::execute_single_dim(size_t global_size, size_t local_size) {
+
+        if (!valid() || global_size == 0) {
+                return -1;
+        }
+
+        if (local_size == 0) {
+                local_size = m_clinfo.max_work_group_size;
+        }
+
+        size_t leftover = global_size > local_size? global_size % local_size : 0;
+
+
+        size_t gsize[3] = {global_size - leftover,0,0};
+        size_t goffset[3] = {0,0,0};
+        size_t lsize[3] = {std::min(local_size,gsize[0]),0,0};
+
+        size_t leftover_gsize[3] = {leftover,0,0};
+        size_t leftover_goffset[3] = {gsize[0],0,0};
+        size_t leftover_lsize[3] = {leftover,0,0};
+
+        cl_int err;
+        err = clEnqueueNDRangeKernel(m_clinfo.command_queue,
+                                     m_kernel,
+                                     1,
+                                     goffset,
+                                     gsize,
+                                     lsize,
+                                     0,NULL,NULL);
+	if (error_cl(err, "clEnqueueNDRangeKernel"))
+		return -1;
+
+        if (leftover) {
+                err = clEnqueueNDRangeKernel(m_clinfo.command_queue,
+                                             m_kernel,
+                                             1,
+                                             leftover_goffset,
+                                             leftover_gsize,
+                                             leftover_lsize,
+                                             0,NULL,NULL);
+                if (error_cl(err, "clEnqueueNDRangeKernel"))
+                        return -1;
+        }
+
+	/* finish command queue */
+	err = clFinish(m_clinfo.command_queue);
+	if (error_cl(err, "clFinish"))
+		return -1;
+
+
+        return 0;
+}
+
+int32_t 
+DeviceFunction::enqueue_single_dim(size_t global_size, size_t local_size) {
+
+        if (!valid() || global_size == 0) {
+                return -1;
+        }
+
+        if (local_size == 0) {
+                local_size = m_clinfo.max_work_group_size;
+        }
+
+        size_t leftover = global_size > local_size? global_size % local_size : 0;
+
+
+        size_t gsize[3] = {global_size - leftover,0,0};
+        size_t goffset[3] = {0,0,0};
+        size_t lsize[3] = {std::min(local_size,gsize[0]),0,0};
+
+        size_t leftover_gsize[3] = {leftover,0,0};
+        size_t leftover_goffset[3] = {gsize[0],0,0};
+        size_t leftover_lsize[3] = {leftover,0,0};
+
+        cl_int err;
+        err = clEnqueueNDRangeKernel(m_clinfo.command_queue,
+                                     m_kernel,
+                                     1,
+                                     goffset,
+                                     gsize,
+                                     lsize,
+                                     0,NULL,NULL);
+	if (error_cl(err, "clEnqueueNDRangeKernel"))
+		return -1;
+
+        if (leftover) {
+                err = clEnqueueNDRangeKernel(m_clinfo.command_queue,
+                                             m_kernel,
+                                             1,
+                                             leftover_goffset,
+                                             leftover_gsize,
+                                             leftover_lsize,
+                                             0,NULL,NULL);
+                if (error_cl(err, "clEnqueueNDRangeKernel"))
+                        return -1;
+        }
+
+	/* finish command queue */
+        if (!m_clinfo.sync()) {
+        	err = clFlush(m_clinfo.command_queue);
+                if (error_cl(err, "clFlush"))
+                        return -1;
+        } else {
+        	err = clFinish(m_clinfo.command_queue);
+                if (error_cl(err, "clFinish"))
+                        return -1;
+        }
+        return 0;
+}
+
+
 int32_t DeviceFunction::enqueue()
 {
         if (!valid())
@@ -274,9 +389,15 @@ int32_t DeviceFunction::enqueue()
 		return -1;
 
 	/* finish command queue */
-	err = clFlush(m_clinfo.command_queue);
-	if (error_cl(err, "clEnqueue"))
-		return -1;
+        if (!m_clinfo.sync()) {
+        	err = clFlush(m_clinfo.command_queue);
+                if (error_cl(err, "clFlush"))
+                        return -1;
+        } else {
+        	err = clFinish(m_clinfo.command_queue);
+                if (error_cl(err, "clFinish"))
+                        return -1;
+        }
 
 	return 0;	
 }
@@ -297,3 +418,22 @@ DeviceFunction::release()
 
         return 0;
 }
+
+int32_t 
+DeviceFunction::initialize(std::string name)
+{
+	cl_int err;
+
+        if (!m_clinfo.initialized)
+                return -1;
+
+	//specify which kernel from the program to execute
+	m_kernel = clCreateKernel(m_program,
+                                  name.c_str(),&err);
+	if (error_cl(err, "clCreateKernel"))
+		return -1;
+
+        m_initialized = true;
+	return 0;
+}
+

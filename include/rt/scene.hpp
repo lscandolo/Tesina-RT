@@ -1,3 +1,4 @@
+#pragma once
 #ifndef RT_SCENE_HPP
 #define RT_SCENE_HPP
 
@@ -47,12 +48,16 @@ typedef enum {
         KDTREE_ACCELERATOR
 } AcceleratorType;
 
+class BVHBuilder;
+
 class Scene {
+
+        friend class BVHBuilder;
 
 public:
 
         Scene();
-        int32_t initialize(CLInfo& clinfo);
+        int32_t initialize();
         bool    valid();
         bool    valid_aggregate();
         bool    valid_bvhs();
@@ -82,7 +87,7 @@ public:
 
         Mesh&    get_mesh(mesh_id mid);
         BVH&     get_object_bvh(object_id oid);
-        int32_t  update_aggregate_mesh_vertices(mesh_id mid);
+        int32_t  update_aggregate_mesh_vertices();
         int32_t  update_mesh_vertices(mesh_id mid);
         uint32_t update_bvh_roots();
         
@@ -109,7 +114,7 @@ public:
         int32_t release_graphic_resources();
 
         DeviceMemory& vertex_mem();
-        DeviceMemory& triangle_mem();
+        DeviceMemory& index_mem();
         DeviceMemory& material_list_mem();
         DeviceMemory& material_map_mem();
         DeviceMemory& bvh_nodes_mem();
@@ -149,7 +154,6 @@ private:
                                         when we move them to device mem*/
         std::vector<BVHRoot> bvh_roots;
 
-private:
 
         AcceleratorType m_accelerator_type;
 
@@ -165,9 +169,8 @@ private:
 
         lights_cl lights;
 
-        DeviceInterface device;
         memory_id vert_id;
-        memory_id tri_id;
+        memory_id idx_id;
         memory_id mat_map_id;
         memory_id mat_list_id;
         memory_id bvh_id;

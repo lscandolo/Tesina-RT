@@ -30,7 +30,7 @@ bool ray_cl::validT(float t) const
 
 /* --------------------------------- RayBundle methods ----------------------------*/
 
-RayBundle::RayBundle()
+RayBundle::RayBundle() 
 {
 	m_initialized = false;
 	m_ray_count = 0;
@@ -38,18 +38,20 @@ RayBundle::RayBundle()
 
 RayBundle::~RayBundle()
 {
-	if (m_initialized) {
-		device.memory(ray_id).release();
+        DeviceInterface& device = *DeviceInterface::instance();
+	if (m_initialized && device.good()) {
+		device.delete_memory(ray_id);
 	}
 }
 
 int32_t 
-RayBundle::initialize(const size_t rays, const CLInfo& clinfo)
+RayBundle::initialize(const size_t rays)
 {
 	if (rays <= 0 || m_initialized)
 		return -1;
 
-        if (device.initialize(clinfo))
+        DeviceInterface& device = *DeviceInterface::instance();
+        if (!device.good())
                 return -1;
 
         ray_id = device.new_memory();
@@ -65,6 +67,7 @@ RayBundle::initialize(const size_t rays, const CLInfo& clinfo)
 bool 
 RayBundle::valid()
 {
+        DeviceInterface& device = *DeviceInterface::instance();
 	return m_initialized && device.good();
 }
 
@@ -77,6 +80,7 @@ RayBundle::count()
 DeviceMemory&
 RayBundle::mem()
 {
+        DeviceInterface& device = *DeviceInterface::instance();
         return device.memory(ray_id);
 }
 
@@ -90,12 +94,13 @@ HitBundle::HitBundle()
 }
 
 int32_t 
-HitBundle::initialize(const size_t sz, const CLInfo& clinfo)
+HitBundle::initialize(const size_t sz)
 {
 	if (m_initialized)
 		return -1;
 
-        if (device.initialize(clinfo))
+        DeviceInterface& device = *DeviceInterface::instance();
+        if (!device.good())
                 return -1;
 
         hit_id = device.new_memory();
@@ -112,5 +117,6 @@ HitBundle::initialize(const size_t sz, const CLInfo& clinfo)
 DeviceMemory& 
 HitBundle::mem()
 {
+        DeviceInterface& device = *DeviceInterface::instance();
 	return device.memory(hit_id);
 }

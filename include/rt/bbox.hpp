@@ -1,3 +1,4 @@
+#pragma once
 #ifndef RT_BBOX_HPP
 #define RT_BBOX_HPP
 
@@ -23,6 +24,7 @@ struct BBox {
 	float surfaceArea() const;
 
 	cl_float3 hi,lo;
+
 };
 
 

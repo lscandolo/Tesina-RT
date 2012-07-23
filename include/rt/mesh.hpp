@@ -1,3 +1,4 @@
+#pragma once
 #ifndef RT_MESH_HPP
 #define RT_MESH_HPP
 

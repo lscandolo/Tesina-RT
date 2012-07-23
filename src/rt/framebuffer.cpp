@@ -2,9 +2,10 @@
 #include <rt/material.hpp>
 
 int32_t 
-FrameBuffer::initialize(CLInfo& clinfo, size_t sz[2])
+FrameBuffer::initialize(size_t sz[2])
 {
-        if (device.initialize(clinfo))
+        DeviceInterface& device = *DeviceInterface::instance();
+        if (!device.good())
                 return -1;
 
 	/*---------------------- Create image mem ----------------------*/
@@ -63,12 +64,14 @@ FrameBuffer::clear()
 	if (m_timing)
 		m_clear_timer.snap_time();
 
-	int32_t ret = device.function(init_id).execute();
+	// int32_t ret = device.function(init_id).execute();
+	if (device.function(init_id).enqueue_single_dim(size[0]*size[1]))
+                return -1;
 
 	if (m_timing)
 		m_clear_time_ms= m_clear_timer.msec_since_snap();
 
-	return ret;
+	return 0;
 }
 
 
@@ -83,12 +86,13 @@ FrameBuffer::copy(DeviceMemory& tex_mem)
         if (device.function(copy_id).set_arg(1, tex_mem))
                 return -1;
 
-	int32_t ret = device.function(copy_id).execute();
+	if (device.function(copy_id).enqueue_single_dim(size[0]*size[1]))
+	// int32_t ret = device.function(copy_id).execute();
 	
 	if (m_timing)
 		m_copy_time_ms= m_copy_timer.msec_since_snap();
 
-	return ret;
+	return 0;
 }
 
 void 
