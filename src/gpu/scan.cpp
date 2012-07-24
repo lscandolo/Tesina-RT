@@ -45,7 +45,10 @@ int32_t gpu_scan_uint(DeviceInterface& device,
                 memory_id totals_mem_id = device.new_memory();
                 DeviceMemory& totals_mem = device.memory(totals_mem_id);
                 size_t totals_count = remaining_size/block_size + 1;
-                totals_mem.initialize(totals_count*sizeof(cl_uint));
+                if (totals_mem.initialize(totals_count*sizeof(cl_uint))) {
+                        std::cerr << "Scan error initializing sums memory" << std::endl;
+                        return -1;
+                }
                 
                 sum_mems.push_back(totals_mem_id);
                 remaining_size /= block_size;
@@ -66,11 +69,11 @@ int32_t gpu_scan_uint(DeviceInterface& device,
                 DeviceMemory& out_mem = device.memory(out_id);
 
                 uint32_t in_mem_size = remaining_size;
-                size_t local_size = (block_size + CONFLICT_FREE_OFFSET(block_size));
-                local_size *= sizeof(cl_uint);
+                size_t local_mem_size = (block_size + CONFLICT_FREE_OFFSET(block_size));
+                local_mem_size *= sizeof(cl_uint);
                 if (scan_local.set_arg(0, in_mem) || 
                     scan_local.set_arg(1, sum_mem) || 
-                    scan_local.set_arg(2, local_size, NULL) ||
+                    scan_local.set_arg(2, local_mem_size, NULL) ||
                     scan_local.set_arg(3, sizeof(cl_uint), &in_mem_size) ||
                     scan_local.set_arg(4, out_mem)) {
                         std::cerr << "Scan error seting args for scan_local" << std::endl;

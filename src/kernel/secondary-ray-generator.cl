@@ -59,7 +59,7 @@ generate_secondary_rays(global SampleTraceInfo* sample_trace_info,
 		return;
 
         int new_ray_id = sample_count[index];
-        if (new_ray_id >= max_sample_count)
+        if (new_ray_id+2 >= max_sample_count)
                 return;
 
 	Sample sample = old_samples[index];

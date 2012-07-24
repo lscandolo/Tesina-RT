@@ -312,7 +312,9 @@ shade_primary(write_only global ColorInt* image,
               read_only image2d_t texture_20, read_only image2d_t texture_21,
               read_only image2d_t texture_22, read_only image2d_t texture_23,
               read_only image2d_t texture_24, read_only image2d_t texture_25,
-              int use_cubemap, constant Lights* lights)
+              unsigned int sample_count, 
+              int use_cubemap, 
+              constant Lights* lights)
 {
         SampleTraceInfo hit_info = trace_info[get_global_id(0)];
         Sample    sample = samples[get_global_id(0)];
@@ -364,10 +366,11 @@ shade_secondary(write_only global ColorInt* image,
                 read_only image2d_t texture_20, read_only image2d_t texture_21,
                 read_only image2d_t texture_22, read_only image2d_t texture_23,
                 read_only image2d_t texture_24, read_only image2d_t texture_25,
-                int use_cubemap, constant Lights* lights)
+                unsigned int sample_count, 
+                int use_cubemap, 
+                constant Lights* lights)
 {
         size_t index = get_global_id(0);
-        size_t sample_count = get_global_size(0);
 
         SampleTraceInfo hit_info = trace_info[index];
         Sample    sample = samples[index];

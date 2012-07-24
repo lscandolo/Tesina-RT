@@ -130,21 +130,27 @@ RayShader::shade(RayBundle& rays, HitBundle& hb, Scene& scene,
         if (shade_function.set_arg(36,scene.texture_atlas.texture_mem(25)))
 		return -1;
 
+        cl_uint sample_count = size;
+        if (shade_function.set_arg(37,sizeof(cl_uint), &sample_count))
+		return -1;
+
         cl_int use_cubemap = cm.enabled;
-        if (shade_function.set_arg(37,sizeof(use_cubemap), &use_cubemap))
+        if (shade_function.set_arg(38,sizeof(cl_int), &use_cubemap))
 		return -1;
 
-        if (shade_function.set_arg(38,scene.lights_mem()))
+        if (shade_function.set_arg(39,scene.lights_mem()))
 		return -1;
 
-        size_t group_size = primary? 0:device.max_group_size(0)/2;
+        size_t group_size = device.max_group_size(0);
 
         if (shade_function.enqueue_single_dim(size,group_size))
                 return -1;
         device.enqueue_barrier();
 
-	if (m_timing)
+	if (m_timing) {
+                device.finish_commands();
 		m_time_ms = m_timer.msec_since_snap();
+        }
 
 	return 0;
 

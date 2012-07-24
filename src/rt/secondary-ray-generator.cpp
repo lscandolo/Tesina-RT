@@ -28,7 +28,6 @@ SecondaryRayGenerator::initialize()
         marker_id = function_ids[0];
         generator_id = function_ids[1];
 
-        const int group_size = device.max_group_size(0);
         const size_t initial_size = 512*2*1024; //Up to ~ 1e6 rays 
 
         count_id = device.new_memory();
@@ -56,7 +55,7 @@ SecondaryRayGenerator::generate(Scene& scene, RayBundle& ray_in, size_t rays_in,
         DeviceInterface& device = *DeviceInterface::instance();
         int max_rays_out = ray_out.count();
 
-        const int group_size = device.max_group_size(0);
+        const int group_size = device.max_group_size(0)/4;
         if (!group_size)
                 return -1;
 
@@ -77,13 +76,14 @@ SecondaryRayGenerator::generate(Scene& scene, RayBundle& ray_in, size_t rays_in,
                 return -1;
         }
 
-        if (marker.enqueue_single_dim(rays_in+1)) {
+        if (marker.enqueue_single_dim(rays_in, group_size)) {
                 return -1;
         }
         device.enqueue_barrier();
         /*//////////////////////////////////////////////////////////////////*/
 
-        if (gpu_scan_uint(device, count_id, rays_in+1, count_id)){
+        ////////////// Compute scan (prefix sum) on count_mem ///////////////////
+        if (gpu_scan_uint(device, count_id, rays_in+2, count_id)){
                 return -1;
         }
 
@@ -105,8 +105,6 @@ SecondaryRayGenerator::generate(Scene& scene, RayBundle& ray_in, size_t rays_in,
                     generator.set_arg(4, ray_out.mem()) || 
                     generator.set_arg(5, count_mem) ||
                     generator.set_arg(6, sizeof(cl_int),&max_rays_out)) {
-                    // generator.set_arg(6, totals_mem)    ||
-                    // generator.set_arg(7, sizeof(cl_int),&max_rays_out)) {
                         return -1;
                 }
                 if (generator.enqueue_single_dim(rays_in,group_size)) {
@@ -116,8 +114,10 @@ SecondaryRayGenerator::generate(Scene& scene, RayBundle& ray_in, size_t rays_in,
         }
         /*//////////////////////////////////////////////////////////////////*/
 
-	if (m_timing)
+	if (m_timing) {
+                device.finish_commands();
 		m_time_ms = m_timer.msec_since_snap();
+        }
 
 	return 0;
 }

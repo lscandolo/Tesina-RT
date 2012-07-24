@@ -82,6 +82,30 @@ rearrange_map(global int*          map_buffer_in,
 }
 
 
+kernel void
+rearrange_bboxes(global BBox*          bbox_buffer_in,
+                 global unsigned int*  triangles,
+                 global BBox*          bbox_buffer_out) 
+{
+        size_t gid = get_global_id(0);
+        unsigned int out_id = triangles[gid];
+
+        bbox_buffer_out[gid]   = bbox_buffer_in[out_id];
+
+}
+
+kernel void
+rearrange_codes(global morton_code_t* code_buffer_in,
+                global unsigned int*  triangles,
+                global morton_code_t* code_buffer_out) 
+{
+        size_t gid = get_global_id(0);
+        unsigned int out_id = triangles[gid];
+
+        code_buffer_out[gid]   = code_buffer_in[out_id];
+
+}
+
 /* As an aside, we initialize the triangles buffer here */
 kernel void
 build_primitive_bbox(global Vertex* vertex_buffer,
@@ -125,7 +149,6 @@ morton_encode(global BBox* bboxes,
         BBox bbox = bboxes[index];
 
         float3 g_lo = global_bbox.lo;
-        float3 g_hi = global_bbox.hi;
 
         float3 center = (bbox.hi + bbox.lo) * 0.5f;
 
@@ -192,9 +215,9 @@ unsigned char split_bit(morton_code_t c1, morton_code_t c2)
 }
 
 kernel void
-build_splits(global unsigned int*    triangles,
-             global morton_code_t*   morton_codes,
-             global unsigned char*   splits,
+build_splits(global morton_code_t*   morton_codes,
+             global unsigned int*    splits,
+             global unsigned int*    triangles,
              local  morton_code_t*   local_codes)
 {
         size_t gid = get_global_id(0);
@@ -206,12 +229,11 @@ build_splits(global unsigned int*    triangles,
                 local_codes[lsz] = morton_codes[triangles[gid+lsz]];
 
         barrier(CLK_LOCAL_MEM_FENCE);
-        splits[gid] = split_bit(local_codes[lid],local_codes[lid+1]);
-        
+        splits[gid] = local_codes[lid].code[0] ^ local_codes[lid+1].code[0];
 }
 
 kernel void
-treelet_maps_init(global int*    node_map,
+init_treelet_maps(global int*    node_map,
                   global int*    segment_map)
 {
         size_t gid = get_global_id(0);
@@ -227,7 +249,7 @@ treelet_maps_init(global int*    node_map,
 }
 
 kernel void
-segment_map_init(global int*    node_map,
+init_segment_map(global int*    node_map,
                  global int*    segment_map)
 {
         size_t gid = get_global_id(0);
@@ -237,7 +259,7 @@ segment_map_init(global int*    node_map,
 }
 
 kernel void
-segment_heads_init(global int*    segment_map,
+init_segment_heads(global int*    segment_map,
                    global int*    segment_heads,
                    unsigned int   segment_count,
                    unsigned int   triangle_count)
@@ -278,14 +300,14 @@ segment_heads_init(global int*    segment_map,
 
 
 kernel void
-treelet_init(global int*    treelets)
+init_treelet(global int*    treelets)
 {
         size_t gid = get_global_id(0);
         treelets[gid] = T_NULL;
 }
 
 kernel void
-treelet_build(global int*            node_map,
+build_treelet(global int*            node_map,
               global int*            segment_map,
               global int*            segment_heads,
               unsigned int           bitmask,
@@ -293,19 +315,13 @@ treelet_build(global int*            node_map,
               unsigned int           pass,
               global unsigned int*   triangles,
               global morton_code_t*  morton_codes,
-              local morton_code_t*   local_codes,
+              global morton_code_t*  splits,
               global int*            treelets)
 {
         const size_t gid = get_global_id(0);
         const size_t lid = get_local_id(0);
         const size_t lsz = get_local_size(0);
-        local_codes[lid] = morton_codes[triangles[gid]];
-        if (lid == 0)
-                local_codes[lsz] = morton_codes[triangles[gid+lsz]];
-        barrier(CLK_LOCAL_MEM_FENCE);
-
-        unsigned int lcode = local_codes[lid].code[0];
-        unsigned int rcode = local_codes[lid+1].code[0];
+        morton_code_t split = splits[gid];
 
         int current_node = T_ROOT;
         int segment_id = segment_map[gid];
@@ -342,24 +358,23 @@ treelet_build(global int*            node_map,
 #undef r_child
 
         ///////// If bit changes is in this node, note it
-        bool change = (lcode^rcode) & bitmask;
-        if (change && (gid+1) < node_end) {
+        bool change = split.code[0] & bitmask;
+        if (change && gid < node_end-1) {
                 treelet[current_node] = gid+1;
         }
         ///////// If the first and last codes in this nodes are the same, there
         ///////// is no change, so mark it
         if  (gid == node_start) {
+                unsigned int first_code = morton_codes[triangles[node_start]].code[0];
                 unsigned int last_code = morton_codes[triangles[node_end-1]].code[0];
-                if (! ((lcode^last_code) & bitmask)) {
-                        if (lcode & bitmask)
+                if (! ((first_code^last_code) & bitmask)) {
+                        if (first_code & bitmask)
                                 treelet[current_node] = T_ALL_1;
                         else
                                 treelet[current_node] = T_ALL_0;
                 }
         }
 }
-
-
 
 void kernel count_nodes(global int* treelets,
                         global unsigned int* node_offsets)

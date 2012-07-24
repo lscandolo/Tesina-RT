@@ -127,8 +127,10 @@ Tracer::trace(Scene& scene, DeviceMemory& bvh_mem, int32_t ray_count,
                 return -1;
         device.enqueue_barrier();
 
-	if (m_timing)
+        if (m_timing) {
+                device.finish_commands();
 		m_tracer_time_ms = m_tracer_timer.msec_since_snap();
+        }
 
 	return 0;
 }
@@ -194,8 +196,10 @@ Tracer::trace_kdtree(Scene& scene, int32_t ray_count,
                 return -1;
         device.enqueue_barrier();
 
-	if (m_timing)
+        if (m_timing) {
+                device.finish_commands();
 		m_tracer_time_ms = m_tracer_timer.msec_since_snap();
+        }
 
 	return 0;
 }
@@ -206,6 +210,8 @@ Tracer::trace_bvh(Scene& scene, int32_t ray_count,
 {
         function_id tracer_id;
         DeviceInterface& device = *DeviceInterface::instance();
+        size_t group_size = secondary ? RT::BVH_SECONDARY_GROUP_SIZE : 0;
+
         if (scene.root_count() == 1)
                 tracer_id = bvh_single_tracer_id;
         else 
@@ -241,14 +247,14 @@ Tracer::trace_bvh(Scene& scene, int32_t ray_count,
                         return -1;
         }
 
-        size_t group_size = secondary ? RT::BVH_SECONDARY_GROUP_SIZE : 0;
         if (tracer.enqueue_single_dim(ray_count, group_size))
                 return -1;
         device.enqueue_barrier();
 
-
-	if (m_timing)
-		m_tracer_time_ms = m_tracer_timer.msec_since_snap();
+        if (m_timing) {
+                device.finish_commands();
+                m_tracer_time_ms = m_tracer_timer.msec_since_snap();
+        }
 
 	return 0;
 }
@@ -323,8 +329,11 @@ Tracer::shadow_trace_bvh(Scene& scene, int32_t ray_count,
         device.enqueue_barrier();
 
 
-	if (m_timing)
+        if (m_timing) {
+                device.finish_commands();
 		m_shadow_time_ms = m_shadow_timer.msec_since_snap();
+        }
+
 
 	return 0;
 
@@ -376,8 +385,10 @@ Tracer::shadow_trace(Scene& scene, DeviceMemory& bvh_mem, int32_t ray_count,
         device.enqueue_barrier();
 
 
-	if (m_timing)
+        if (m_timing) {
+                device.finish_commands();
 		m_shadow_time_ms = m_shadow_timer.msec_since_snap();
+        }
 
 	return 0;
 }
@@ -429,8 +440,10 @@ Tracer::shadow_trace_kdtree(Scene& scene, int32_t ray_count,
                 return -1;
         device.enqueue_barrier();
 
-	if (m_timing)
+        if (m_timing) {
+                device.finish_commands();
 		m_shadow_time_ms = m_shadow_timer.msec_since_snap();
+        }
 
 	return 0;
 }

@@ -81,15 +81,16 @@ BVHBuilder::initialize(CLInfo& clinfo)
         triangles_mem_id = device.new_memory();
 
         std::vector<std::string> builder_names;
-        builder_names.push_back("rearrange_indices");
-        builder_names.push_back("rearrange_map");
         builder_names.push_back("build_primitive_bbox");
         builder_names.push_back("morton_encode");
-        builder_names.push_back("treelet_maps_init");
-        builder_names.push_back("segment_map_init");
-        builder_names.push_back("segment_heads_init");
-        builder_names.push_back("treelet_init");
-        builder_names.push_back("treelet_build");
+        builder_names.push_back("rearrange_indices");
+        builder_names.push_back("rearrange_map");
+        builder_names.push_back("build_splits");
+        builder_names.push_back("init_treelet_maps");
+        builder_names.push_back("init_segment_map");
+        builder_names.push_back("init_segment_heads");
+        builder_names.push_back("init_treelet");
+        builder_names.push_back("build_treelet");
         builder_names.push_back("build_nodes");
         builder_names.push_back("count_nodes");
         builder_names.push_back("build_node_bbox");
@@ -100,19 +101,21 @@ BVHBuilder::initialize(CLInfo& clinfo)
         if (!builder_ids.size())
                 return -1;
 
-        index_rearranger_id       = builder_ids[0];
-        map_rearranger_id         = builder_ids[1];
-        primitive_bbox_builder_id = builder_ids[2];
-        morton_encoder_id         = builder_ids[3];
-        treelet_maps_init_id      = builder_ids[4];
-        segment_map_init_id       = builder_ids[5];
-        segment_heads_init_id     = builder_ids[6];
-        treelet_init_id           = builder_ids[7];
-        treelet_build_id          = builder_ids[8];
-        node_build_id             = builder_ids[9];
-        node_counter_id           = builder_ids[10];
-        node_bbox_builder_id      = builder_ids[11];
-        leaf_bbox_builder_id      = builder_ids[12];
+        int id = 0;
+        primitive_bbox_builder_id = builder_ids[id++];
+        morton_encoder_id         = builder_ids[id++];
+        index_rearranger_id       = builder_ids[id++];
+        map_rearranger_id         = builder_ids[id++];
+        splits_build_id           = builder_ids[id++];
+        treelet_maps_init_id      = builder_ids[id++];
+        segment_map_init_id       = builder_ids[id++];
+        segment_heads_init_id     = builder_ids[id++];
+        treelet_init_id           = builder_ids[id++];
+        treelet_build_id          = builder_ids[id++];
+        node_build_id             = builder_ids[id++];
+        node_counter_id           = builder_ids[id++];
+        node_bbox_builder_id      = builder_ids[id++];
+        leaf_bbox_builder_id      = builder_ids[id++];
 
         std::vector<std::string> sorter_names;
         sorter_names.push_back("morton_sort_g2");
@@ -166,8 +169,9 @@ BVHBuilder::build_bvh(Scene& scene)
         size_t triangle_count = scene.triangle_count();
         size_t group_size     = device.max_group_size(0);
 
-        //////////   1. Compute BBox for each primitive ////////////////
-
+        //////////////////////////////////////////////////////////////////////////
+        //////////   1. Compute BBox for each primitive //////////////////////////
+        //////////////////////////////////////////////////////////////////////////
         partial_timer.snap_time();
         memory_id bboxes_mem_id = device.new_memory();
         DeviceMemory& bboxes_mem = device.memory(bboxes_mem_id);
@@ -203,7 +207,9 @@ BVHBuilder::build_bvh(Scene& scene)
         if (log_partial_time)
                 std::cout << "BBox builder time: " << partial_time_ms << " ms\n";
         
+        //////////////////////////////////////////////////////////////////////////
         ///////////// 2. Create morton code encoding of barycenters //////////////
+        //////////////////////////////////////////////////////////////////////////
         partial_timer.snap_time();
         memory_id morton_mem_id = device.new_memory();
         DeviceMemory& morton_mem = device.memory(morton_mem_id);
@@ -241,7 +247,9 @@ BVHBuilder::build_bvh(Scene& scene)
         if (log_partial_time)
                 std::cout << "Morton encoder time: " << partial_time_ms << " ms\n";
 
+        //////////////////////////////////////////////////////////////////////////
         ///////////// 3. Sort the primitives by their morton code ////////////////
+        //////////////////////////////////////////////////////////////////////////
         partial_timer.snap_time();
         int morton_sort_size = triangle_count;
         int morton_padded_sort_size = 1;
@@ -330,7 +338,50 @@ BVHBuilder::build_bvh(Scene& scene)
         if (log_partial_time)
                 std::cout << "Morton sorter: " << partial_time_ms << " ms" << std::endl;
 
+
+
+        ///////////////////////////////////////////////////////////////////////////////
+        ////////////////////// 3.2 Rearrange indices and map //////////////////////////
+        ///////////////////////////////////////////////////////////////////////////////
+        //////////////////////////////////
+        DeviceFunction& index_rearranger = device.function(index_rearranger_id);
+        DeviceFunction& map_rearranger   = device.function(map_rearranger_id);
+
+        ////// Rearrange indices
+        memory_id aux_id = device.new_memory();
+        DeviceMemory& aux_mem = device.memory(aux_id);
+        size_t aux_mem_size = std::max(scene.index_mem().size(), bboxes_mem.size());
+
+        if (aux_mem.initialize(aux_mem_size))
+                return -1;
+        if (scene.index_mem().copy_to(aux_mem)) {
+                std::cout << "Error copying " << std::endl;
+                return -1;
+        }
+        if (index_rearranger.set_arg(0,aux_mem) || 
+            index_rearranger.set_arg(1,triangles_mem) ||
+            index_rearranger.set_arg(2,scene.index_mem())) {
+                return -1;
+        }
+        if (index_rearranger.enqueue_single_dim(triangle_count))
+                return -1;
+        device.enqueue_barrier();
+
+        ////// Rearrange material map
+        if (scene.material_map_mem().copy_to(aux_mem))
+                return -1;
+
+        if (map_rearranger.set_arg(0,aux_mem) || 
+            map_rearranger.set_arg(1,triangles_mem) ||
+            map_rearranger.set_arg(2,scene.material_map_mem())) {
+                return -1;
+        }
+        if (map_rearranger.enqueue_single_dim(triangle_count))
+                return -1;
+        device.enqueue_barrier();
+        ///////////////////////////////////////////////////////////////////////////////
         ////////////////////// 4. Compute treelets and ouput nodes ////////////////////
+        ///////////////////////////////////////////////////////////////////////////////
         rt_time_t node_time;
         double node_count_time = 0;
         double treelet_build_time = 0;
@@ -340,6 +391,9 @@ BVHBuilder::build_bvh(Scene& scene)
 
 
         partial_timer.snap_time();
+
+        memory_id splits_id = device.new_memory();
+        DeviceMemory& splits_mem = device.memory(splits_id);
 
         memory_id node_map_id = device.new_memory();
         DeviceMemory& node_map_mem = device.memory(node_map_id);
@@ -360,6 +414,12 @@ BVHBuilder::build_bvh(Scene& scene)
         DeviceMemory& node_offsets_mem = device.memory(node_offsets_id);
 
         DeviceMemory& nodes_mem = scene.bvh_nodes_mem();
+
+        size_t splits_size = sizeof(morton_code_t) * triangle_count;
+        if (splits_mem.initialize(splits_size)) {
+                // std::cout << "Error initializing node map" << std::endl;
+                return -1;
+        }
 
         size_t node_map_size = sizeof(cl_int) * triangle_count;
         if (node_map_mem.initialize(node_map_size)) {
@@ -391,6 +451,7 @@ BVHBuilder::build_bvh(Scene& scene)
                 return -1;
         }
 
+        DeviceFunction& splits_build = device.function(splits_build_id);
         DeviceFunction& treelet_maps_init = device.function(treelet_maps_init_id);
         DeviceFunction& segment_map_init = device.function(segment_map_init_id);
         DeviceFunction& segment_heads_init = device.function(segment_heads_init_id);
@@ -399,6 +460,20 @@ BVHBuilder::build_bvh(Scene& scene)
         DeviceFunction& node_build = device.function(node_build_id);
         DeviceFunction& node_counter = device.function(node_counter_id);
 
+        /* Build splits */
+        if (splits_build.set_arg(0,morton_mem) ||
+            splits_build.set_arg(1,splits_mem) ||
+            splits_build.set_arg(2,triangles_mem) ||
+            splits_build.set_arg(3,sizeof(morton_code_t) * (group_size+1), NULL)) {
+                return -1;
+        }
+
+        if (splits_build.enqueue_single_dim(triangle_count-1)) {
+                return -1;
+        }
+        device.enqueue_barrier();
+
+        /* Initialize segment map and node map*/
         if (treelet_maps_init.set_arg(0,node_map_mem) ||
             treelet_maps_init.set_arg(1,segment_map_mem)) {
                 return -1;
@@ -512,7 +587,7 @@ BVHBuilder::build_bvh(Scene& scene)
                             treelet_build.set_arg(5, sizeof(cl_uint), &pass) || 
                             treelet_build.set_arg(6, triangles_mem) || 
                             treelet_build.set_arg(7, morton_mem) || 
-                            treelet_build.set_arg(8, local_code_size, NULL) || 
+                            treelet_build.set_arg(8, splits_mem) || 
                             treelet_build.set_arg(9, treelets_mem)) {
                                 return -1;
                         }
@@ -614,7 +689,9 @@ BVHBuilder::build_bvh(Scene& scene)
                           << std::endl;
         }
 
-        ////////////////////// 5. Compute node BBoxes ////////////////////////
+        //////////////////////////////////////////////////////////////////////////
+        ////////////////////// 5. Compute node BBoxes ////////////////////////////
+        //////////////////////////////////////////////////////////////////////////
         partial_timer.snap_time();
 
         DeviceFunction& node_bbox_builder = device.function(node_bbox_builder_id);
@@ -646,58 +723,9 @@ BVHBuilder::build_bvh(Scene& scene)
                           << partial_time_ms << " ms" << std::endl;
         //////////////////////////////////
 
-        if (bboxes_mem.release() || 
-            morton_mem.release())
-                return -1;
-
-        if (timing)
-                m_time_ms = m_timer.msec_since_snap();
-
-        //////////////////////////////////
-        DeviceFunction& index_rearranger = device.function(index_rearranger_id);
-        DeviceFunction& map_rearranger   = device.function(map_rearranger_id);
-
-        ////// Rearrange indices
-        memory_id aux_index_id = device.new_memory();
-        DeviceMemory& aux_index_mem = device.memory(aux_index_id);
-        if (aux_index_mem.initialize(scene.index_mem().size()))
-                return -1;
-        if (scene.index_mem().copy_to(aux_index_mem)) {
-                std::cout << "Error copying " << std::endl;
-                return -1;
-        }
-        if (index_rearranger.set_arg(0,aux_index_mem) || 
-            index_rearranger.set_arg(1,triangles_mem) ||
-            index_rearranger.set_arg(2,scene.index_mem())) {
-                return -1;
-        }
-        if (index_rearranger.enqueue_single_dim(triangle_count))
-                return -1;
-        device.enqueue_barrier();
-        ////// Rearrange material map
-        if (scene.material_map_mem().copy_to(aux_index_mem))
-                return -1;
-
-        if (map_rearranger.set_arg(0,aux_index_mem) || 
-            map_rearranger.set_arg(1,triangles_mem) ||
-            map_rearranger.set_arg(2,scene.material_map_mem())) {
-                return -1;
-        }
-        if (map_rearranger.enqueue_single_dim(triangle_count))
-                return -1;
-        device.enqueue_barrier();
-
-        scene.m_aggregate_bvh_built = true;
-        scene.m_aggregate_bvh_transfered = true;
-
-        // std::cout << "Last memory : " << aux_index_id << std::endl;
-        
-        // std::cout << "Nodes created: " << node_count << std::endl;
-        // exit(0);
-
         if (device.delete_memory(node_map_id) || 
             device.delete_memory(treelets_id) || 
-            device.delete_memory(aux_index_id) ||
+            device.delete_memory(aux_id) ||
             device.delete_memory(bboxes_mem_id) || 
             device.delete_memory(node_count_id) || 
             device.delete_memory(segment_map_id) || 
@@ -708,6 +736,16 @@ BVHBuilder::build_bvh(Scene& scene)
                 return -1;
         }
         ///////////////////////////////
+
+        // std::cout << "Nodes created: " << node_count << std::endl;
+        // exit(0);
+        if (timing) {
+                device.finish_commands();
+                m_time_ms = m_timer.msec_since_snap();
+        }
+
+        scene.m_aggregate_bvh_built = true;
+        scene.m_aggregate_bvh_transfered = true;
 
         return 0;
 }

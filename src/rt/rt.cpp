@@ -6,7 +6,9 @@
 #include <cl-gl/opencl-init.hpp>
 #include <rt/rt.hpp>
 
-#include <sstream> //!!
+#include <gpu/scan.hpp> //!!
+
+#define GPU_BVH_BUILD 1
 
 #define TOTAL_STATS_TO_LOG 12
 #define CONF_STATS_TO_LOG  4
@@ -26,6 +28,7 @@ CLInfo clinfo;
 GLInfo glinfo;
 
 int frame = 0;
+
 Mesh orig_mesh;
 
 DeviceInterface& device = *DeviceInterface::instance();
@@ -241,6 +244,7 @@ void gl_loop()
         static int i = 0;
         static int dir = 1;
         static int total_ray_count = 0;
+        static int total_sec_ray_count = 0;
 
         double bvh_build_time = 0;
         double prim_gen_time = 0;
@@ -315,25 +319,27 @@ void gl_loop()
 
         }
 
-	Mesh& mesh = scene.get_aggregate_mesh();
-        for (size_t v = 0; v < mesh.vertexCount(); ++ v) {
-		Vertex& vert = mesh.vertex(v);
-		Vertex& orig_vert = orig_mesh.vertex(v);
-                vert.position.s[0] = orig_vert.position.s[0] + sin(frame*0.1);
-                vert.position.s[1] = orig_vert.position.s[1] + cos(frame*0.06);
-                vert.position.s[2] = orig_vert.position.s[2] + sin(frame*0.08);
-                // vert.position.s[0] *= 1.01f;
-                // vert.position.s[1] *= 0.99f;
-                // vert.position.s[2] *= 1.01f;
-        }                
-        scene.update_aggregate_mesh_vertices();
-        frame ++;
+	// Mesh& mesh = scene.get_aggregate_mesh();
+        // for (size_t v = 0; v < mesh.vertexCount(); ++ v) {
+	// 	Vertex& vert = mesh.vertex(v);
+	// 	Vertex& orig_vert = orig_mesh.vertex(v);
+        //         vert.position.s[0] = orig_vert.position.s[0] + sin(frame*0.1);
+        //         vert.position.s[1] = orig_vert.position.s[1] + cos(frame*0.06);
+        //         vert.position.s[2] = orig_vert.position.s[2] + sin(frame*0.08);
+        //         // vert.position.s[0] *= 1.01f;
+        //         // vert.position.s[1] *= 0.99f;
+        //         // vert.position.s[2] *= 1.01f;
+        // }                
+        // scene.update_aggregate_mesh_vertices();
+        // frame ++;
 
-        if (bvh_builder.build_bvh(scene)) {
-                std::cout << "BVH builder failed." << std::endl;
-                pause_and_exit(1);
+        if (GPU_BVH_BUILD) {
+                if (bvh_builder.build_bvh(scene)) {
+                        std::cout << "BVH builder failed." << std::endl;
+                        pause_and_exit(1);
+                }
+                bvh_build_time = bvh_builder.get_exec_time();
         }
-        bvh_build_time = bvh_builder.get_exec_time();
 
 
         int32_t sample_count = pixel_count * prim_ray_gen.get_spp();
@@ -392,6 +398,7 @@ void gl_loop()
                                 std::cerr << "Max sec rays reached!\n";
 
                         total_ray_count += sec_ray_count;
+                        total_sec_ray_count += sec_ray_count;
 
                         if (tracer.trace(scene, sec_ray_count, 
                                          *ray_in, hit_bundle, true)) {
@@ -416,7 +423,6 @@ void gl_loop()
                         }
                         shader_time += ray_shader.get_exec_time();
                 }
-
         }
 
         if (framebuffer.copy(device.memory(tex_id))){
@@ -466,8 +472,8 @@ void gl_loop()
                   << "\t"
                   << total_ray_count
                   << " rays casted "
-                  << "\t(" << pixel_count << " primary, " 
-                  << total_ray_count-pixel_count << " secondary)"
+                  << "\t(" << total_ray_count - total_sec_ray_count << " primary, " 
+                  << total_sec_ray_count << " secondary)"
                   << std::endl;
         if (rt_log.silent)
                 std::cout<< "Time elapsed: "
@@ -479,6 +485,7 @@ void gl_loop()
         std::flush(std::cout);
         rt_time.snap_time();
         total_ray_count = 0;
+        total_sec_ray_count = 0;
 
         rt_log << "\nBVH Build time:\t" << bvh_build_time << std::endl;
         rt_log << "Prim Gen time: \t" << prim_gen_time << std::endl;
@@ -567,26 +574,50 @@ int main (int argc, char** argv)
         // memory_id in_mem_id  = device.new_memory();
         // DeviceMemory& in_mem = device.memory(in_mem_id);
         
-        // int N = 10000;
-        // std::vector<uint32_t> vals(N);
-        // for (int i = 0 ; i < N ; ++i) {
-        //         vals[i] = 1;
+        // in_mem.initialize(sizeof(cl_uint));
+
+        // for (int j = 0; j < 100; ++j) {
+        //         int N = 10001 + j * 100;
+        //         std::vector<uint32_t> vals(N);
+        //         uint32_t gt_total = 0;
+        //         for (int i = 0 ; i < N ; ++i) {
+        //                 vals[i] = rand()%100;
+        //                 gt_total += vals[i];
+        //         }
+
+        //         if (in_mem.resize(sizeof(cl_uint)*(N+1)))
+        //                 return -1;
+
+        //         if (in_mem.write(sizeof(cl_uint)*(N+1), &(vals[0])))
+        //                 return -1;
+
+        //         // std::cout << "Initialized\n";
+        //         gpu_scan_uint(device, in_mem_id, N+1, in_mem_id);
+
+        //         if (in_mem.read(sizeof(cl_uint)*N, &(vals[0])))
+        //                 return -1;
+
+        //         uint32_t total;
+        //         if (in_mem.read(sizeof(cl_uint), &total, sizeof(cl_uint)*N))
+        //                 return -1;
+
+        //         // std::cout << "Vals: " << std::endl;
+        //         // for (int i = 0 ; i < N ; ++i) {
+        //         //         std::cout << vals[i] << " ";
+        //         // }
+        //         // std::cout << std::endl;
+
+        //         std::cout << "N: " << N << std::endl;
+        //         std::cout << "Total: " << total << std::endl;
+        //         std::cout << "GT: " << gt_total << std::endl;
+        //         if (total != gt_total) {
+        //                 std::cout << std::endl << std::endl;
+        //                 std::cout << "ERROR --------------------------"<< std::endl;
+        //                 std::cout << std::endl << std::endl;
+        //                 break;
+        //         }
+        //         std::cout << std::endl;
         // }
-
-        // if (in_mem.initialize(sizeof(cl_uint)*N, &(vals[0])))
-        //         return -1;
-
-        // std::cout << "Initialized\n";
-        // gpu_scan_uint(device, in_mem_id, N, in_mem_id);
-
-        // if (in_mem.read(sizeof(cl_uint)*N, &(vals[0])))
-        //         return -1;
-
-        // std::cout << "Vals: " << std::endl;
-        // for (int i = 0 ; i < N ; ++i) {
-        //         std::cout << vals[i] << " ";
-        // }
-        // std::cout << std::endl;
         // return 0;
         /////////////////////////////////////////////////////////
 
@@ -762,44 +793,54 @@ int main (int argc, char** argv)
                  std::cout << "Created aggregate mesh succesfully" << std::endl;
          }
 
-         orig_mesh = scene.get_aggregate_mesh(); //!!
-
+         orig_mesh = scene.get_aggregate_mesh();
          // scene.set_accelerator_type(KDTREE_ACCELERATOR);
          scene.set_accelerator_type(BVH_ACCELERATOR);
 
+         clinfo.set_sync(false);
 
-         // if (scene.create_aggregate_accelerator()) {
-         //        std::cerr << "Failed to create aggregate accelerator" << std::endl;
-         //        pause_and_exit(1);
-         // } else {
-         //         std::cout << "Created aggregate accelerator succesfully" << std::endl;
-         // }
+         if (GPU_BVH_BUILD) {
+                 if (scene.transfer_aggregate_mesh_to_device()) {
+                         std::cerr << "Failed to transfer aggregate mesh to device memory" 
+                                   << std::endl;
+                         pause_and_exit(1);
+                 } else {
+                         std::cout << "Transfered aggregate mesh to device succesfully" 
+                                   << std::endl;
+                 }
 
-         if (scene.transfer_aggregate_mesh_to_device()) {
-                std::cerr << "Failed to transfer aggregate mesh to device memory" 
-                          << std::endl;
-                pause_and_exit(1);
+                 if (bvh_builder.build_bvh(scene)) {
+                         std::cout << "BVH builder failed." << std::endl;
+                         pause_and_exit(1);
+                 }
+
          } else {
-                 std::cout << "Transfered aggregate mesh to device succesfully" 
-                           << std::endl;
+
+                 if (scene.create_aggregate_accelerator()) {
+                         std::cerr << "Failed to create aggregate accelerator" << std::endl;
+                         pause_and_exit(1);
+                 } else {
+                         std::cout << "Created aggregate accelerator succesfully" << std::endl;
+                 }
+
+                 if (scene.transfer_aggregate_mesh_to_device()) {
+                         std::cerr << "Failed to transfer aggregate mesh to device memory" 
+                                   << std::endl;
+                         pause_and_exit(1);
+                 } else {
+                         std::cout << "Transfered aggregate mesh to device succesfully" 
+                                   << std::endl;
+                 }
+
+                 if (scene.transfer_aggregate_accelerator_to_device()) {
+                         std::cerr << "Failed to transfer aggregate accelerator to device memory" 
+                                   << std::endl;
+                         pause_and_exit(1);
+                 } else {
+                         std::cout << "Transfered aggregate accelerator to device succesfully" 
+                                   << std::endl;
+                 }
          }
-
-         if (bvh_builder.build_bvh(scene)) {
-                 std::cout << "BVH builder failed." << std::endl;
-                 pause_and_exit(1);
-         }
-
-         clinfo.set_sync(true);
-
-         // if (scene.transfer_aggregate_accelerator_to_device()) {
-         //        std::cerr << "Failed to transfer aggregate accelerator to device memory" 
-         //                  << std::endl;
-         //        pause_and_exit(1);
-         // } else {
-         //         std::cout << "Transfered aggregate accelerator to device succesfully" 
-         //                   << std::endl;
-         // }
-
 
 #else
 
@@ -916,6 +957,7 @@ int main (int argc, char** argv)
         std::cout << "Initialized ray shader succesfully." << std::endl;
 
         /*----------------------- Enable timing in all clases -------------------*/
+        bvh_builder.timing(true);
         framebuffer.timing(true);
         prim_ray_gen.timing(true);
         sec_ray_gen.timing(true);

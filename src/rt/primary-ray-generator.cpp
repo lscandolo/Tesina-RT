@@ -98,8 +98,10 @@ PrimaryRayGenerator::set_rays(const Camera& cam, RayBundle& bundle, size_t size[
         int32_t ret = generator.enqueue();
         device.enqueue_barrier();
 
-	if (m_timing)
+	if (m_timing) {
+                device.finish_commands();
 		m_time_ms = m_timer.msec_since_snap();
+        }
 
 	return ret;
 }

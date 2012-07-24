@@ -415,6 +415,99 @@ RayHit trace_ray(Ray ray,
         return best_hit;
 }
 
+RayHit _trace_ray(Ray ray,
+                  global Vertex* vertex_buffer,
+                  global int* index_buffer,
+                  global BVHNode* bvh_nodes,
+                  int bvh_root,
+                  local BVHNode* local_node)
+{
+        RayHit best_hit;
+        best_hit.id = -1;
+        best_hit.t =  ray.tMax;
+
+        unsigned int levels[MAX_LEVELS];
+        unsigned int level = 0;
+
+        unsigned int curr = bvh_root;
+        
+        /* private BVHNode current_node; */
+        local BVHNode* current_node = local_node + get_local_id(0);
+
+        unsigned int first_child, second_child;
+        bool children_order = true;
+
+        float3 rdir = ray.dir;
+        float3 adir = fabs(rdir);
+        float max_dir_val = fmax(adir.x, fmax(adir.y,adir.z)) - 0.00001f;
+        adir = fdim(adir, (float3)(max_dir_val,max_dir_val,max_dir_val));
+
+        int i = 0;
+
+        while (true) {
+                if ((i++) > 300) return best_hit;
+                (*current_node) = bvh_nodes[curr];
+
+                if (!bbox_hit(current_node->bbox, ray)) {
+
+                        if (level > 0 && level < MAX_LEVELS) {
+                                level--;
+                                curr  = levels[level];
+                                continue;
+                        }
+                        else {
+                                return best_hit;
+                        }
+                }
+
+                if (current_node->leaf) {
+                        leaf_hit(&best_hit,
+                                 *current_node,
+                                 vertex_buffer,
+                                 index_buffer,
+                                 ray);
+
+                        if (best_hit.id >= 0)
+                                ray.tMax = best_hit.t;
+
+                        if (level > 0 && level < MAX_LEVELS) {
+                                level--;
+                                curr  = levels[level];
+                                continue;
+                        }
+                        else {
+                                return best_hit;
+                        }
+                } else {
+
+                        /* Compute node children traversal order if its an interior node*/
+                        float3 lbbox_vals = bvh_nodes[current_node->l_child].bbox.lo;
+                        float3 rbbox_vals = bvh_nodes[current_node->r_child].bbox.lo;
+                        float3 choice_vec = dot(rdir,rbbox_vals - lbbox_vals);
+                        if (adir.x > 0.f) {
+                                children_order = choice_vec.x > 0.f;
+                        } else if (adir.y > 0.f) {
+                                children_order = choice_vec.y > 0.f;
+                        } else {
+                                children_order = choice_vec.z > 0.f;
+                        }
+                        
+                        if (children_order) {
+                                first_child = current_node->l_child;
+                                second_child = current_node->r_child;
+                        } else {
+                                first_child = current_node->r_child;
+                                second_child = current_node->l_child;
+                        }
+                }
+
+                levels[level] = second_child;
+                level++;
+                curr = first_child;
+        }
+        return best_hit;
+}
+
 kernel void 
 trace_multi(global SampleTraceInfo* trace_info,
             global Sample* samples,
@@ -471,6 +564,9 @@ trace_single(global SampleTraceInfo* trace_info,
         Ray ray = samples[index].ray;
         RayHit best_hit;
         
+        /* local BVHNode local_node[256]; */
+        /* best_hit = _trace_ray(ray,vertex_buffer,index_buffer, */
+        /*                      bvh_nodes, 0, local_node); */
         best_hit = trace_ray(ray,vertex_buffer,index_buffer,
                              bvh_nodes, 0);
 

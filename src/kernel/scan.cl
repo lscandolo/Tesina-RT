@@ -1,6 +1,7 @@
 #define NUM_BANKS 16  
 #define LOG_NUM_BANKS 4  
 #define CONFLICT_FREE_OFFSET(n) (((n) >> LOG_NUM_BANKS) + ((n) >> (2 * LOG_NUM_BANKS)))
+
 /* #define CONFLICT_FREE_OFFSET(n) ((n) >> (LOG_NUM_BANKS)) */
 
 void kernel scan_local_uint(global unsigned int* in,
@@ -82,19 +83,6 @@ void kernel scan_local_uint(global unsigned int* in,
                 out[bi]   = aux[bi + bankOffsetB];
 
 }
-/////Orig:
-/* BBox builder time: 8.34336 ms */
-/* Morton encoder time: 22.7906 ms */
-/* Morton sorter: 74.6043 ms */
-/* bvh emmission time: 192.977 ms */
-/* segment offset scan time: 46.577 */
-/* treelet build time: 24.4586 */
-/* node count time: 6.23509 */
-/* node offset scan time: 31.1431 */
-/* node build time: 26.7007 */
-/* Node bbox compute time: 69.8693 ms */
-
-
 
 void kernel scan_post_uint(global unsigned int* out,
                            global unsigned int* sums,

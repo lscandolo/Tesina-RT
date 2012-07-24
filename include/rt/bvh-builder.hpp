@@ -34,6 +34,7 @@ private:
         function_id  morton_sorter_8_id;
         function_id  morton_sorter_16_id;
 
+        function_id  splits_build_id;
         function_id  treelet_maps_init_id;
         function_id  treelet_init_id;
         function_id  segment_map_init_id;

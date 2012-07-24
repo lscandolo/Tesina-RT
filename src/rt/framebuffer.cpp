@@ -68,9 +68,11 @@ FrameBuffer::clear()
 	if (device.function(init_id).enqueue_single_dim(size[0]*size[1]))
                 return -1;
 
-	if (m_timing)
+	if (m_timing) {
+                device.finish_commands();
 		m_clear_time_ms= m_clear_timer.msec_since_snap();
-
+        }
+        
 	return 0;
 }
 
@@ -78,20 +80,23 @@ FrameBuffer::clear()
 int32_t 
 FrameBuffer::copy(DeviceMemory& tex_mem)
 {
-
+        
 	if (m_timing)
 		m_copy_timer.snap_time();
-
+        
         
         if (device.function(copy_id).set_arg(1, tex_mem))
                 return -1;
-
+        
 	if (device.function(copy_id).enqueue_single_dim(size[0]*size[1]))
+                return -1;
+        device.enqueue_barrier();
 	// int32_t ret = device.function(copy_id).execute();
 	
-	if (m_timing)
-		m_copy_time_ms= m_copy_timer.msec_since_snap();
-
+        if (m_timing) {
+                device.finish_commands();
+                m_copy_time_ms= m_copy_timer.msec_since_snap();
+        }
 	return 0;
 }
 
