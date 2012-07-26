@@ -8,7 +8,7 @@
 
 #include <gpu/scan.hpp> //!!
 
-#define GPU_BVH_BUILD 1
+#define GPU_BVH_BUILD 0
 
 #define TOTAL_STATS_TO_LOG 12
 #define CONF_STATS_TO_LOG  4
@@ -22,7 +22,7 @@ void go_deeper(std::vector<KDTNode>& nodes, int node, int depth) {
         go_deeper(nodes, nodes[node].m_l_child,depth+1);
         go_deeper(nodes, nodes[node].m_r_child,depth+1);
 }
-int MAX_BOUNCE = 1;
+int MAX_BOUNCE = 9;
 
 CLInfo clinfo;
 GLInfo glinfo;
@@ -64,13 +64,45 @@ bool logged = false;
 bool custom_logging = false;
 int  stats_logged = 0;
 
+//hand
+// vec3 stats_camera_pos[] = {makeVector(-0.542773, 0.851275, 0.193901) ,
+//                            makeVector(0.496716, 0.56714, 0.721966) ,
+//                            makeVector(-0.563173, 1.41939, -0.134797) };
+// vec3 stats_camera_dir[] = {makeVector(0.658816, -0.55455, -0.508365),
+//                            makeVector(-0.472905, -0.0779194, -0.877661) ,
+//                            makeVector(0.502332, -0.860415, -0.0857217) };
+
 //ben
-// vec3 stats_camera_pos[] = {makeVector(0.198037,0.799047,0.392632) ,
+// vec3 stats_camera_pos[] = {makeVector(-0.126448, 0.546994, 0.818811) ,
+//                            makeVector(0.231515, 0.555109, 0.274977) ,
+//                            makeVector(0.198037, 0.799047, 0.392632) };
+// vec3 stats_camera_dir[] = {makeVector(0.157556,-0.121695, -0.979983),
+//                            makeVector(-0.745308, 0.139962, -0.651864) ,
+//                            makeVector(-0.329182, -0.636949, -0.697091) };
+
+//fairy
+// vec3 stats_camera_pos[] = {makeVector(-0.118154, 0.417017, 1.14433) ,
+//                            makeVector(-0.464505, 0.717691, 0.279553) ,
+//                            makeVector(0.560874, 3.02102, 2.22842) };
+// vec3 stats_camera_dir[] = {makeVector(0.0700268, -0.095778, -0.992936),
+//                            makeVector(0.666486, -0.576098, -0.473188) ,
+//                            makeVector(-0.149838, -0.788657, -0.596295) };
+
+///Boat
+// vec3 stats_camera_pos[] = {makeVector(20.0186, -5.49632, 71.8718) ,
 //                            makeVector(-56.9387, -2.41959, 29.574) ,
 //                            makeVector(68.6859, 5.18034, 13.6691) };
-// vec3 stats_camera_dir[] = {makeVector(-0.329182,-0.636949,-0.697091),
+// vec3 stats_camera_dir[] = {makeVector(0.131732, 0.0845093, -0.987677),
 //                            makeVector(0.927574, -0.22893, -0.295292) ,
 //                            makeVector(-0.820819, -0.478219, -0.31235) };
+
+//dragon
+// vec3 stats_camera_pos[] = {makeVector(-39.9102, 9.42978, 55.1501) ,
+//                            makeVector(-1.1457, -0.774464, 49.4609) ,
+//                            makeVector(16.6885, 22.435, 25.0718) };
+// vec3 stats_camera_dir[] = {makeVector(0.558171, -0.165305, -0.813093),
+//                            makeVector(-0.00931118, -0.14159, -0.989882) ,
+//                            makeVector(-0.402962, -0.631356, -0.66258) };
 
 ///Buddha
 vec3 stats_camera_pos[] = {makeVector(0.741773, -1.754, 4.95699) ,
@@ -80,12 +112,6 @@ vec3 stats_camera_dir[] = {makeVector(-0.179715, -0.0878783, -0.979786),
                            makeVector(0.927574, -0.22893, -0.295292) ,
                            makeVector(-0.820819, -0.478219, -0.31235) };
 
-// vec3 stats_camera_pos[] = {makeVector(20.0186, -5.49632, 71.8718) ,
-//                            makeVector(-56.9387, -2.41959, 29.574) ,
-//                            makeVector(68.6859, 5.18034, 13.6691) };
-// vec3 stats_camera_dir[] = {makeVector(0.131732, 0.0845093, -0.987677),
-//                            makeVector(0.927574, -0.22893, -0.295292) ,
-//                            makeVector(-0.820819, -0.478219, -0.31235) };
 
 #define STEPS 16
 
@@ -629,11 +655,13 @@ int main (int argc, char** argv)
                 std::cout << "Initialized scene succesfully" << std::endl;
         }
 
-        if (bvh_builder.initialize(clinfo)) {
-                std::cerr << "Failed to initialize bvh builder" << std::endl;
-                pause_and_exit(1);
-        } else {
-                std::cout << "Initialized bvh builder succesfully" << std::endl;
+        if (GPU_BVH_BUILD) {
+                if (bvh_builder.initialize(clinfo)) {
+                        std::cerr << "Failed to initialize bvh builder" << std::endl;
+                        pause_and_exit(1);
+                } else {
+                        std::cout << "Initialized bvh builder succesfully" << std::endl;
+                }
         }
 
         //// Ben sequence
@@ -684,9 +712,6 @@ int main (int argc, char** argv)
         //         scenes[i].create_aggregate_mesh();
         // }
 
-        //// Fairy
-        // scene.load_obj_file_and_make_objs("models/obj/fairy_forest/f000.obj");
-
         // Teapots
         // mesh_id teapot_mesh_id = 
         //         scene.load_obj_file_as_aggregate("models/obj/teapot2.obj");
@@ -711,52 +736,38 @@ int main (int argc, char** argv)
         // // teapot_2_obj.mat.refractive_index = 1.333f;
 
 
+        /// Hand
+        // scene.load_obj_file_and_make_objs("models/obj/hand/hand_40.obj");
+
+        /// Ben
+        // scene.load_obj_file_and_make_objs("models/obj/ben/ben_00.obj");
+
+        //// Fairy
+        // scene.load_obj_file_and_make_objs("models/obj/fairy_forest/f000.obj");
+
         //// Boat
-        mesh_id floor_mesh_id = 
-                scene.load_obj_file_as_aggregate("models/obj/frame_water1.obj");
-                // scene.load_obj_file_as_aggregate("models/obj/grid100.obj");
-        object_id floor_obj_id  = scene.add_object(floor_mesh_id);
-        Object& floor_obj = scene.object(floor_obj_id);
-        floor_obj.geom.setScale(2.f);
-        floor_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
-        floor_obj.mat.diffuse = White;
-        // floor_obj.mat.diffuse = Blue;
-        floor_obj.mat.reflectiveness = 0.98f;
-        floor_obj.mat.refractive_index = 1.333f;
+        // mesh_id floor_mesh_id = 
+        //         scene.load_obj_file_as_aggregate("models/obj/frame_water1.obj");
+        //         // scene.load_obj_file_as_aggregate("models/obj/grid100.obj");
+        // object_id floor_obj_id  = scene.add_object(floor_mesh_id);
+        // Object& floor_obj = scene.object(floor_obj_id);
+        // floor_obj.geom.setScale(2.f);
+        // floor_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
+        // floor_obj.mat.diffuse = White;
+        // // floor_obj.mat.diffuse = Blue;
+        // floor_obj.mat.reflectiveness = 0.98f;
+        // floor_obj.mat.refractive_index = 1.333f;
 
-         mesh_id boat_mesh_id = 
-                 scene.load_obj_file_as_aggregate("models/obj/frame_boat1.obj");
-         object_id boat_obj_id = scene.add_object(boat_mesh_id);
-         Object& boat_obj = scene.object(boat_obj_id);
-         boat_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
-         boat_obj.geom.setRpy(makeVector(0.f,0.f,0.f));
-         boat_obj.geom.setScale(2.f);
-         boat_obj.mat.diffuse = Red;
-         boat_obj.mat.shininess = 1.f;
-         boat_obj.mat.reflectiveness = 0.0f;
-
-        //// Buddha
-        // std::vector<mesh_id> box_meshes = 
-        //         scene.load_obj_file("models/obj/box-no-ceil.obj");
-        // std::vector<object_id> box_objs = scene.add_objects(box_meshes);
-
-        // for (uint32_t i = 0; i < box_objs.size(); ++i) {
-        //         Object& obj = scene.object(box_objs[i]);
-        //         obj.geom.setRpy(makeVector(0.f,0.f,0.4f));
-        //         if (obj.mat.texture > 0)
-        //                 obj.mat.reflectiveness = 0.8f;
-        //         // obj.geom.setPos(makeVector(0.f,-30.f,0.f));
-        // }
-
-        //  mesh_id buddha_mesh_id = 
-        //          scene.load_obj_file_as_aggregate("models/obj/buddha.obj");
-        //  object_id buddha_obj_id = scene.add_object(buddha_mesh_id);
-        //  Object& buddha_obj = scene.object(buddha_obj_id);
-        //  buddha_obj.geom.setPos(makeVector(0.f,-4.f,0.f));
-        //  buddha_obj.geom.setRpy(makeVector(0.f,0.f,0.f));
-        //  buddha_obj.geom.setScale(0.3f);
-        //  buddha_obj.mat.diffuse = White;
-        //  buddha_obj.mat.shininess = 1.f;
+        //  mesh_id boat_mesh_id = 
+        //          scene.load_obj_file_as_aggregate("models/obj/frame_boat1.obj");
+        //  object_id boat_obj_id = scene.add_object(boat_mesh_id);
+        //  Object& boat_obj = scene.object(boat_obj_id);
+        //  boat_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
+        //  boat_obj.geom.setRpy(makeVector(0.f,0.f,0.f));
+        //  boat_obj.geom.setScale(2.f);
+        //  boat_obj.mat.diffuse = Red;
+        //  boat_obj.mat.shininess = 1.f;
+        //  boat_obj.mat.reflectiveness = 0.0f;
 
         /// Dragon
         // mesh_id floor_mesh_id = 
@@ -780,8 +791,28 @@ int main (int argc, char** argv)
         //  dragon_obj.mat.shininess = 1.f;
         //  dragon_obj.mat.reflectiveness = 0.7f;
 
-        /// Ben
-        // scene.load_obj_file_and_make_objs("models/obj/ben/ben_00.obj");
+        //// Buddha
+        std::vector<mesh_id> box_meshes = 
+                scene.load_obj_file("models/obj/box-no-ceil.obj");
+        std::vector<object_id> box_objs = scene.add_objects(box_meshes);
+
+        for (uint32_t i = 0; i < box_objs.size(); ++i) {
+                Object& obj = scene.object(box_objs[i]);
+                obj.geom.setRpy(makeVector(0.f,0.f,0.4f));
+                if (obj.mat.texture > 0)
+                        obj.mat.reflectiveness = 0.8f;
+                // obj.geom.setPos(makeVector(0.f,-30.f,0.f));
+        }
+
+         mesh_id buddha_mesh_id = 
+                 scene.load_obj_file_as_aggregate("models/obj/buddha.obj");
+         object_id buddha_obj_id = scene.add_object(buddha_mesh_id);
+         Object& buddha_obj = scene.object(buddha_obj_id);
+         buddha_obj.geom.setPos(makeVector(0.f,-4.f,0.f));
+         buddha_obj.geom.setRpy(makeVector(0.f,0.f,0.f));
+         buddha_obj.geom.setScale(0.3f);
+         buddha_obj.mat.diffuse = White;
+         buddha_obj.mat.shininess = 1.f;
 
 
 #if 1
