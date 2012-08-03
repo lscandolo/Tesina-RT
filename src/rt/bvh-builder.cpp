@@ -167,7 +167,6 @@ BVHBuilder::build_bvh(Scene& scene)
         double    partial_time_ms;
         rt_time_t partial_timer;
         size_t triangle_count = scene.triangle_count();
-        size_t group_size     = device.max_group_size(0);
 
         //////////////////////////////////////////////////////////////////////////
         //////////   1. Compute BBox for each primitive //////////////////////////
@@ -460,15 +459,16 @@ BVHBuilder::build_bvh(Scene& scene)
         DeviceFunction& node_build = device.function(node_build_id);
         DeviceFunction& node_counter = device.function(node_counter_id);
 
+        size_t splits_build_group_size = splits_build.max_group_size();
         /* Build splits */
         if (splits_build.set_arg(0,morton_mem) ||
             splits_build.set_arg(1,splits_mem) ||
             splits_build.set_arg(2,triangles_mem) ||
-            splits_build.set_arg(3,sizeof(morton_code_t) * (group_size+1), NULL)) {
+            splits_build.set_arg(3,sizeof(morton_code_t)*(splits_build_group_size+1),NULL)){
                 return -1;
         }
 
-        if (splits_build.enqueue_single_dim(triangle_count-1)) {
+        if (splits_build.enqueue_single_dim(triangle_count-1,splits_build_group_size)) {
                 return -1;
         }
         device.enqueue_barrier();
@@ -537,7 +537,7 @@ BVHBuilder::build_bvh(Scene& scene)
                     segment_heads_init.set_arg(3,sizeof(cl_int), &last_head)) { 
                         return -1;
                 }
-                if (segment_heads_init.enqueue_single_dim(triangle_count)) {
+                if (segment_heads_init.enqueue_single_dim(triangle_count-1)) {
                         return -1;
                 }
                 device.enqueue_barrier();
@@ -574,11 +574,13 @@ BVHBuilder::build_bvh(Scene& scene)
                 
                 node_time.snap_time();
                 /*Create treelets*/
+                size_t treelet_build_group_size = treelet_build.max_group_size();
                 for (uint32_t pass = 0; pass < treelet_levels; ++pass) {
                         uint32_t bit = 3*M_AXIS_BITS - level - pass - 1;
                         uint32_t bitmask = 1<<bit;
                         uint32_t triangle_count_arg = triangle_count;
-                        size_t local_code_size=(group_size+1)*sizeof(cl_uint)*M_UINT_COUNT;
+                        size_t local_code_size=treelet_build_group_size+1;
+                        local_code_size *= sizeof(cl_uint)*M_UINT_COUNT;
                         if (treelet_build.set_arg(0, node_map_mem) || 
                             treelet_build.set_arg(1, segment_map_mem) || 
                             treelet_build.set_arg(2, segment_heads_mem) || 
@@ -739,7 +741,7 @@ BVHBuilder::build_bvh(Scene& scene)
 
         // std::cout << "Nodes created: " << node_count << std::endl;
         // exit(0);
-        if (timing) {
+        if (m_timing) {
                 device.finish_commands();
                 m_time_ms = m_timer.msec_since_snap();
         }

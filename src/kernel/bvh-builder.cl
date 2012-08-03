@@ -7,6 +7,7 @@
 #define MORTON_MAX_F 1024.f // 2^M_AXIS_BITS
 #define MORTON_MAX_INV_F 0.000976562.f //1/MORTON_MAX_F
 
+#define BBOX_COMPUTE 1e34f
 #define BBOX_NOT_COMPUTED 1e35f
 
 typedef struct 
@@ -255,7 +256,7 @@ init_segment_map(global int*    node_map,
         size_t gid = get_global_id(0);
         
         /* We set the previous element because we will do a scan afterwards */
-        segment_map[gid-1] = node_map[gid] >= 0 ? 1 : 0;
+        segment_map[gid] = node_map[gid+1] >= 0 ? 1 : 0;
 }
 
 kernel void
@@ -458,9 +459,11 @@ int process_node_split_2(global BVHNode* nodes,
                          global int*     segment_heads,
                          bool last_pass)
 {
+        int split = treelets[treelet_entry];
+
         if (!last_pass) {
 
-                if (treelets[treelet_entry] >= 0) {
+                if (split >= 0) {
                         unsigned int lnode_id = children_offset;
                         unsigned int rnode_id = lnode_id + 1;
                         link_children(nodes+parent_id,parent_id,
@@ -470,14 +473,14 @@ int process_node_split_2(global BVHNode* nodes,
 
                         //save node start location 
                         node_map[first_primitive] = lnode_id;
-                        node_map[treelets[treelet_entry]] =   rnode_id;
+                        node_map[split] =   rnode_id;
 
                         return 2;
-                } else if (treelets[0] == T_ALL_0) {
+                } else if (split == T_ALL_0) {
                         //save node start location
                         node_map[first_primitive] = parent_id;
                         return 0;
-                } else { //treelets[0] == T_ALL_1
+                } else { //split == T_ALL_1
                         //save node start location
                         node_map[first_primitive] = parent_id;
                         return 0;
@@ -488,7 +491,7 @@ int process_node_split_2(global BVHNode* nodes,
                 unsigned int start_index = first_primitive;
                 unsigned int end_index = end_primitive;
 
-                if (treelets[treelet_entry] >= 0) {
+                if (split >= 0) {
                         unsigned int lnode_id = children_offset;
                         unsigned int rnode_id = lnode_id + 1;
                         link_children(nodes+parent_id,parent_id,
@@ -498,22 +501,22 @@ int process_node_split_2(global BVHNode* nodes,
 
                         nodes[lnode_id].leaf = true;
                         nodes[lnode_id].start_index = start_index;
-                        nodes[lnode_id].end_index = treelets[treelet_entry];
+                        nodes[lnode_id].end_index = split;
                         nodes[lnode_id].bbox.lo.x = BBOX_NOT_COMPUTED;
 
                         nodes[rnode_id].leaf = true;
-                        nodes[rnode_id].start_index = treelets[treelet_entry];
+                        nodes[rnode_id].start_index = split;
                         nodes[rnode_id].end_index = end_index;
                         nodes[rnode_id].bbox.lo.x = BBOX_NOT_COMPUTED;
 
                         return 2;
-                } else if (treelets[treelet_entry] == T_ALL_0) {
+                } else if (split == T_ALL_0) {
                         nodes[parent_id].leaf = true;
                         nodes[parent_id].start_index = start_index;
                         nodes[parent_id].end_index = end_index;
                         nodes[parent_id].bbox.lo.x = BBOX_NOT_COMPUTED;
                         return 0;
-                } else { //treelets[0] == T_ALL_1
+                } else { //split == T_ALL_1
                         nodes[parent_id].leaf = true;
                         nodes[parent_id].start_index = start_index;
                         nodes[parent_id].end_index = end_index;
@@ -535,9 +538,10 @@ int process_node_split_1(global BVHNode* nodes,
                          global int*     segment_heads,
                          bool last_pass)
 {
+        int split = treelets[treelet_entry];
         int lentry = treelet_entry*2+1;
         int rentry = treelet_entry*2+2;
-        if (treelets[treelet_entry] >= 0) {
+        if (split >= 0) {
                 unsigned int lnode_id = children_offset;
                 unsigned int rnode_id = lnode_id + 1;
                 link_children(nodes+parent_id,parent_id,
@@ -550,7 +554,7 @@ int process_node_split_1(global BVHNode* nodes,
                                                   children_offset+new_nodes,
                                                   treelets,lentry,
                                                   first_primitive,
-                                                  treelets[treelet_entry],
+                                                  split,
                                                   node_map,
                                                   segment_heads,
                                                   last_pass);
@@ -558,13 +562,13 @@ int process_node_split_1(global BVHNode* nodes,
                 new_nodes += process_node_split_2(nodes,rnode_id,
                                                   children_offset+new_nodes,
                                                   treelets,rentry,
-                                                  treelets[treelet_entry],
+                                                  split,
                                                   end_primitive,
                                                   node_map,
                                                   segment_heads,
                                                   last_pass);
                 return new_nodes;
-        } else if (treelets[treelet_entry] == T_ALL_0) {
+        } else if (split == T_ALL_0) {
                 int new_nodes = 0;
                 new_nodes += process_node_split_2(nodes,parent_id,
                                                   children_offset,
@@ -575,7 +579,7 @@ int process_node_split_1(global BVHNode* nodes,
                                                   segment_heads,
                                                   last_pass);
                 return new_nodes;
-        } else { //treelets[0] == T_ALL_1
+        } else { //split == T_ALL_1
                 int new_nodes = 0;
                 new_nodes += process_node_split_2(nodes,parent_id,
                                                   children_offset,
@@ -599,20 +603,21 @@ int process_node_split_0(global BVHNode* nodes,
                          global int*     segment_heads,
                          bool last_pass)
 {
-        if (treelets[0] >= 0) {
+        int split = treelets[0];
+        if (split >= 0) {
                 unsigned int lnode_id = children_offset;
                 unsigned int rnode_id = lnode_id + 1;
                 link_children(nodes+parent_id,parent_id,
                               nodes+lnode_id, lnode_id,
                               nodes+rnode_id, rnode_id,
-                              treelets[0]);
+                              split);
 
                 int new_nodes = 2;
                 new_nodes += process_node_split_1(nodes,lnode_id,
                                                   children_offset+new_nodes,
                                                   treelets,1,
                                                   first_primitive,
-                                                  treelets[0],
+                                                  split,
                                                   node_map,
                                                   segment_heads,
                                                   last_pass);
@@ -620,13 +625,13 @@ int process_node_split_0(global BVHNode* nodes,
                 new_nodes += process_node_split_1(nodes,rnode_id,
                                                   children_offset+new_nodes,
                                                   treelets,2,
-                                                  treelets[0],
+                                                  split,
                                                   end_primitive,
                                                   node_map,
                                                   segment_heads,
                                                   last_pass);
                 return new_nodes;
-        } else if (treelets[0] == T_ALL_0) {
+        } else if (split == T_ALL_0) {
                 int new_nodes = 0;
                 new_nodes += process_node_split_1(nodes,parent_id,
                                                   children_offset,
@@ -637,7 +642,7 @@ int process_node_split_0(global BVHNode* nodes,
                                                   segment_heads,
                                                   last_pass);
                 return new_nodes;
-        } else { //treelets[0] == T_ALL_1
+        } else { //split == T_ALL_1
                 int new_nodes = 0;
                 new_nodes += process_node_split_1(nodes,parent_id,
                                                   children_offset,

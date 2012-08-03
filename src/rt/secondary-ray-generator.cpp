@@ -53,9 +53,12 @@ SecondaryRayGenerator::generate(Scene& scene, RayBundle& ray_in, size_t rays_in,
 
 
         DeviceInterface& device = *DeviceInterface::instance();
+        DeviceFunction& marker = device.function(marker_id);
+        DeviceFunction& generator = device.function(generator_id);
         int max_rays_out = ray_out.count();
 
-        const int group_size = device.max_group_size(0)/4;
+        size_t group_size = std::min(marker.max_group_size(), generator.max_group_size());
+
         if (!group_size)
                 return -1;
 
@@ -66,7 +69,6 @@ SecondaryRayGenerator::generate(Scene& scene, RayBundle& ray_in, size_t rays_in,
         }
 
         /////////////// Mark secondary rays to be created in aux mem //////////////
-        DeviceFunction& marker = device.function(marker_id);
 	/* Arguments */
         if (marker.set_arg(0, hits.mem()) || 
             marker.set_arg(1, ray_in.mem()) ||
@@ -97,7 +99,6 @@ SecondaryRayGenerator::generate(Scene& scene, RayBundle& ray_in, size_t rays_in,
 
         ////////// Use prefix sums generate rays in the right location //////////////
         if (*rays_out) {
-                DeviceFunction& generator = device.function(generator_id);
                 if (generator.set_arg(0, hits.mem()) || 
                     generator.set_arg(1, ray_in.mem()) ||
                     generator.set_arg(2, scene.material_list_mem()) || 

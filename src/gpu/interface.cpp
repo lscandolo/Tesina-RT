@@ -332,5 +332,3 @@ DeviceInterface::max_group_size(uint32_t dim)
                 return m_clinfo.max_work_item_sizes[dim];
         return 0;
 }
-
-

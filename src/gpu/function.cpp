@@ -26,7 +26,7 @@ int32_t
 DeviceFunction::initialize(std::string file, std::string name)
 {
 	cl_int err;
-
+        
         if (!m_clinfo.initialized)
                 return -1;
 
@@ -89,6 +89,28 @@ DeviceFunction::initialize(std::string file, std::string name)
                                   name.c_str(),&err);
 	if (error_cl(err, "clCreateKernel"))
 		return -1;
+
+        err = clGetKernelWorkGroupInfo(m_kernel,
+                                       m_clinfo.device_id,
+                                       CL_KERNEL_WORK_GROUP_SIZE,
+                                       sizeof(size_t),
+                                       &m_max_group_size,
+                                       NULL);
+	if (error_cl(err, "clGetKernelWorkGroupInfo CL_KERNEL_WORK_GROUP_SIZE"))
+		return -1;
+
+        size_t multiple;
+        err = clGetKernelWorkGroupInfo(m_kernel,
+                                       m_clinfo.device_id,
+                                       CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE,
+                                       sizeof(size_t),
+                                       &multiple,
+                                       NULL);
+	if (error_cl(err, "clGetKernelWorkGroupInfo PREFERRED_WORK_GROUP_SIZE_MULTIPLE"))
+		return -1;
+
+        if (m_max_group_size > multiple)
+                m_max_group_size =  (m_max_group_size / multiple) * multiple;
 
         m_initialized = true;
 	return 0;
@@ -229,25 +251,27 @@ int32_t DeviceFunction::execute()
 }
 
 int32_t 
-DeviceFunction::execute_single_dim(size_t global_size, size_t local_size) {
+DeviceFunction::execute_single_dim(size_t global_size, size_t local_size, 
+                                   size_t global_offset) 
+{
 
         if (!valid() || global_size == 0) {
                 return -1;
         }
 
         if (local_size == 0) {
-                local_size = m_clinfo.max_work_group_size;
+                local_size = m_max_group_size;
         }
 
         size_t leftover = global_size > local_size? global_size % local_size : 0;
 
 
         size_t gsize[3] = {global_size - leftover,0,0};
-        size_t goffset[3] = {0,0,0};
+        size_t goffset[3] = {global_offset,0,0};
         size_t lsize[3] = {std::min(local_size,gsize[0]),0,0};
 
         size_t leftover_gsize[3] = {leftover,0,0};
-        size_t leftover_goffset[3] = {gsize[0],0,0};
+        size_t leftover_goffset[3] = {gsize[0]+global_offset,0,0};
         size_t leftover_lsize[3] = {leftover,0,0};
 
         cl_int err;
@@ -283,25 +307,27 @@ DeviceFunction::execute_single_dim(size_t global_size, size_t local_size) {
 }
 
 int32_t 
-DeviceFunction::enqueue_single_dim(size_t global_size, size_t local_size) {
+DeviceFunction::enqueue_single_dim(size_t global_size, size_t local_size,
+                                   size_t global_offset) 
+{
 
         if (!valid() || global_size == 0) {
                 return -1;
         }
 
         if (local_size == 0) {
-                local_size = m_clinfo.max_work_group_size;
+                local_size = m_max_group_size;
         }
 
         size_t leftover = global_size > local_size? global_size % local_size : 0;
 
 
         size_t gsize[3] = {global_size - leftover,0,0};
-        size_t goffset[3] = {0,0,0};
+        size_t goffset[3] = {global_offset,0,0};
         size_t lsize[3] = {std::min(local_size,gsize[0]),0,0};
 
         size_t leftover_gsize[3] = {leftover,0,0};
-        size_t leftover_goffset[3] = {gsize[0],0,0};
+        size_t leftover_goffset[3] = {gsize[0]+global_offset,0,0};
         size_t leftover_lsize[3] = {leftover,0,0};
 
         cl_int err;
@@ -433,7 +459,33 @@ DeviceFunction::initialize(std::string name)
 	if (error_cl(err, "clCreateKernel"))
 		return -1;
 
+        err = clGetKernelWorkGroupInfo(m_kernel,
+                                       m_clinfo.device_id,
+                                       CL_KERNEL_WORK_GROUP_SIZE,
+                                       sizeof(size_t),
+                                       &m_max_group_size,
+                                       NULL);
+	if (error_cl(err, "clGetKernelWorkGroupInfo CL_KERNEL_WORK_GROUP_SIZE"))
+		return -1;
+
+        size_t multiple;
+        err = clGetKernelWorkGroupInfo(m_kernel,
+                                       m_clinfo.device_id,
+                                       CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE,
+                                       sizeof(size_t),
+                                       &multiple,
+                                       NULL);
+	if (error_cl(err, "clGetKernelWorkGroupInfo PREFERRED_WORK_GROUP_SIZE_MULTIPLE"))
+		return -1;
+        if (m_max_group_size > multiple)
+                m_max_group_size =  (m_max_group_size / multiple) * multiple;
+
         m_initialized = true;
 	return 0;
 }
 
+size_t
+DeviceFunction::max_group_size()
+{
+        return m_max_group_size;
+}

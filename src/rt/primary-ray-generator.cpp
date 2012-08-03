@@ -89,13 +89,10 @@ PrimaryRayGenerator::set_rays(const Camera& cam, RayBundle& bundle, size_t size[
         if (generator.set_arg(8, device.memory(pixel_samples_id)))
                 return -1;
 
-        size_t global_size[] = {ray_count, 0, 0};
-        size_t global_offset[] = {offset, 0, 0};
-        generator.set_global_size(global_size);
-        generator.set_global_offset(global_offset);
+        size_t group_size = generator.max_group_size();
 
 	/*------------------- Execute kernel to create rays ------------*/
-        int32_t ret = generator.enqueue();
+        int32_t ret = generator.enqueue_single_dim(ray_count, group_size, offset);
         device.enqueue_barrier();
 
 	if (m_timing) {

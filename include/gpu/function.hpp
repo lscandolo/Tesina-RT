@@ -40,10 +40,13 @@ public:
         int32_t set_global_offset(size_t offset[3]);
         int32_t set_local_size(size_t size[3]);
         int32_t execute();
-        int32_t execute_single_dim(size_t global_size, size_t local_size = 0);
+        int32_t execute_single_dim(size_t global_size, size_t local_size = 0, 
+                                   size_t global_offset = 0);
         int32_t enqueue();
-        int32_t enqueue_single_dim(size_t global_size, size_t local_size = 0);
+        int32_t enqueue_single_dim(size_t global_size, size_t local_size = 0,
+                                   size_t global_offset = 0);
         int32_t release();
+        size_t max_group_size();
 
 private:
 
@@ -58,6 +61,7 @@ private:
 	size_t m_global_size[3];
 	size_t m_global_offset[3];
 	size_t m_local_size[3];
+        size_t m_max_group_size;
 };
 
 #endif /* GPU_FUNCTION_HPP */

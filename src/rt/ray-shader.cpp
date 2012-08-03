@@ -141,8 +141,7 @@ RayShader::shade(RayBundle& rays, HitBundle& hb, Scene& scene,
         if (shade_function.set_arg(39,scene.lights_mem()))
 		return -1;
 
-        size_t group_size = device.max_group_size(0);
-
+        size_t group_size = shade_function.max_group_size();
         if (shade_function.enqueue_single_dim(size,group_size))
                 return -1;
         device.enqueue_barrier();

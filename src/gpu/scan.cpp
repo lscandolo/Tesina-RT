@@ -25,15 +25,15 @@ int32_t gpu_scan_uint(DeviceInterface& device,
                 return -1;
         }
         
-        size_t group_size = device.max_group_size(0);
-        size_t block_size = 2 * group_size;
-
         DeviceFunctionLibrary* gpulib = DeviceFunctionLibrary::instance();
         if (!gpulib->valid())
                 return -1;
 
         DeviceFunction& scan_local = gpulib->function(gpu::scan_local_uint);
         DeviceFunction& scan_post =  gpulib->function(gpu::scan_post_uint);
+        size_t group_size = std::min(scan_local.max_group_size(),
+                                     scan_post.max_group_size());
+        size_t block_size = 2 * group_size;
 
         size_t padded_size = pad(size, block_size);
 
