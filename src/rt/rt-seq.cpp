@@ -417,6 +417,8 @@ int main (int argc, char** argv)
                 std::cerr << "Failed to initialize device interface" << std::endl;
                 exit(1);
         }
+        /* Initialize generic gpu library */
+        DeviceFunctionLibrary::initialize(clinfo);
 
 	/*---------------------- Create shared GL-CL texture ----------------------*/
 	gl_tex = create_tex_gl(window_size[0],window_size[1]);

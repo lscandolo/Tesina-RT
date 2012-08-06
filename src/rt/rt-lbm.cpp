@@ -20,7 +20,7 @@ extern "C" {
         int __declspec(dllimport) __stdcall LBM_getHeight();
 }
 
-#define MAX_BOUNCE 5
+int32_t MAX_BOUNCE = 5
 #define WAVE_HEIGHT 0.3
 
 void rainEvent();
@@ -49,7 +49,7 @@ Camera                camera;
 GLuint gl_tex;
 rt_time_t rt_time;
 size_t window_size[] = {512, 512};
-size_t pixel_count = window_size[0] * window_size[1];
+size_t pixel_count;
 size_t best_tile_size;
 Log rt_log;
 
@@ -433,6 +433,29 @@ void gl_loop()
 
 int main (int argc, char** argv)
 {
+
+        /*---------------------- Attempt to read INI File --------------------------*/
+
+        INIReader ini;
+        int32_t ini_err;
+        ini_err = ini.load_file("rt.ini");
+        if (ini_err < 0)
+                std::cout << "Error at ini file line: " << -ini_err << std::endl;
+        else if (ini_err > 0)
+                std::cout << "Unable to open ini file" << std::endl;
+        else {
+                int32_t val;
+                if (!ini.get_int_value("RT", "screen_w", val))
+                        window_size[0] = val;
+                if (!ini.get_int_value("RT", "screen_h", val))
+                        window_size[1] = val;
+                if (!ini.get_int_value("RT", "gpu_bvh", val))
+                        GPU_BVH_BUILD = val;
+                if (!ini.get_int_value("RT", "max_bounce", val)) 
+                        MAX_BOUNCE = val;
+        }
+        pixel_count = window_size[0] * window_size[1];
+
 
 	rt_log.enabled = true;
 	rt_log.silent = false;

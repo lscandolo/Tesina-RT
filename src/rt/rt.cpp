@@ -6,9 +6,8 @@
 #include <cl-gl/opencl-init.hpp>
 #include <rt/rt.hpp>
 
-#include <gpu/scan.hpp> //!!
+// #include <gpu/scan.hpp> //!!
 
-#define GPU_BVH_BUILD 1
 
 #define TOTAL_STATS_TO_LOG 12
 #define CONF_STATS_TO_LOG  4
@@ -22,7 +21,8 @@ void go_deeper(std::vector<KDTNode>& nodes, int node, int depth) {
         go_deeper(nodes, nodes[node].m_l_child,depth+1);
         go_deeper(nodes, nodes[node].m_r_child,depth+1);
 }
-int MAX_BOUNCE = 9;
+int32_t GPU_BVH_BUILD = 0;
+int32_t MAX_BOUNCE = 9;
 
 CLInfo clinfo;
 GLInfo glinfo;
@@ -55,7 +55,7 @@ GLuint gl_tex;
 rt_time_t rt_time;
 size_t window_size[] = {512, 512};
 
-size_t pixel_count = window_size[0] * window_size[1];
+size_t pixel_count;
 size_t best_tile_size;
 Log rt_log;
 bool  print_fps = true;
@@ -557,6 +557,34 @@ void gl_loop()
 int main (int argc, char** argv)
 {
 
+        /*---------------------- Attempt to read INI File --------------------------*/
+
+        std::string cubemap_path = "textures/cubemap/Path/";
+        INIReader ini;
+        int32_t ini_err;
+        ini_err = ini.load_file("rt.ini");
+        if (ini_err < 0)
+                std::cout << "Error at ini file line: " << -ini_err << std::endl;
+        else if (ini_err > 0)
+                std::cout << "Unable to open ini file" << std::endl;
+        else {
+                int32_t int_val;
+                std::string str_val;
+                if (!ini.get_int_value("RT", "screen_w", int_val))
+                        window_size[0] = int_val;
+                if (!ini.get_int_value("RT", "screen_h", int_val))
+                        window_size[1] = int_val;
+                if (!ini.get_int_value("RT", "gpu_bvh", int_val))
+                        GPU_BVH_BUILD = int_val;
+                if (!ini.get_int_value("RT", "max_bounce", int_val)) 
+                        MAX_BOUNCE = int_val;
+                if (!ini.get_str_value("RT", "cubemap", str_val)) 
+                        cubemap_path = str_val;
+        }
+        
+        pixel_count = window_size[0] * window_size[1];
+
+
         /*---------------------- Initialize OpenGL and OpenCL ----------------------*/
 
         if (rt_log.initialize("rt-log-boat")){
@@ -936,15 +964,25 @@ int main (int argc, char** argv)
 
         /*----------------------- Initialize cubemap ---------------------------*/
         
-        if (cubemap.initialize("textures/cubemap/Path/posx.jpg",
-                               "textures/cubemap/Path/negx.jpg",
-                               "textures/cubemap/Path/posy.jpg",
-                               "textures/cubemap/Path/negy.jpg",
-                               "textures/cubemap/Path/posz.jpg",
-                               "textures/cubemap/Path/negz.jpg")) {
+        if (cubemap.initialize(cubemap_path + "posx.jpg",
+                               cubemap_path + "negx.jpg",
+                               cubemap_path + "posy.jpg",
+                               cubemap_path + "negy.jpg",
+                               cubemap_path + "posz.jpg",
+                               cubemap_path + "negz.jpg")) {
                 std::cerr << "Failed to initialize cubemap." << std::endl;
                 pause_and_exit(1);
         }
+
+        // if (cubemap.initialize("textures/cubemap/Path/posx.jpg",
+        //                        "textures/cubemap/Path/negx.jpg",
+        //                        "textures/cubemap/Path/posy.jpg",
+        //                        "textures/cubemap/Path/negy.jpg",
+        //                        "textures/cubemap/Path/posz.jpg",
+        //                        "textures/cubemap/Path/negz.jpg")) {
+        //         std::cerr << "Failed to initialize cubemap." << std::endl;
+        //         pause_and_exit(1);
+        // }
         std::cerr << "Initialized cubemap succesfully." << std::endl;
 
         /*------------------------ Initialize FrameBuffer ---------------------------*/

@@ -169,7 +169,6 @@ leaf_hit_any(BVHNode node,
 	     Ray ray){
 
 	for (int triangle = node.start_index; triangle < node.end_index; ++triangle) {
-
                 float3 p = ray.ori.xyz;
                 float3 d = ray.dir.xyz;
 
@@ -210,7 +209,7 @@ leaf_hit_any(BVHNode node,
 	return false;
 }
 
-#define MAX_LEVELS 30
+#define MAX_LEVELS 64
 
 bool trace_shadow_ray(Ray ray,
                       global Vertex* vertex_buffer,

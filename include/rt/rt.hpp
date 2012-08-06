@@ -8,6 +8,7 @@
 #include <sstream>
 
 #include <misc/log.hpp>
+#include <misc/ini.hpp>
 #include <gpu/interface.hpp>
 #include <gpu/function-library.hpp>
 #include <rt/math.hpp>

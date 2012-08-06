@@ -339,7 +339,6 @@ Tracer::shadow_trace_bvh(Scene& scene, int32_t ray_count,
                 return -1;
         device.enqueue_barrier();
 
-
         if (m_timing) {
                 device.finish_commands();
 		m_shadow_time_ms = m_shadow_timer.msec_since_snap();
