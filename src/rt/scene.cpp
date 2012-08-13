@@ -138,28 +138,56 @@ Scene::transfer_aggregate_mesh_to_device()
         DeviceMemory& vertex_mem = device.memory(vert_id);
         size_t vertex_mem_size = vertex_count * sizeof(Vertex);
         const void*  vertex_ptr = aggregate_mesh.vertexArray();
-        if (vertex_mem.initialize(vertex_mem_size, vertex_ptr, READ_ONLY_MEMORY))
-                    return -1;
+        if (!vertex_mem.valid()) {
+                if (vertex_mem.initialize(vertex_mem_size, vertex_ptr, READ_ONLY_MEMORY))
+                        return -1;
+        } else {
+                if (vertex_mem.resize(vertex_mem_size))
+                        return -1;
+                if (vertex_mem.write(vertex_mem_size, vertex_ptr))
+                        return -1;
+        }
 
         DeviceMemory& index_mem = device.memory(idx_id);
         size_t index_mem_size = triangle_count * sizeof(Triangle);
         const void*  index_ptr = aggregate_mesh.triangleArray();
-        if (index_mem.initialize(index_mem_size, index_ptr, READ_ONLY_MEMORY))
-                    return -1;
+        if (!index_mem.valid()) {
+                if (index_mem.initialize(index_mem_size, index_ptr, READ_ONLY_MEMORY))
+                        return -1;
+        } else {
+                if (index_mem.resize(index_mem_size))
+                        return -1;
+                if (index_mem.write(index_mem_size, index_ptr))
+                        return -1;
+        }
 
 	/*---------------------- Move material data to device ------------*/
 
         DeviceMemory& mat_list_mem = device.memory(mat_list_id);
         const void* mat_list_ptr = &(material_list[0]);
         size_t mat_list_size = sizeof(material_cl) * material_list.size();
-        if (mat_list_mem.initialize(mat_list_size, mat_list_ptr, READ_ONLY_MEMORY))
-                return -1;
+        if (!mat_list_mem.valid()) {
+                if (mat_list_mem.initialize(mat_list_size, mat_list_ptr, READ_ONLY_MEMORY))
+                        return -1;
+        } else {
+                if (mat_list_mem.resize(mat_list_size))
+                        return -1;
+                if (mat_list_mem.write(mat_list_size, mat_list_ptr))
+                        return -1;
+        }
 
         DeviceMemory& mat_map_mem = device.memory(mat_map_id);
         const void* mat_map_ptr = &(material_map[0]);
         size_t mat_map_size = sizeof(cl_int) * material_map.size();
-        if (mat_map_mem.initialize(mat_map_size, mat_map_ptr, READ_ONLY_MEMORY))
-                return -1;
+        if (!mat_map_mem.valid()) {
+                if (mat_map_mem.initialize(mat_map_size, mat_map_ptr, READ_ONLY_MEMORY))
+                        return -1;
+        } else {
+                if (mat_map_mem.resize(mat_map_size))
+                        return -1;
+                if (mat_map_mem.write(mat_map_size, mat_map_ptr))
+                        return -1;
+        }
 
         /*------------ Attempt to move single bvh_root data to device ------------*/
         DeviceMemory& bvh_roots_mem = device.memory(bvh_roots_id);
@@ -359,6 +387,7 @@ Scene::create_aggregate_mesh()
 	uint32_t base_triangle = 0;
 	material_list.clear();
 	material_map.clear();
+    aggregate_mesh = Mesh();
 
 	for (uint32_t i = 0; i < objects.size(); ++i) {
 		Object& obj = objects[i];
@@ -698,37 +727,127 @@ Scene::get_object_bvh(object_id oid)
         return bvhs[oid];
 }
 
-int32_t 
+//int32_t 
+//Scene::update_object_vertices(mesh_id mid)
+//{
+//	if (!m_initialized || !m_aggregate_mesh_built)
+//                return -1;
+//
+//	uint32_t base_triangle = 0;
+//	material_list.clear();
+//	material_map.clear();
+//    aggregate_mesh = Mesh();
+//
+//	for (uint32_t i = 0; i < objects.size(); ++i) {
+//		Object& obj = objects[i];
+//
+//		if (!obj.is_valid())
+//			continue;
+//
+//		mesh_id m_id = obj.get_mesh_id();
+//
+//		ASSERT(m_id >= 0 && m_id < mesh_atlas.size());
+//
+//		size_t base_vertex = aggregate_mesh.vertexCount();
+//		Mesh& mesh = mesh_atlas[m_id];
+//		GeometricProperties g = obj.geom;
+//
+//		material_list.push_back(obj.mat);
+//		cl_int map_index = cl_int(material_list.size() - 1);
+//		material_map.resize(base_triangle + mesh.triangleCount(), map_index);
+//		
+//		for (uint32_t v = 0; v < mesh.vertexCount(); ++v) {
+//			Vertex vertex = mesh.vertex(v);
+//			g.transform(vertex);
+//			aggregate_mesh.vertices.push_back(vertex);
+//		}
+//		for (uint32_t t = 0; t < mesh.triangleCount(); ++t) {
+//			Triangle tri = mesh.triangle(t);
+//                        tri.v[0] += vtx_id(base_vertex);
+//			tri.v[1] += vtx_id(base_vertex);
+//			tri.v[2] += vtx_id(base_vertex);
+//			aggregate_mesh.triangles.push_back(tri);
+//			aggregate_mesh.slacks.push_back(obj.slack);
+//		}
+//		base_triangle += uint32_t(mesh.triangleCount());
+//                
+//	}
+//        
+//        m_aggregate_mesh_built = true;
+//	return 0;
+//
+//}
+
+int32_t
 Scene::update_mesh_vertices(mesh_id mid)
 {
-	if (!m_initialized || bvhs.find(mid) == bvhs.end())
+
+        if (m_bvhs_built) {
+
+                if (!m_initialized || bvhs.find(mid) == bvhs.end())
+                        return -1;
+
+                typedef std::vector<mesh_id>::iterator mesh_iterator_t;
+
+                /*---------------------- Move model data to OpenCL device -----------------*/
+
+                std::vector<Vertex> vertices;
+                std::vector<Triangle> triangles;
+
+                size_t vertex_offset = 0;
+
+                for (mesh_iterator_t it = bvh_order.begin(); it < bvh_order.end(); it++) { 
+
+                        if (*it != mid) {
+                                Mesh& it_mesh = mesh_atlas[*it];
+                                vertex_offset += it_mesh.vertexCount();
+                        }
+                        else {
+                                Mesh& mesh = mesh_atlas[mid];
+                                if (vertex_mem().write(mesh.vertexCount() *sizeof(Vertex),
+                                        mesh.vertexArray(),
+                                        vertex_offset))
+                                        return -1;
+                                return 0;
+                        }
+                }
                 return -1;
+        } else if (m_aggregate_mesh_built) {
 
-        typedef std::vector<mesh_id>::iterator mesh_iterator_t;
+                DeviceInterface& device = *DeviceInterface::instance();
+                uint32_t base_vertex = 0;
 
-	/*---------------------- Move model data to OpenCL device -----------------*/
-        
-        std::vector<Vertex> vertices;
-        std::vector<Triangle> triangles;
-        
-        size_t vertex_offset = 0;
-        
-        for (mesh_iterator_t it = bvh_order.begin(); it < bvh_order.end(); it++) { 
-                
-                if (*it != mid) {
-                        Mesh& it_mesh = mesh_atlas[*it];
-                        vertex_offset += it_mesh.vertexCount();
+                for (uint32_t i = 0; i < objects.size(); ++i) {
+                        Object& obj = objects[i];
+                        
+                        if (!obj.is_valid())
+                                continue;
+
+                        mesh_id m_id = obj.get_mesh_id();
+                        ASSERT(m_id >= 0 && m_id < mesh_atlas.size());
+                        Mesh& mesh = mesh_atlas[m_id];
+                        if (m_id == mid) {
+                                Mesh& mesh = mesh_atlas[m_id];
+                                GeometricProperties g = obj.geom;
+                                size_t vertex_count = mesh.vertexCount();
+                                for (uint32_t v = 0; v < vertex_count; ++v) {
+                                        Vertex vertex = mesh.vertex(v);
+                                        g.transform(vertex);
+                                        aggregate_mesh.vertices[base_vertex+v] = vertex;
+                                }
+                                DeviceMemory& vertex_mem = device.memory(vert_id);
+                                size_t write_size = vertex_count * sizeof(Vertex);
+                                size_t write_offset = base_vertex * sizeof(Vertex);
+                                const void*  vertex_ptr = aggregate_mesh.vertexArray()+base_vertex;
+                                if (vertex_mem.write(write_size, vertex_ptr, write_offset))
+                                        return -1;
+                        }
+                        base_vertex += uint32_t(mesh.vertexCount());
                 }
-                else {
-                        Mesh& mesh = mesh_atlas[mid];
-                        if (vertex_mem().write(mesh.vertexCount() *sizeof(Vertex),
-                                               mesh.vertexArray(),
-                                               vertex_offset))
-                                return -1;
-                        return 0;
-                }
+                return 0;
+        } else {
+                return -1;
         }
-        return -1;
 }   
 
 int32_t 
@@ -738,7 +857,6 @@ Scene::update_aggregate_mesh_vertices()
                 return -1;
 
 	/*---------------------- Move model data to OpenCL device -----------------*/
-
 
         DeviceInterface& device = *DeviceInterface::instance();
         size_t vertex_count = aggregate_mesh.vertexCount();

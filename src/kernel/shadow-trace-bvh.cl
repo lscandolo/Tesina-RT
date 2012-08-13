@@ -169,6 +169,7 @@ leaf_hit_any(BVHNode node,
 	     Ray ray){
 
 	for (int triangle = node.start_index; triangle < node.end_index; ++triangle) {
+
                 float3 p = ray.ori.xyz;
                 float3 d = ray.dir.xyz;
 

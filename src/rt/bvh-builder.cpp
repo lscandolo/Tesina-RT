@@ -537,7 +537,7 @@ BVHBuilder::build_bvh(Scene& scene)
                     segment_heads_init.set_arg(3,sizeof(cl_int), &last_head)) { 
                         return -1;
                 }
-                if (segment_heads_init.enqueue_single_dim(triangle_count-1)) {
+                if (segment_heads_init.enqueue_single_dim(triangle_count)) {
                         return -1;
                 }
                 device.enqueue_barrier();
@@ -594,7 +594,7 @@ BVHBuilder::build_bvh(Scene& scene)
                                 return -1;
                         }
 
-                        if (treelet_build.enqueue_single_dim(triangle_count-1)) {
+                        if (treelet_build.enqueue_single_dim(triangle_count)) {
                                 return -1;
                         }
                         device.enqueue_barrier();
@@ -638,16 +638,13 @@ BVHBuilder::build_bvh(Scene& scene)
                 uint32_t triangle_count_arg = triangle_count;
                 int32_t last_pass = level+treelet_levels >= 3*M_AXIS_BITS;
                 if (node_build.set_arg(0, node_map_mem) || 
-                    node_build.set_arg(1, segment_map_mem) || 
-                    node_build.set_arg(2, segment_heads_mem) || 
-                    node_build.set_arg(3, sizeof(cl_uint), &triangle_count_arg)||
-                    node_build.set_arg(4, triangles_mem) || 
-                    node_build.set_arg(5, morton_mem) || 
-                    node_build.set_arg(6, treelets_mem) || 
-                    node_build.set_arg(7, sizeof(cl_uint), &node_count)||
-                    node_build.set_arg(8, node_offsets_mem) || 
-                    node_build.set_arg(9, nodes_mem) ||
-                    node_build.set_arg(10, sizeof(cl_int), &last_pass)) {
+                    node_build.set_arg(1, segment_heads_mem) || 
+                    node_build.set_arg(2, sizeof(cl_uint), &triangle_count_arg)||
+                    node_build.set_arg(3, treelets_mem) || 
+                    node_build.set_arg(4, sizeof(cl_uint), &node_count)||
+                    node_build.set_arg(5, node_offsets_mem) || 
+                    node_build.set_arg(6, nodes_mem) ||
+                    node_build.set_arg(7, sizeof(cl_int), &last_pass)) {
                         return -1;
                 }
                 if (node_build.enqueue_single_dim(segment_count)) {

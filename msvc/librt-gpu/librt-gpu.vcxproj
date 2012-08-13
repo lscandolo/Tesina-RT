@@ -74,14 +74,21 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\src\gpu\function-library.cpp" />
     <ClCompile Include="..\..\src\gpu\function.cpp" />
     <ClCompile Include="..\..\src\gpu\interface.cpp" />
     <ClCompile Include="..\..\src\gpu\memory.cpp" />
+    <ClCompile Include="..\..\src\gpu\scan.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\include\gpu\function-library.hpp" />
     <ClInclude Include="..\..\include\gpu\function.hpp" />
     <ClInclude Include="..\..\include\gpu\interface.hpp" />
     <ClInclude Include="..\..\include\gpu\memory.hpp" />
+    <ClInclude Include="..\..\include\gpu\scan.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\src\kernel\scan.cl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

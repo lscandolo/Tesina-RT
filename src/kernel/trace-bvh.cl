@@ -280,6 +280,7 @@ leaf_hit(RayHit* best_info,
          Ray ray){
 
         for (int i = node.start_index; i < node.end_index; ++i) {
+
                 int triangle = i;
 
                 float3 p = ray.ori.xyz;

@@ -38,10 +38,22 @@
     <None Include="..\..\src\kernel\secondary-ray-generator.cl">
       <Filter>Resource Files</Filter>
     </None>
-    <None Include="..\..\src\kernel\shadow-trace.cl">
+    <None Include="..\..\src\kernel\trace-bvh.cl">
       <Filter>Resource Files</Filter>
     </None>
-    <None Include="..\..\src\kernel\trace.cl">
+    <None Include="..\..\src\kernel\trace-kdt.cl">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\..\src\kernel\bvh-builder.cl">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\..\src\kernel\bvh-builder-sort.cl">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\..\src\kernel\shadow-trace-bvh.cl">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\..\src\kernel\shadow-trace-kdt.cl">
       <Filter>Resource Files</Filter>
     </None>
   </ItemGroup>

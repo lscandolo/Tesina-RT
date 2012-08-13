@@ -1,6 +1,8 @@
 #ifndef OPENCL_INIT_HPP
 #define OPENCL_INIT_HPP
 
+#define CL_USE_DEPRECATED_OPENCL_1_1_APIS //For new amd app drivers
+
 #include <cl-gl/opengl-init.hpp>
 
 #ifdef _WIN32

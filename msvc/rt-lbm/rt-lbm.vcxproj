@@ -57,7 +57,7 @@
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>boltzmann.lib;FreeImagePlus.lib;glut64.lib;GLEW64.lib;librt-clgl.lib;librt-gpu.lib;librt-primitives.lib;OpenCL.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>boltzmann.lib;FreeImagePlus.lib;glut64.lib;GLEW64.lib;librt-misc.lib;librt-clgl.lib;librt-gpu.lib;librt-primitives.lib;OpenCL.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(CL_ROOT)/lib/x86_64;../../lib;../../deps;$(SolutionDir)$(Platform)\$(Configuration)\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -71,7 +71,7 @@
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>boltzmann.lib;FreeImagePlus.lib;glut32.lib;GLEW32.lib;librt-clgl.lib;librt-gpu.lib;librt-primitives.lib;OpenCL.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>boltzmann.lib;FreeImagePlus.lib;glut32.lib;GLEW32.lib;librt-misc.lib;librt-clgl.lib;librt-gpu.lib;librt-primitives.lib;OpenCL.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(CL_ROOT)/lib/x86;../../lib;../../deps/x86;$(SolutionDir)$(Platform)\$(Configuration)\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>

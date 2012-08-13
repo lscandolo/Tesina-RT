@@ -7,6 +7,8 @@
 #include <string>
 #include <sstream>
 
+#include <cstdint>
+
 #include <misc/log.hpp>
 #include <misc/ini.hpp>
 #include <gpu/interface.hpp>

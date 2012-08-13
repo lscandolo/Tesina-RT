@@ -24,6 +24,12 @@
     <ClCompile Include="..\..\src\gpu\memory.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\gpu\function-library.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\gpu\scan.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\include\gpu\function.hpp">
@@ -35,5 +41,16 @@
     <ClInclude Include="..\..\include\gpu\memory.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\include\gpu\function-library.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\gpu\scan.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\src\kernel\scan.cl">
+      <Filter>Resource Files</Filter>
+    </None>
   </ItemGroup>
 </Project>

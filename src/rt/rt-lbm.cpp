@@ -20,7 +20,8 @@ extern "C" {
         int __declspec(dllimport) __stdcall LBM_getHeight();
 }
 
-int32_t MAX_BOUNCE = 5
+int32_t MAX_BOUNCE = 5;
+int32_t GPU_BVH_BUILD = 0;
 #define WAVE_HEIGHT 0.3
 
 void rainEvent();
@@ -33,6 +34,7 @@ int loging_state = 0;
 DeviceInterface& device = *DeviceInterface::instance();
 memory_id tex_id;
 mesh_id   grid_id;
+mesh_id   boat_mesh_id;
 object_id boat_id;
 
 RayBundle             ray_bundle_1,ray_bundle_2;
@@ -44,6 +46,7 @@ RayShader             ray_shader;
 Cubemap               cubemap;
 FrameBuffer           framebuffer;
 Tracer                tracer;
+BVHBuilder            bvh_builder;
 Camera                camera;
 
 GLuint gl_tex;
@@ -102,6 +105,9 @@ void gl_key(unsigned char key, int x, int y)
 		std::cout << std::endl << "Exiting..." << std::endl;
 		exit(1);
 		break;
+    case 'b':
+        rt_log.silent = !rt_log.silent;
+        break;
 	case 'l':
 		if (rt_log.initialize("rt-lbm-log")){
 			std::cerr << "Error initializing log!" << std::endl;
@@ -112,22 +118,26 @@ void gl_key(unsigned char key, int x, int y)
         case 'u':
                 boat_pos[2] += 1.f;
                 boat_obj.geom.setPos(boat_pos);
-                scene.update_bvh_roots();
+                scene.update_mesh_vertices(boat_mesh_id);
+                //scene.update_bvh_roots();
                 break;
         case 'j':
                 boat_pos[2] -= 1.f;
                 boat_obj.geom.setPos(boat_pos);
-                scene.update_bvh_roots();
+                scene.update_mesh_vertices(boat_mesh_id);
+                //scene.update_bvh_roots();
                 break;
         case 'h':
                 boat_pos[0] -= 1.f;
                 boat_obj.geom.setPos(boat_pos);
-                scene.update_bvh_roots();
+                scene.update_mesh_vertices(boat_mesh_id);
+                //scene.update_bvh_roots();
                 break;
         case 'k':
                 boat_pos[0] += 1.f;
                 boat_obj.geom.setPos(boat_pos);
-                scene.update_bvh_roots();
+                scene.update_mesh_vertices(boat_mesh_id);
+                //scene.update_bvh_roots();
                 break;
         case 'r':
 		LBM_addEvent(50,50,53,53,0.035f);
@@ -156,7 +166,8 @@ void gl_loop()
 	static int dir = 1;
 	static int total_ray_count = 0;
 
-	double prim_gen_time = 0;
+    double bvh_build_time = 0;
+    double prim_gen_time = 0;
 	double sec_gen_time = 0;
 	double prim_trace_time = 0;
 	double sec_trace_time = 0;
@@ -223,7 +234,7 @@ void gl_loop()
 	LBM_update();
 	/////
 	Mesh& mesh = scene.get_mesh(grid_id);
-        for (size_t v = 0; v < mesh.vertexCount(); ++ v) {
+    for (size_t v = 0; v < mesh.vertexCount(); ++ v) {
 		Vertex& vert = mesh.vertex(v);
 		float x = (vert.position.s[0] - 5.f)/10.f;
 		float z = (vert.position.s[2] - 5.f)/10.f;
@@ -259,13 +270,23 @@ void gl_loop()
 		if (fabsf(y) > WAVE_HEIGHT)
 			std::cerr << "y: " << y << std::endl;
 	}
-        scene.update_mesh_vertices(grid_id);
-		
-        /*--------------------------------------*/
+    scene.update_mesh_vertices(grid_id);
+
+    /*--------------------------------------*/
         double mangle_time = mangle_timer.msec_since_snap();
         //std::cerr << "Simulation time: "  << mangle_time << " msec." << std::endl;
         last_mangler_arg = mangler_arg;
 	
+
+        if (GPU_BVH_BUILD) {
+                if (bvh_builder.build_bvh(scene)) {
+                        std::cout << "BVH builder failed." << std::endl;
+                        pause_and_exit(1);
+                }
+                bvh_build_time = bvh_builder.get_exec_time();
+        }
+
+
         directional_light_cl light;
         light.set_dir(0.05f * (arg - 8.f) , -0.6f, 0.2f);
         //light.set_color(0.05f * (fabsf(arg)) + 0.1f, 0.2f, 0.05f * fabsf(arg+4.f));
@@ -414,7 +435,8 @@ void gl_loop()
         rt_time.snap_time();
         total_ray_count = 0;
 
-        rt_log << "\nPrim Gen time: \t" << prim_gen_time  << std::endl;
+        rt_log << "\nBVH Build time:\t" << bvh_build_time << std::endl;
+        rt_log << "Prim Gen time: \t" << prim_gen_time  << std::endl;
         rt_log << "Sec Gen time: \t" << sec_gen_time << std::endl;
         rt_log << "Tracer time: \t" << prim_trace_time + sec_trace_time  
                << " (" <<  prim_trace_time << " - " << sec_trace_time 
@@ -483,8 +505,11 @@ int main (int argc, char** argv)
 		pause_and_exit(1);
 	}
 
-	/*---------------------- Initialize lbm simulator ----------------------*/
-        LBM_initialize(GRID_SIZE_X, GRID_SIZE_Y, 0.05f, 0.7f);
+    /* Initialize generic gpu library */
+    DeviceFunctionLibrary::initialize(clinfo);
+
+    /*---------------------- Initialize lbm simulator ----------------------*/
+    LBM_initialize(GRID_SIZE_X, GRID_SIZE_Y, 0.05f, 0.7f);
         //LBM_initialize(GRID_SIZE_X, GRID_SIZE_Y, 0.05f, 0.77f);
 	//LBM_initialize(GRID_SIZE_X, GRID_SIZE_Y, 0.01f, 0.2f);
 
@@ -504,6 +529,14 @@ int main (int argc, char** argv)
 	}
 	std::cout << "Initialized scene succesfully." << std::endl;
     scene.set_accelerator_type(BVH_ACCELERATOR);
+    if (GPU_BVH_BUILD) {
+            if (bvh_builder.initialize(clinfo)) {
+                    std::cerr << "Failed to initialize bvh builder" << std::endl;
+                    pause_and_exit(1);
+            } else {
+                    std::cout << "Initialized bvh builder succesfully" << std::endl;
+            }
+    }
 
     mesh_id floor_mesh_id = scene.load_obj_file_as_aggregate("models/obj/grid100.obj");
     object_id floor_obj_id  = scene.add_object(floor_mesh_id);
@@ -517,10 +550,11 @@ int main (int argc, char** argv)
     vec3 slack = makeVector(0.f,WAVE_HEIGHT,0.f);
     scene.get_mesh(floor_mesh_id).set_global_slack(slack);
 
-        mesh_id boat_mesh_id = scene.load_obj_file_as_aggregate("models/obj/frame_boat1.obj");
+        boat_mesh_id = scene.load_obj_file_as_aggregate("models/obj/frame_boat1.obj");
         object_id boat_obj_id = scene.add_object(boat_mesh_id);
         Object& boat_obj = scene.object(boat_obj_id);
         boat_id = boat_obj_id; 
+        //boat_obj.geom.setPos(makeVector(0.f,-9.f,0.f));
         boat_obj.geom.setPos(makeVector(0.f,-9.f,0.f));
         boat_obj.geom.setRpy(makeVector(0.0f,0.f,0.f));
         boat_obj.geom.setScale(2.f);
@@ -528,26 +562,80 @@ int main (int argc, char** argv)
         boat_obj.mat.shininess = 0.3f;
         boat_obj.mat.reflectiveness = 0.0f;
 
-        if (scene.create_bvhs()) {
-                std::cerr << "Failed to create bvhs." << std::endl;
+         if (scene.create_aggregate_mesh()) { 
+                std::cerr << "Failed to create aggregate mesh" << std::endl;
                 pause_and_exit(1);
-        }
-        std::cout << "Created bvhs" << std::endl;
-    
-        if (scene.transfer_meshes_to_device()) {
-                std::cerr << "Failed to transfer meshes to device." 
-                          << std::endl;
-                pause_and_exit(1);
-        }
-        std::cout << "Transfered meshes to device" << std::endl;
+         } else {
+                 std::cout << "Created aggregate mesh succesfully" << std::endl;
+         }
 
-        if (scene.transfer_bvhs_to_device()) {
-                std::cerr << "Failed to transfer bvhs to device." 
-                          << std::endl;
-                pause_and_exit(1);
-        }
-        std::cout << "Transfered bvhs to device" << std::endl;
-        grid_id = floor_mesh_id;
+         scene.set_accelerator_type(BVH_ACCELERATOR);
+
+         clinfo.set_sync(false);
+
+         if (GPU_BVH_BUILD) {
+                 if (scene.transfer_aggregate_mesh_to_device()) {
+                         std::cerr << "Failed to transfer aggregate mesh to device memory" 
+                                   << std::endl;
+                         pause_and_exit(1);
+                 } else {
+                         std::cout << "Transfered aggregate mesh to device succesfully" 
+                                   << std::endl;
+                 }
+
+                 if (bvh_builder.build_bvh(scene)) {
+                         std::cout << "BVH builder failed." << std::endl;
+                         pause_and_exit(1);
+                 }
+
+         } else {
+
+                 if (scene.create_aggregate_accelerator()) {
+                         std::cerr << "Failed to create aggregate accelerator" << std::endl;
+                         pause_and_exit(1);
+                 } else {
+                         std::cout << "Created aggregate accelerator succesfully" << std::endl;
+                 }
+
+                 if (scene.transfer_aggregate_mesh_to_device()) {
+                         std::cerr << "Failed to transfer aggregate mesh to device memory" 
+                                   << std::endl;
+                         pause_and_exit(1);
+                 } else {
+                         std::cout << "Transfered aggregate mesh to device succesfully" 
+                                   << std::endl;
+                 }
+
+                 if (scene.transfer_aggregate_accelerator_to_device()) {
+                         std::cerr << "Failed to transfer aggregate accelerator to device memory" 
+                                   << std::endl;
+                         pause_and_exit(1);
+                 } else {
+                         std::cout << "Transfered aggregate accelerator to device succesfully" 
+                                   << std::endl;
+                 }
+         }
+
+         //if (scene.create_bvhs()) {
+        //        std::cerr << "Failed to create bvhs." << std::endl;
+        //        pause_and_exit(1);
+        //}
+        //std::cout << "Created bvhs" << std::endl;
+    
+        //if (scene.transfer_meshes_to_device()) {
+        //        std::cerr << "Failed to transfer meshes to device." 
+        //                  << std::endl;
+        //        pause_and_exit(1);
+        //}
+        //std::cout << "Transfered meshes to device" << std::endl;
+
+        //if (scene.transfer_bvhs_to_device()) {
+        //        std::cerr << "Failed to transfer bvhs to device." 
+        //                  << std::endl;
+        //        pause_and_exit(1);
+        //}
+        //std::cout << "Transfered bvhs to device" << std::endl;
+        //grid_id = floor_mesh_id;
 
 	/*---------------------- Set initial Camera paramaters -----------------------*/
 	camera.set(makeVector(0,3,-30), makeVector(0,0,1), makeVector(0,1,0), M_PI/4.,
@@ -646,10 +734,10 @@ int main (int argc, char** argv)
 	ray_shader.timing(true);
 
 	/*---------------------- Print scene data ----------------------*/
-	//Mesh& scene_mesh = scene.get_aggregate_mesh();
-	//std::cerr << "\nScene stats: " << std::endl;
-	//std::cerr << "\tTriangle count: " << scene_mesh.triangleCount() << std::endl;
-	//std::cerr << "\tVertex count: " << scene_mesh.vertexCount() << std::endl;
+	Mesh& scene_mesh = scene.get_aggregate_mesh();
+	std::cerr << "\nScene stats: " << std::endl;
+	std::cerr << "\tTriangle count: " << scene_mesh.triangleCount() << std::endl;
+	std::cerr << "\tVertex count: " << scene_mesh.vertexCount() << std::endl;
 
 	/*------------------------- Count mem usage -----------------------------------*/
 	size_t total_cl_mem = 0;
