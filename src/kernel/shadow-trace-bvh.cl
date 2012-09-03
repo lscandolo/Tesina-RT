@@ -75,6 +75,11 @@ typedef struct {
 
 typedef float3 Color;
 
+typedef enum {
+        SPOT_L = 0,
+        DIR_L = 1
+} light_type;
+
 typedef struct {
 
 	float3 dir;
@@ -82,9 +87,27 @@ typedef struct {
 } DirectionalLight;
 
 typedef struct {
+        float3 pos;
+        float  radius;
+        float  angle;
+	float3 dir;
+	Color  color;
+} SpotLight;
+
+typedef struct {
+
+        light_type type;
+        union {
+                DirectionalLight directional;
+                SpotLight spot;
+        };
+
+} Light;
+
+typedef struct {
 	
 	Color ambient;
-	DirectionalLight directional;
+	Light light;
 
 } Lights;
 
@@ -314,7 +337,20 @@ shadow_trace_multi(global SampleTraceInfo* trace_info,
 	Ray ray;
         ray.ori = original_ray.ori + original_ray.dir * info.t;
         ray.ori = info.hit_point;
-	ray.dir = -lights->directional.dir;
+
+        if (lights->light.type == DIR_L) {
+                ray.dir = -lights->light.directional.dir;
+        } else if (lights->light.type == SPOT_L) {
+                ray.dir = normalize(lights->light.spot.pos - ray.ori);
+                if (dot(ray.dir,lights->light.spot.dir) < lights->light.spot.angle) {
+                        trace_info[index].shadow_hit = false;
+                        return;
+                }
+                
+        } else {
+                trace_info[index].shadow_hit = false;
+                return;
+        }
 	ray.invDir = 1.f/ray.dir;
   	ray.tMin = 0.01f; ray.tMax = 1e37f;
 
@@ -355,10 +391,23 @@ shadow_trace_single(global SampleTraceInfo* trace_info,
 	}
 
 	Ray ray;
-        ray.ori = original_ray.ori + original_ray.dir * info.t;
+        /* ray.ori = original_ray.ori + original_ray.dir * info.t; */
         ray.ori = info.hit_point;
-	ray.dir = -lights->directional.dir;
-	ray.invDir = 1.f/ray.dir;
+
+        if (lights->light.type == DIR_L) {
+                ray.dir = -lights->light.directional.dir;
+        } else if (lights->light.type == SPOT_L) {
+                ray.dir = normalize(lights->light.spot.pos - ray.ori);
+                if (dot(-ray.dir,lights->light.spot.dir) < lights->light.spot.angle) {
+                        trace_info[index].shadow_hit = true;
+                        return;
+                }
+        } else {
+                trace_info[index].shadow_hit = true;
+                return;
+        }
+
+        ray.invDir = 1.f/ray.dir;
   	ray.tMin = 0.01f; ray.tMax = 1e37f;
 
         trace_info[index].shadow_hit = trace_shadow_ray(ray, 

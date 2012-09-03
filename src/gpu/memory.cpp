@@ -238,8 +238,8 @@ DeviceMemory::release()
                 return -1;
 
         cl_int err;
-        err = clReleaseMemObject(m_mem);
-	if (error_cl(err, "clReleaseMemObject"))
+        err = clReleaseMemObject(m_mem);	
+        if (error_cl(err, "clReleaseMemObject"))
 	    return -1;
         m_initialized = false;
         return 0;

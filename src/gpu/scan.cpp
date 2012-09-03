@@ -62,7 +62,6 @@ int32_t gpu_scan_uint(DeviceInterface& device,
 
         remaining_size = size;
 
-
         do {
                 DeviceMemory& in_mem =  device.memory(in_id);
                 DeviceMemory& sum_mem = device.memory(sum_id);
@@ -159,5 +158,3 @@ int32_t gpu_scan_uint(DeviceInterface& device,
 
         return 0;
 }
-
-

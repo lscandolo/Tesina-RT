@@ -7,7 +7,7 @@
 #include <string>
 #include <sstream>
 
-#include <cstdint>
+#include <stdint.h>
 
 #include <misc/log.hpp>
 #include <misc/ini.hpp>

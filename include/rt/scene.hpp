@@ -95,6 +95,7 @@ public:
 
         /* Ligthing methods */
         int32_t set_dir_light(const directional_light_cl& dl);
+        int32_t set_spot_light(const spot_light_cl& sp);
         int32_t set_ambient_light(const color_cl& color);
 
         /* File load methods */

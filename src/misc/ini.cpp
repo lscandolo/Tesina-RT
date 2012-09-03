@@ -60,7 +60,7 @@ INIReader::load_file(std::string filename)
                         return -line_number;
                 }
                 std::string name = line.substr(0, eq_pos);
-                std::string val  = line.substr(eq_pos+1, val.length() - eq_pos - 1);
+                std::string val  = line.substr(eq_pos+1, line.length() - eq_pos - 1);
 
                 remove_excess_spaces(name);
                 remove_excess_spaces(val);

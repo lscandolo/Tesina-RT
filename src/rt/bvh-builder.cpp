@@ -387,7 +387,8 @@ BVHBuilder::build_bvh(Scene& scene)
         double node_build_time = 0;
         double node_offset_scan_time = 0;
         double segment_offset_scan_time = 0;
-
+        double maps_init_time = 0;
+        double buffer_release_time = 0;
 
         partial_timer.snap_time();
 
@@ -512,6 +513,7 @@ BVHBuilder::build_bvh(Scene& scene)
                         // std::cout << "Segment map initialized" << std::endl;
                 } 
 
+                node_time.snap_time();
                 /*Determine number of segments*/
                 uint32_t segment_count;
                 if (segment_map_mem.read(sizeof(cl_uint), &segment_count, 
@@ -571,6 +573,8 @@ BVHBuilder::build_bvh(Scene& scene)
                 }
                 device.enqueue_barrier();
                 // std::cout << "Treelets initialized" << std::endl;
+                maps_init_time += node_time.msec_since_snap();
+
                 
                 node_time.snap_time();
                 /*Create treelets*/
@@ -610,6 +614,8 @@ BVHBuilder::build_bvh(Scene& scene)
                 if (node_counter.enqueue_single_dim(segment_count)) {
                         return -1;
                 }
+                device.enqueue_barrier();
+
                 node_count_time += node_time.msec_since_snap();
                 // std::cout << "Node counts set" << std::endl;
 
@@ -621,13 +627,14 @@ BVHBuilder::build_bvh(Scene& scene)
                         return -1;
                 }
 
-                node_offset_scan_time += node_time.msec_since_snap();
 
                 uint32_t new_node_count;
                 if (node_offsets_mem.read(sizeof(cl_uint), &new_node_count,
                                           sizeof(cl_uint) * segment_count)) {
                         return -1;
                 }
+                device.enqueue_barrier();
+                node_offset_scan_time += node_time.msec_since_snap();
                 // std::cout << "Node offsets computed" << std::endl;
                 // std::cout << "New node count: " << new_node_count << std::endl;
                 
@@ -655,28 +662,37 @@ BVHBuilder::build_bvh(Scene& scene)
                 
                 node_build_time += node_time.msec_since_snap();
 
+                node_time.snap_time();
                 /* Release segment heads memory */
                 if (segment_heads_mem.release() || 
-                    treelets_mem.release() || 
-                    node_offsets_mem.release() || 
+                    treelets_mem.release()      || 
+                    node_offsets_mem.release()  || 
                     node_count_mem.release()) {
                         return -1;
                 }
+                buffer_release_time += node_time.msec_since_snap();
 
                 node_count += new_node_count;
                 // std::cout <<  "Finished level " << level << std::endl;
         }
+
+        node_time.snap_time();
         if (segment_map_mem.release() || 
             node_map_mem.release())
                 return -1;
+        buffer_release_time += node_time.msec_since_snap();
 
         // device.finish_commands();
-        partial_time_ms = partial_timer.msec_since_snap();
-        if (log_partial_time)
+        if (log_partial_time) {
+                device.finish_commands();
+                partial_time_ms = partial_timer.msec_since_snap();
                 std::cout << "bvh emmission time: " << partial_time_ms << " ms" <<std::endl;
+        }
 
         if (log_partial_time) {
                 std::cout << "segment offset scan time: " << segment_offset_scan_time 
+                          << std::endl;
+                std::cout << "maps init time: " << maps_init_time 
                           << std::endl;
                 std::cout << "treelet build time: " << treelet_build_time 
                           << std::endl;
@@ -685,6 +701,8 @@ BVHBuilder::build_bvh(Scene& scene)
                 std::cout << "node offset scan time: " << node_offset_scan_time 
                           << std::endl;
                 std::cout << "node build time: " << node_build_time 
+                          << std::endl;
+                std::cout << "buffer release time: " << buffer_release_time 
                           << std::endl;
         }
 

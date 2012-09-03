@@ -875,11 +875,31 @@ Scene::set_dir_light(const directional_light_cl& dl)
         if (!m_initialized)
                 return -1;
 
-	lights.directional = dl;
+        lights.light.type = DIR_L;
+	lights.light.directional = dl;
 
 	vec3 vdl = float3_to_vec3(dl.dir);
 	vdl.normalize();
-	lights.directional.dir = vec3_to_float3(vdl);
+	lights.light.directional.dir = vec3_to_float3(vdl);
+
+        DeviceInterface& device = *DeviceInterface::instance();
+        DeviceMemory& light_mem = device.memory(lights_id);
+
+        return light_mem.write(sizeof(lights_cl), &lights);
+}
+
+int32_t
+Scene::set_spot_light(const spot_light_cl& sp)
+{
+        if (!m_initialized)
+                return -1;
+
+        lights.light.type = SPOT_L;
+	lights.light.spot = sp;
+
+	vec3 vsp = float3_to_vec3(sp.dir);
+	vsp.normalize();
+	lights.light.spot.dir = vec3_to_float3(vsp);
 
         DeviceInterface& device = *DeviceInterface::instance();
         DeviceMemory& light_mem = device.memory(lights_id);

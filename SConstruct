@@ -10,8 +10,8 @@ VariantDir('build/gpu', 'src/gpu', duplicate=0)
 env = Environment(ENV = os.environ)
 env.AppendENVPath('PATH', extra_path)
 
-env.Append(CCFLAGS = '-g -Wall -O3')
-# env.Append(CCFLAGS = '-g -Wall ')
+# env.Append(CCFLAGS = '-g -Wall -O3')
+env.Append(CCFLAGS = '-g -Wall ')
 
 env.Replace(CXX = 'llvm-clang')
 

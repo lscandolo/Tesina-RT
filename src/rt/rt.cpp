@@ -6,9 +6,6 @@
 #include <cl-gl/opencl-init.hpp>
 #include <rt/rt.hpp>
 
-// #include <gpu/scan.hpp> //!!
-
-
 #define TOTAL_STATS_TO_LOG 12
 #define CONF_STATS_TO_LOG  4
 
@@ -81,36 +78,36 @@ int  stats_logged = 0;
  //                           makeVector(-0.329182, -0.636949, -0.697091) };
 
 //fairy
- //vec3 stats_camera_pos[] = {makeVector(-0.118154, 0.417017, 1.14433) ,
- //                           makeVector(-0.464505, 0.717691, 0.279553) ,
- //                           makeVector(0.560874, 3.02102, 2.22842) };
- //vec3 stats_camera_dir[] = {makeVector(0.0700268, -0.095778, -0.992936),
- //                           makeVector(0.666486, -0.576098, -0.473188) ,
- //                           makeVector(-0.149838, -0.788657, -0.596295) };
+// vec3 stats_camera_pos[] = {makeVector(-0.118154, 0.417017, 1.14433) ,
+//                           makeVector(-0.464505, 0.717691, 0.279553) ,
+//                           makeVector(0.560874, 3.02102, 2.22842) };
+// vec3 stats_camera_dir[] = {makeVector(0.0700268, -0.095778, -0.992936),
+//                           makeVector(0.666486, -0.576098, -0.473188) ,
+//                           makeVector(-0.149838, -0.788657, -0.596295) };
 
 ///Boat
- //vec3 stats_camera_pos[] = {makeVector(20.0186, -5.49632, 71.8718) ,
- //                           makeVector(-56.9387, -2.41959, 29.574) ,
- //                           makeVector(68.6859, 5.18034, 13.6691) };
- //vec3 stats_camera_dir[] = {makeVector(0.131732, 0.0845093, -0.987677),
- //                           makeVector(0.927574, -0.22893, -0.295292) ,
- //                           makeVector(-0.820819, -0.478219, -0.31235) };
+vec3 stats_camera_pos[] = {makeVector(20.0186, -5.49632, 71.8718) ,
+                           makeVector(-56.9387, -2.41959, 29.574) ,
+                           makeVector(68.6859, 5.18034, 13.6691) };
+vec3 stats_camera_dir[] = {makeVector(0.131732, 0.0845093, -0.987677),
+                           makeVector(0.927574, -0.22893, -0.295292) ,
+                           makeVector(-0.820819, -0.478219, -0.31235) };
 
 //dragon
- //vec3 stats_camera_pos[] = {makeVector(-39.9102, 9.42978, 55.1501) ,
+ // vec3 stats_camera_pos[] = {makeVector(-39.9102, 9.42978, 55.1501) ,
  //                           makeVector(-1.1457, -0.774464, 49.4609) ,
  //                           makeVector(16.6885, 22.435, 25.0718) };
- //vec3 stats_camera_dir[] = {makeVector(0.558171, -0.165305, -0.813093),
+ // vec3 stats_camera_dir[] = {makeVector(0.558171, -0.165305, -0.813093),
  //                           makeVector(-0.00931118, -0.14159, -0.989882) ,
  //                           makeVector(-0.402962, -0.631356, -0.66258) };
 
 ///Buddha
-vec3 stats_camera_pos[] = {makeVector(0.741773, -1.754, 4.95699) ,
-                           makeVector(-56.9387, -2.41959, 29.574) ,
-                           makeVector(68.6859, 5.18034, 13.6691) };
-vec3 stats_camera_dir[] = {makeVector(-0.179715, -0.0878783, -0.979786),
-                           makeVector(0.927574, -0.22893, -0.295292) ,
-                           makeVector(-0.820819, -0.478219, -0.31235) };
+// vec3 stats_camera_pos[] = {makeVector(0.741773, -1.754, 4.95699) ,
+//                            makeVector(-56.9387, -2.41959, 29.574) ,
+//                            makeVector(68.6859, 5.18034, 13.6691) };
+// vec3 stats_camera_dir[] = {makeVector(-0.179715, -0.0878783, -0.979786),
+//                            makeVector(0.927574, -0.22893, -0.295292) ,
+//                            makeVector(-0.820819, -0.478219, -0.31235) };
 
 
 #define STEPS 16
@@ -209,7 +206,6 @@ void gl_key(unsigned char key, int x, int y)
                 stats_logged = 0;
                 break;
         case 'l':
-                clinfo.set_sync(true);
                 if (logged)
                         break;
                 rt_log.silent = true;
@@ -303,10 +299,18 @@ void gl_loop()
         directional_light_cl light;
         light.set_dir(0.05f,-1.f,-0.02f);
         // light.set_dir(0.05f,-1.f,-1.9f);
-        light.set_color(1.f,1.f,1.f);
+        light.set_color(0.7f,0.7f,0.7f);
         scene.set_dir_light(light);
+
+        // spot_light_cl spot;
+        // spot.set_dir(0.05f,-1.f,-0.02f);
+        // spot.set_pos(0.0f,15.f,0.0f);
+        // spot.set_angle(M_PI/4.f);
+        // spot.set_color(0.7f,0.7f,0.7f);
+        // scene.set_spot_light(spot);
+
         color_cl ambient;
-        ambient[0] = ambient[1] = ambient[2] = 0.1f;
+        ambient[0] = ambient[1] = ambient[2] = 0.2f;
         scene.set_ambient_light(ambient);
 
         if (logging) {
@@ -587,7 +591,7 @@ int main (int argc, char** argv)
 
         /*---------------------- Initialize OpenGL and OpenCL ----------------------*/
 
-        if (rt_log.initialize("rt-log-buddha")){
+        if (rt_log.initialize("rt-log-boat")){
                 std::cerr << "Error initializing log!" << std::endl;
         }
 
@@ -771,20 +775,20 @@ int main (int argc, char** argv)
          //scene.load_obj_file_and_make_objs("models/obj/ben/ben_00.obj");
 
         //// Fairy
-         //scene.load_obj_file_and_make_objs("models/obj/fairy_forest/f000.obj");
+        // scene.load_obj_file_and_make_objs("models/obj/fairy_forest/f000.obj");
 
         //// Boat
-        //mesh_id floor_mesh_id = 
-        //        scene.load_obj_file_as_aggregate("models/obj/frame_water1.obj");
-        //        // scene.load_obj_file_as_aggregate("models/obj/grid100.obj");
-        //object_id floor_obj_id  = scene.add_object(floor_mesh_id);
-        //Object& floor_obj = scene.object(floor_obj_id);
-        //floor_obj.geom.setScale(2.f);
-        //floor_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
-        //floor_obj.mat.diffuse = White;
-        //// floor_obj.mat.diffuse = Blue;
-        //floor_obj.mat.reflectiveness = 0.98f;
-        //floor_obj.mat.refractive_index = 1.333f;
+        // mesh_id floor_mesh_id = 
+        //        // scene.load_obj_file_as_aggregate("models/obj/frame_water1.obj");
+        //        scene.load_obj_file_as_aggregate("models/obj/grid200.obj");
+        // object_id floor_obj_id  = scene.add_object(floor_mesh_id);
+        // Object& floor_obj = scene.object(floor_obj_id);
+        // floor_obj.geom.setScale(2.f);
+        // floor_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
+        // floor_obj.mat.diffuse = White;
+        // floor_obj.mat.diffuse = Blue;
+        // floor_obj.mat.reflectiveness = 0.98f;
+        // floor_obj.mat.refractive_index = 1.333f;
 
         // mesh_id boat_mesh_id = 
         //         scene.load_obj_file_as_aggregate("models/obj/frame_boat1.obj");
@@ -792,10 +796,39 @@ int main (int argc, char** argv)
         // Object& boat_obj = scene.object(boat_obj_id);
         // boat_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
         // boat_obj.geom.setRpy(makeVector(0.f,0.f,0.f));
-        // boat_obj.geom.setScale(2.f);
+        // // boat_obj.geom.setScale(2.f);
+        // boat_obj.geom.setScale(0.005f);
         // boat_obj.mat.diffuse = Red;
         // boat_obj.mat.shininess = 1.f;
         // boat_obj.mat.reflectiveness = 0.0f;
+
+
+        ///// NEW BOAT
+        std::vector<mesh_id> boat_parts =  scene.load_obj_file(
+                // "models/obj/NYERSEY/NYERSEY.obj");
+                "models/obj/ROMANSHP/ROMANSHP2.obj");
+        std::vector<object_id> boat_ids = scene.add_objects(boat_parts);
+        for (int i = 0 ; i < boat_parts.size(); ++i){ 
+                Object& part = scene.object(boat_ids[i]);
+                part.geom.setScale(0.002f);
+                part.geom.setRpy(makeVector(M_PI/2.f,-M_PI/2.f,0.f));
+        }
+
+
+
+        mesh_id floor_mesh_id = 
+               scene.load_obj_file_as_aggregate("models/obj/frame_water1.obj");
+               // scene.load_obj_file_as_aggregate("models/obj/grid200.obj");
+               // scene.load_obj_file_as_aggregate("models/obj/grid100.obj");
+        object_id floor_obj_id  = scene.add_object(floor_mesh_id);
+        Object& floor_obj = scene.object(floor_obj_id);
+        floor_obj.geom.setScale(2.f);
+        floor_obj.geom.setPos(makeVector(0.f,0.f,0.f));
+        floor_obj.geom.setRpy(makeVector(0.f,0.f,M_PI/2.f));
+        floor_obj.mat.diffuse = White;
+        floor_obj.mat.reflectiveness = 0.f;
+        // floor_obj.mat.reflectiveness = 0.95f;
+        floor_obj.mat.refractive_index = 1.333f;
 
         /// Dragon
          //mesh_id floor_mesh_id = 
@@ -822,27 +855,27 @@ int main (int argc, char** argv)
           //dragon_obj.mat.reflectiveness = 0.7f;
 
         //// Buddha
-         std::vector<mesh_id> box_meshes = 
-                 scene.load_obj_file("models/obj/box-no-ceil.obj");
-         std::vector<object_id> box_objs = scene.add_objects(box_meshes);
+         // std::vector<mesh_id> box_meshes = 
+         //         scene.load_obj_file("models/obj/box-no-ceil.obj");
+         // std::vector<object_id> box_objs = scene.add_objects(box_meshes);
 
-         for (uint32_t i = 0; i < box_objs.size(); ++i) {
-                 Object& obj = scene.object(box_objs[i]);
-                 obj.geom.setRpy(makeVector(0.f,0.f,0.4f));
-                 if (obj.mat.texture > 0)
-                         obj.mat.reflectiveness = 0.8f;
-                 // obj.geom.setPos(makeVector(0.f,-30.f,0.f));
-         }
+         // for (uint32_t i = 0; i < box_objs.size(); ++i) {
+         //         Object& obj = scene.object(box_objs[i]);
+         //         obj.geom.setRpy(makeVector(0.f,0.f,0.4f));
+         //         if (obj.mat.texture > 0)
+         //                 obj.mat.reflectiveness = 0.8f;
+         //         // obj.geom.setPos(makeVector(0.f,-30.f,0.f));
+         // }
 
-          mesh_id buddha_mesh_id = 
-                  scene.load_obj_file_as_aggregate("models/obj/buddha.obj");
-          object_id buddha_obj_id = scene.add_object(buddha_mesh_id);
-          Object& buddha_obj = scene.object(buddha_obj_id);
-          buddha_obj.geom.setPos(makeVector(0.f,-4.f,0.f));
-          buddha_obj.geom.setRpy(makeVector(0.f,0.f,0.f));
-          buddha_obj.geom.setScale(0.3f);
-          buddha_obj.mat.diffuse = White;
-          buddha_obj.mat.shininess = 1.f;
+         //  mesh_id buddha_mesh_id = 
+         //          scene.load_obj_file_as_aggregate("models/obj/buddha.obj");
+         //  object_id buddha_obj_id = scene.add_object(buddha_mesh_id);
+         //  Object& buddha_obj = scene.object(buddha_obj_id);
+         //  buddha_obj.geom.setPos(makeVector(0.f,-4.f,0.f));
+         //  buddha_obj.geom.setRpy(makeVector(0.f,0.f,0.f));
+         //  buddha_obj.geom.setScale(0.3f);
+         //  buddha_obj.mat.diffuse = White;
+         //  buddha_obj.mat.shininess = 1.f;
 
 
 #if 1

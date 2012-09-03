@@ -10,6 +10,11 @@ typedef struct {
 }    ColorInt;
 
 
+typedef enum {
+        SPOT_L = 0,
+        DIR_L = 1
+} light_type;
+
 typedef struct {
 
 	float3 dir;
@@ -17,10 +22,29 @@ typedef struct {
 } DirectionalLight;
 
 typedef struct {
-	
-	Color ambient;
-	DirectionalLight directional;
+        float3 pos;
+        float  radius;
+        float  angle;
+	float3 dir;
+	Color  color;
+} SpotLight;
 
+typedef struct {
+
+        light_type type;
+        union {
+                DirectionalLight directional;
+                SpotLight spot;
+        };
+
+} Light;
+
+
+typedef struct {
+        
+	Color ambient;
+	Light light;
+        
 } Lights;
 
 typedef struct
@@ -122,6 +146,11 @@ shade_sample(write_only global ColorInt* image,
 
 	const sampler_t sampler = 
 		CLK_NORMALIZED_COORDS_TRUE |
+		CLK_ADDRESS_REPEAT |
+		CLK_FILTER_LINEAR;
+
+	const sampler_t cb_sampler = 
+		CLK_NORMALIZED_COORDS_TRUE |
 		CLK_ADDRESS_CLAMP_TO_EDGE |
 		CLK_FILTER_LINEAR;
 
@@ -129,7 +158,22 @@ shade_sample(write_only global ColorInt* image,
         /* SampleTraceInfo info = trace_info[get_global_id(0)]; */
         /* Sample    sample = samples[get_global_id(0)]; */
 
-	float3 L = lights->directional.dir; 
+	float3 L;
+        float  LD;
+        float3 dir_rgb;  
+        if (lights->light.type == DIR_L) {
+                L = lights->light.directional.dir;
+                dir_rgb = lights->light.directional.color;
+                LD = 0.f;
+        }  else if (lights->light.type == SPOT_L) {
+                L = normalize(info.hit_point - lights->light.spot.pos);
+                dir_rgb = lights->light.spot.color;
+                LD = dot(L,lights->light.spot.dir) - lights->light.spot.angle;
+                LD /= 1.f - lights->light.spot.angle;
+                /* LD = pow(LD,0.5f); */
+                LD = clamp(LD,0.f,1.f);
+        }
+        dir_rgb *= LD;
 
 	float3 valrgb;
 
@@ -196,8 +240,6 @@ shade_sample(write_only global ColorInt* image,
                         diffuse_rgb = read_imagef(texture_25, sampler, info.uv).xyz;
 
 		float3 ambient_rgb = lights->ambient * diffuse_rgb;
-		float3 dir_rgb   = lights->directional.color;
-
 		valrgb = ambient_rgb;
 
 		/* If it's not in shadow, compute diffuse and specular component */
@@ -241,27 +283,27 @@ shade_sample(write_only global ColorInt* image,
 		if (sample.ray.dir.x > 0.f && in_range(x_proy.y, x_proy.z)) {
 			cm_coords.s0 = (-x_proy.z+1.f) * 0.5f;
 			cm_coords.s1 = (x_proy.y+1.f) * 0.5f;
-			valrgb = read_imagef(x_pos, sampler, cm_coords).xyz;		
+			valrgb = read_imagef(x_pos, cb_sampler, cm_coords).xyz;		
 		} else if (sample.ray.dir.x < 0.f && in_range(x_proy.y, x_proy.z)) {
 			cm_coords.s0 = (-x_proy.z+1.f) * 0.5f;
 			cm_coords.s1 = (-x_proy.y+1.f) * 0.5f;
-			valrgb = read_imagef(x_neg, sampler, cm_coords).xyz;		
+			valrgb = read_imagef(x_neg, cb_sampler, cm_coords).xyz;		
 		} else if (sample.ray.dir.y > 0.f && in_range(y_proy.x, y_proy.z)) {
 			cm_coords.s0 = (y_proy.x+1.f) * 0.5f;
 			cm_coords.s1 = (-y_proy.z+1.f) * 0.5f;
-			valrgb = read_imagef(y_pos, sampler, cm_coords).xyz;		
+			valrgb = read_imagef(y_pos, cb_sampler, cm_coords).xyz;		
 		} else if (sample.ray.dir.y < 0.f && in_range(y_proy.x, y_proy.z)) {
 			cm_coords.s0 = (-y_proy.x+1.f) * 0.5f;
 			cm_coords.s1 = (-y_proy.z+1.f) * 0.5f;
-			valrgb = read_imagef(y_neg, sampler, cm_coords).xyz;		
+			valrgb = read_imagef(y_neg, cb_sampler, cm_coords).xyz;		
 		} else if (sample.ray.dir.z > 0.f && in_range(z_proy.x, z_proy.y)) {
 			cm_coords.s0 = (z_proy.x+1.f) * 0.5f;
 			cm_coords.s1 = (z_proy.y+1.f) * 0.5f;
-			valrgb = read_imagef(z_pos, sampler, cm_coords).xyz;		
+			valrgb = read_imagef(z_pos, cb_sampler, cm_coords).xyz;		
 		} else if (sample.ray.dir.z < 0.f && in_range(z_proy.x, z_proy.y)) {
 			cm_coords.s0 = (z_proy.x+1.f) * 0.5f;
 			cm_coords.s1 = (-z_proy.y+1.f) * 0.5f;
-			valrgb = read_imagef(z_neg, sampler, cm_coords).xyz;		
+			valrgb = read_imagef(z_neg, cb_sampler, cm_coords).xyz;		
 		}
 	} else {
                 return;
