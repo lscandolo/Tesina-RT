@@ -302,12 +302,12 @@ void gl_loop()
         light.set_color(0.7f,0.7f,0.7f);
         scene.set_dir_light(light);
 
-        // spot_light_cl spot;
-        // spot.set_dir(0.05f,-1.f,-0.02f);
-        // spot.set_pos(0.0f,15.f,0.0f);
-        // spot.set_angle(M_PI/4.f);
-        // spot.set_color(0.7f,0.7f,0.7f);
-        // scene.set_spot_light(spot);
+         spot_light_cl spot;
+         spot.set_dir(0.05f,-1.f,-0.02f);
+         spot.set_pos(0.0f,15.f,0.0f);
+         spot.set_angle(M_PI/4.f);
+         spot.set_color(0.7f,0.7f,0.7f);
+         scene.set_spot_light(spot);
 
         color_cl ambient;
         ambient[0] = ambient[1] = ambient[2] = 0.2f;
@@ -778,57 +778,57 @@ int main (int argc, char** argv)
         // scene.load_obj_file_and_make_objs("models/obj/fairy_forest/f000.obj");
 
         //// Boat
-        // mesh_id floor_mesh_id = 
-        //        // scene.load_obj_file_as_aggregate("models/obj/frame_water1.obj");
-        //        scene.load_obj_file_as_aggregate("models/obj/grid200.obj");
-        // object_id floor_obj_id  = scene.add_object(floor_mesh_id);
-        // Object& floor_obj = scene.object(floor_obj_id);
-        // floor_obj.geom.setScale(2.f);
-        // floor_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
-        // floor_obj.mat.diffuse = White;
-        // floor_obj.mat.diffuse = Blue;
-        // floor_obj.mat.reflectiveness = 0.98f;
-        // floor_obj.mat.refractive_index = 1.333f;
+         mesh_id floor_mesh_id = 
+                scene.load_obj_file_as_aggregate("models/obj/frame_water1.obj");
+                //scene.load_obj_file_as_aggregate("models/obj/grid200.obj");
+         object_id floor_obj_id  = scene.add_object(floor_mesh_id);
+         Object& floor_obj = scene.object(floor_obj_id);
+         floor_obj.geom.setScale(2.f);
+         floor_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
+         floor_obj.mat.diffuse = White;
+         floor_obj.mat.diffuse = Blue;
+         floor_obj.mat.reflectiveness = 0.98f;
+         floor_obj.mat.refractive_index = 1.333f;
 
-        // mesh_id boat_mesh_id = 
-        //         scene.load_obj_file_as_aggregate("models/obj/frame_boat1.obj");
-        // object_id boat_obj_id = scene.add_object(boat_mesh_id);
-        // Object& boat_obj = scene.object(boat_obj_id);
-        // boat_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
-        // boat_obj.geom.setRpy(makeVector(0.f,0.f,0.f));
-        // // boat_obj.geom.setScale(2.f);
-        // boat_obj.geom.setScale(0.005f);
-        // boat_obj.mat.diffuse = Red;
-        // boat_obj.mat.shininess = 1.f;
-        // boat_obj.mat.reflectiveness = 0.0f;
+         mesh_id boat_mesh_id = 
+                 scene.load_obj_file_as_aggregate("models/obj/frame_boat1.obj");
+         object_id boat_obj_id = scene.add_object(boat_mesh_id);
+         Object& boat_obj = scene.object(boat_obj_id);
+         boat_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
+         boat_obj.geom.setRpy(makeVector(0.f,0.f,0.f));
+         // boat_obj.geom.setScale(2.f);
+         boat_obj.geom.setScale(0.005f);
+         boat_obj.mat.diffuse = Red;
+         boat_obj.mat.shininess = 1.f;
+         boat_obj.mat.reflectiveness = 0.0f;
 
 
         ///// NEW BOAT
-        std::vector<mesh_id> boat_parts =  scene.load_obj_file(
-                // "models/obj/NYERSEY/NYERSEY.obj");
-                "models/obj/ROMANSHP/ROMANSHP2.obj");
-        std::vector<object_id> boat_ids = scene.add_objects(boat_parts);
-        for (int i = 0 ; i < boat_parts.size(); ++i){ 
-                Object& part = scene.object(boat_ids[i]);
-                part.geom.setScale(0.002f);
-                part.geom.setRpy(makeVector(M_PI/2.f,-M_PI/2.f,0.f));
-        }
+        //std::vector<mesh_id> boat_parts =  scene.load_obj_file(
+        //        // "models/obj/NYERSEY/NYERSEY.obj");
+        //        "models/obj/ROMANSHP/ROMANSHP2.obj");
+        //std::vector<object_id> boat_ids = scene.add_objects(boat_parts);
+        //for (int i = 0 ; i < boat_parts.size(); ++i){ 
+        //        Object& part = scene.object(boat_ids[i]);
+        //        part.geom.setScale(0.002f);
+        //        part.geom.setRpy(makeVector(M_PI/2.f,-M_PI/2.f,0.f));
+        //}
 
 
 
-        mesh_id floor_mesh_id = 
-               scene.load_obj_file_as_aggregate("models/obj/frame_water1.obj");
-               // scene.load_obj_file_as_aggregate("models/obj/grid200.obj");
-               // scene.load_obj_file_as_aggregate("models/obj/grid100.obj");
-        object_id floor_obj_id  = scene.add_object(floor_mesh_id);
-        Object& floor_obj = scene.object(floor_obj_id);
-        floor_obj.geom.setScale(2.f);
-        floor_obj.geom.setPos(makeVector(0.f,0.f,0.f));
-        floor_obj.geom.setRpy(makeVector(0.f,0.f,M_PI/2.f));
-        floor_obj.mat.diffuse = White;
-        floor_obj.mat.reflectiveness = 0.f;
-        // floor_obj.mat.reflectiveness = 0.95f;
-        floor_obj.mat.refractive_index = 1.333f;
+        //mesh_id floor_mesh_id = 
+        //       scene.load_obj_file_as_aggregate("models/obj/frame_water1.obj");
+        //       // scene.load_obj_file_as_aggregate("models/obj/grid200.obj");
+        //       // scene.load_obj_file_as_aggregate("models/obj/grid100.obj");
+        //object_id floor_obj_id  = scene.add_object(floor_mesh_id);
+        //Object& floor_obj = scene.object(floor_obj_id);
+        //floor_obj.geom.setScale(2.f);
+        //floor_obj.geom.setPos(makeVector(0.f,0.f,0.f));
+        //floor_obj.geom.setRpy(makeVector(0.f,0.f,M_PI/2.f));
+        //floor_obj.mat.diffuse = White;
+        //floor_obj.mat.reflectiveness = 0.f;
+        //// floor_obj.mat.reflectiveness = 0.95f;
+        //floor_obj.mat.refractive_index = 1.333f;
 
         /// Dragon
          //mesh_id floor_mesh_id = 

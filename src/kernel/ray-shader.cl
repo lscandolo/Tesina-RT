@@ -164,7 +164,7 @@ shade_sample(write_only global ColorInt* image,
         if (lights->light.type == DIR_L) {
                 L = lights->light.directional.dir;
                 dir_rgb = lights->light.directional.color;
-                LD = 0.f;
+                LD = 1.f;
         }  else if (lights->light.type == SPOT_L) {
                 L = normalize(info.hit_point - lights->light.spot.pos);
                 dir_rgb = lights->light.spot.color;

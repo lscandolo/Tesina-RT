@@ -21,8 +21,8 @@ extern "C" {
 }
 
 int32_t MAX_BOUNCE = 5;
-int32_t GPU_BVH_BUILD = 0;
-#define WAVE_HEIGHT 0.3
+int32_t GPU_BVH_BUILD = 1;
+#define WAVE_HEIGHT 0.1
 
 void rainEvent();
 
@@ -30,6 +30,7 @@ CLInfo clinfo;
 GLInfo glinfo;
 
 int loging_state = 0;
+bool is_raining = false;
 
 DeviceInterface& device = *DeviceInterface::instance();
 memory_id tex_id;
@@ -58,103 +59,205 @@ Log rt_log;
 
 #define STEPS 16
 
+uint32_t drop_click(vec3 raypos, vec3 raydir, vec3 v0, vec3 v1, vec3 v2, bool invert)
+{
+        vec3 e1 = v1 - v0;
+        vec3 e2 = v2 - v0;
+                
+        vec3 h = cross(raydir, e2);
+        float  a = e1 * h;
+                
+        if (a > -1e-26f && a < 1e-26f)
+                /* if (a > -0.000001f && a < 0.00001f) */
+                return -1;
+                
+        float  f = 1.f/a;
+        vec3 s = raypos - v0;
+        float  u = f * (s * h);
+        if (u < 0.f || u > 1.f)
+                return -1;
+                
+        vec3 q = cross(s,e1);
+        float  v = f * (raydir * q);
+        if (v < 0.f || u+v > 1.f)
+                return -1;
+                
+        float t = f * (e2 * q);
+        bool t_is_within_bounds = (t > 0 );
+
+
+        if (t_is_within_bounds) {
+                //std::cout << "HIT!" << std::endl;
+                //std::cout << "uv:" << u << " " << v << std::endl;
+                if (invert) {
+                        v = 1.f-v;
+                        u = 1.f-u;
+                }
+                LBM_addEvent(v*GRID_SIZE_X      ,u*GRID_SIZE_Y,
+                             v*GRID_SIZE_X + 2.f,u*GRID_SIZE_Y+2.f,
+                             0.035f);
+                return 0;
+        }
+
+
+        return -1;
+
+
+}
+
+bool moving = false;
+bool splashing = false;
+
+void gl_mouse_click(int button, int state, int x, int y)
+{
+
+        if (button == GLUT_LEFT_BUTTON) {
+                if (state == GLUT_DOWN)
+                        moving = true;
+                if (state == GLUT_UP)
+                        moving = false;
+                return;
+        }
+
+        if (button == GLUT_RIGHT_BUTTON) {
+                if (state == GLUT_DOWN)
+                        splashing = true;
+                if (state == GLUT_UP)
+                        splashing = false;
+
+                float xPosNDC = ((float)x)/window_size[0];
+                float yPosNDC = 1.f - ((float)y)/window_size[1];
+                vec3 raydir = (camera.dir + camera.right * (xPosNDC * 2.0f - 1.0f) +
+                        camera.up    * (yPosNDC * 2.0f - 1.0f)).normalized();
+                vec3 raypos = camera.pos;
+                //std::cout << "Ray dir: " << raydir << std::endl;
+                
+                const vec3 v0 = makeVector(100.f,0.f,100.f);
+                const vec3 v1 = makeVector(100.f,0.f,-100.f);
+                const vec3 v2 = makeVector(-100.f,0.f,100.f);
+                const vec3 v3 = makeVector(-100.f,0.f,-100.f);
+
+                drop_click(raypos, raydir, v0,v1,v2,true);
+                drop_click(raypos, raydir, v3,v2,v1,false);
+        }
+}
+
 void gl_mouse(int x, int y)
 {
-	float delta = 0.005f;
-	float d_inc = delta * (window_size[1]*0.5f - y);/* y axis points downwards */
-	float d_yaw = delta * (x - window_size[0]*0.5f);
+        if (splashing) {
+                gl_mouse_click(GLUT_RIGHT_BUTTON,GLUT_DOWN,x, y);
+        } else if (moving) {
 
-	float max_motion = 0.3f;
+                float delta = 0.005f;
+                float d_inc = delta * (window_size[1]*0.5f - y);/* y axis points downwards */
+                float d_yaw = delta * (x - window_size[0]*0.5f);
 
-	d_inc = std::min(std::max(d_inc, -max_motion), max_motion);
-	d_yaw = std::min(std::max(d_yaw, -max_motion), max_motion);
+                float max_motion = 0.3f;
 
-	if (d_inc == 0.f && d_yaw == 0.f)
-		return;
+                d_inc = std::min(std::max(d_inc, -max_motion), max_motion);
+                d_yaw = std::min(std::max(d_yaw, -max_motion), max_motion);
 
-	camera.modifyAbsYaw(d_yaw);
-	camera.modifyPitch(d_inc);
-	glutWarpPointer(window_size[0] * 0.5f, window_size[1] * 0.5f);
+                if (d_inc == 0.f && d_yaw == 0.f)
+                        return;
+
+                camera.modifyAbsYaw(d_yaw);
+                camera.modifyPitch(d_inc);
+                glutWarpPointer(window_size[0] * 0.5f, window_size[1] * 0.5f);
+        }
 }
 
 void gl_key(unsigned char key, int x, int y)
 {
 	float delta = 2.f;
-        static vec3 boat_pos = makeVector(0.f,-9.f,0.f);
-        Object& boat_obj = scene.object(boat_id);
+    static vec3 boat_pos = makeVector(0.f,-0.5f,0.f);
+    Object& boat_obj = scene.object(boat_id);
 	const pixel_sample_cl samples1[] = {{ 0.f , 0.f, 1.f}};
 	const pixel_sample_cl samples4[] = {{ 0.25f , 0.25f, 0.25f},
 				      { 0.25f ,-0.25f, 0.25f},
 				      {-0.25f , 0.25f, 0.25f},
 				      {-0.25f ,-0.25f, 0.25f}};
 
-	switch (key){
-	case 'a':
-		camera.panRight(-delta);
-		break;
-	case 's':
-		camera.panForward(-delta);
-		break;
+    switch (key){
+    case '+':
+            MAX_BOUNCE = std::min(MAX_BOUNCE+1, 10);
+            break;
+    case '-':
+            MAX_BOUNCE = std::max(MAX_BOUNCE-1, 0);
+            break;
+    case 'a':
+            camera.panRight(-delta);
+            break;
+    case 's':
+            camera.panForward(-delta);
+            break;
 	case 'w':
-		camera.panForward(delta);
-		break;
-	case 'd':
-		camera.panRight(delta);
-		break;
-	case 'q':
-		std::cout << std::endl << "Exiting..." << std::endl;
-		exit(1);
-		break;
+            camera.panForward(delta);
+            break;
+    case 'd':
+            camera.panRight(delta);
+            break;
+    case 'z':
+            std::cout << "Pos: " << camera.pos << std::endl;
+            std::cout << "Dir: " << camera.dir << std::endl;
+            break;
+    case 'q':
+            std::cout << std::endl << "Exiting..." << std::endl;
+            exit(1);
+            break;
     case 'b':
-        rt_log.silent = !rt_log.silent;
-        break;
-	case 'l':
-		if (rt_log.initialize("rt-lbm-log")){
-			std::cerr << "Error initializing log!" << std::endl;
-		}
-		loging_state = 1;
-		rt_log.enabled = true;
-		rt_log << "SPP: " << prim_ray_gen.get_spp() << std::endl;
-        case 'u':
-                boat_pos[2] += 1.f;
-                boat_obj.geom.setPos(boat_pos);
-                scene.update_mesh_vertices(boat_mesh_id);
-                //scene.update_bvh_roots();
-                break;
-        case 'j':
-                boat_pos[2] -= 1.f;
-                boat_obj.geom.setPos(boat_pos);
-                scene.update_mesh_vertices(boat_mesh_id);
-                //scene.update_bvh_roots();
-                break;
-        case 'h':
-                boat_pos[0] -= 1.f;
-                boat_obj.geom.setPos(boat_pos);
-                scene.update_mesh_vertices(boat_mesh_id);
-                //scene.update_bvh_roots();
-                break;
-        case 'k':
-                boat_pos[0] += 1.f;
-                boat_obj.geom.setPos(boat_pos);
-                scene.update_mesh_vertices(boat_mesh_id);
-                //scene.update_bvh_roots();
-                break;
-        case 'r':
-		LBM_addEvent(50,50,53,53,0.035f);
-		break;
-	case '1': /* Set 1 sample per pixel */
-		if (prim_ray_gen.set_spp(1,samples1)){
-			std::cerr << "Error seting spp" << std::endl;
-			pause_and_exit(1);
-		}
-		break;
-	case '4': /* Set 4 samples per pixel */
-		if (prim_ray_gen.set_spp(4,samples4)){
-			std::cerr << "Error seting spp" << std::endl;
-			pause_and_exit(1);
-		}
-		break;
-	}
+            rt_log.silent = !rt_log.silent;
+            break;
+    case 'l':
+            if (rt_log.initialize("rt-lbm-log")){
+                    std::cerr << "Error initializing log!" << std::endl;
+            }
+            loging_state = 1;
+            rt_log.enabled = true;
+            rt_log << "SPP: " << prim_ray_gen.get_spp() << std::endl;
+    case 'u':
+            boat_pos[2] += 1.f;
+            boat_obj.geom.setPos(boat_pos);
+            scene.update_mesh_vertices(boat_mesh_id);
+            //scene.update_bvh_roots();
+            break;
+    case 'j':
+            boat_pos[2] -= 1.f;
+            boat_obj.geom.setPos(boat_pos);
+            scene.update_mesh_vertices(boat_mesh_id);
+            //scene.update_bvh_roots();
+            break;
+    case 'h':
+            boat_pos[0] -= 1.f;
+            boat_obj.geom.setPos(boat_pos);
+            scene.update_mesh_vertices(boat_mesh_id);
+            //scene.update_bvh_roots();
+            break;
+    case 'k':
+            boat_pos[0] += 1.f;
+            boat_obj.geom.setPos(boat_pos);
+            scene.update_mesh_vertices(boat_mesh_id);
+            //scene.update_bvh_roots();
+            break;
+    case 'e':
+            LBM_addEvent(50,50,53,53,0.035f);
+            break;
+    case 'r':
+            is_raining = !is_raining;
+            break;
+    case '1': /* Set 1 sample per pixel */
+            if (prim_ray_gen.set_spp(1,samples1)){
+                    std::cerr << "Error seting spp" << std::endl;
+                    pause_and_exit(1);
+            }
+            break;
+    case '4': /* Set 4 samples per pixel */
+            if (prim_ray_gen.set_spp(4,samples4)){
+                    std::cerr << "Error seting spp" << std::endl;
+                    pause_and_exit(1);
+            }
+            break;
+
+    }
 }
 
 
@@ -219,8 +322,8 @@ void gl_loop()
 			rt_log.enabled = false;
 			rt_log.silent = true;
 			camera.set(makeVector(0,3,-30), makeVector(0,0,1), makeVector(0,1,0), M_PI/4.,
-                                   window_size[0] / (float)window_size[1]);
-			std::cout << "Done loging!"	<< std::endl;
+                                            window_size[0] / (float)window_size[1]);
+            std::cout << "Done loging!"	<< std::endl;
 			loging_state = 0;
 		}
 		if (loging_state)
@@ -230,7 +333,8 @@ void gl_loop()
 	/*-------------- Mangle verts in CPU ---------------------*/
 	mangle_timer.snap_time();
 	// Create new rain drop and update the lbm simulator
-	rainEvent();
+    if (is_raining)
+            rainEvent();
 	LBM_update();
 	/////
 	Mesh& mesh = scene.get_mesh(grid_id);
@@ -247,8 +351,8 @@ void gl_loop()
 		if (z < 1.f)
 			z = 1.f;
 
-		const float DROP_HEIGHT = 18.f;
-		//const float DROP_HEIGHT = 10.f;
+		//const float DROP_HEIGHT = 18.f;
+		const float DROP_HEIGHT = 5.f;
 		
 		float y = LBM_getRho((int)x,(int)z);
 		
@@ -258,17 +362,18 @@ void gl_loop()
 		vert.position.s[1] = y;
 
 		vec3 normalx = makeVector(0.f,1.f,0.f);
-                vec3 normalz = makeVector(0.f,1.f,0.f);
+        vec3 normalz = makeVector(0.f,1.f,0.f);
         
-                normalx[0] = -(LBM_getRho(x+1,z) - LBM_getRho(x-1,z))  * 0.5f * DROP_HEIGHT;
-		normalz[2] = -(LBM_getRho(x,z+1) - LBM_getRho(x,z-1))  * 0.5f * DROP_HEIGHT;
-
-                vec3 normal = (normalx.normalized() + normalz.normalized());
+        normalx[0] = -10.f*(LBM_getRho(x+1,z) - LBM_getRho(x-1,z))  * 0.5f * DROP_HEIGHT;
+		normalz[2] = -10.f*(LBM_getRho(x,z+1) - LBM_getRho(x,z-1))  * 0.5f * DROP_HEIGHT;
+        //normalx[0] = std::min(std::max(normalx[0],-10.f),10.f);
+        //normalz[2] = std::min(std::max(normalz[2],-10.f),10.f);
+        vec3 normal = (normalx.normalized() + normalz.normalized());
 
 		vert.normal = vec3_to_float3(normal.normalized());
 		
-		if (fabsf(y) > WAVE_HEIGHT)
-			std::cerr << "y: " << y << std::endl;
+		//if (fabsf(y) > WAVE_HEIGHT)
+		//	std::cerr << "y: " << y << std::endl;
 	}
     scene.update_mesh_vertices(grid_id);
 
@@ -288,13 +393,22 @@ void gl_loop()
 
 
         directional_light_cl light;
-        light.set_dir(0.05f * (arg - 8.f) , -0.6f, 0.2f);
+        //light.set_dir(0.05f * (arg - 8.f) , -0.6f, 0.2f);
+        light.set_dir(0.05f * (1.f - 8.f) , -0.6f, 0.2f);
         //light.set_color(0.05f * (fabsf(arg)) + 0.1f, 0.2f, 0.05f * fabsf(arg+4.f));
         light.set_color(0.8f,0.8f,0.8f);
         scene.set_dir_light(light);
         color_cl ambient;
         ambient[0] = ambient[1] = ambient[2] = 0.1f;
         scene.set_ambient_light(ambient);
+
+         //spot_light_cl spot;
+         //spot.set_dir(0.05f,-1.f,-0.02f);
+         //spot.set_pos(0.0f,15.f,0.0f);
+         //spot.set_angle(M_PI/4.f);
+         //spot.set_color(0.7f,0.7f,0.7f);
+         //scene.set_spot_light(spot);
+
 
         size_t sample_count = pixel_count * prim_ray_gen.get_spp();
         for (size_t offset = 0; offset < sample_count; offset+= tile_size) {
@@ -336,7 +450,7 @@ void gl_loop()
 		
 
                 size_t sec_ray_count = tile_size;
-                for (uint32_t i = 0; i < MAX_BOUNCE; ++i) {
+                for (int32_t i = 0; i < MAX_BOUNCE; ++i) {
 
                         sec_ray_gen.generate(scene, *ray_in, sec_ray_count, 
                                              hit_bundle, *ray_out, &sec_ray_count);
@@ -471,8 +585,8 @@ int main (int argc, char** argv)
                         window_size[0] = val;
                 if (!ini.get_int_value("RT", "screen_h", val))
                         window_size[1] = val;
-                if (!ini.get_int_value("RT", "gpu_bvh", val))
-                        GPU_BVH_BUILD = val;
+                //if (!ini.get_int_value("RT", "gpu_bvh", val))
+                //        GPU_BVH_BUILD = val;
                 if (!ini.get_int_value("RT", "max_bounce", val)) 
                         MAX_BOUNCE = val;
         }
@@ -509,7 +623,8 @@ int main (int argc, char** argv)
     DeviceFunctionLibrary::initialize(clinfo);
 
     /*---------------------- Initialize lbm simulator ----------------------*/
-    LBM_initialize(GRID_SIZE_X, GRID_SIZE_Y, 0.05f, 0.7f);
+    LBM_initialize(GRID_SIZE_X, GRID_SIZE_Y, 0.05f, 0.77f);
+    //LBM_initialize(GRID_SIZE_X, GRID_SIZE_Y, 0.03f, 0.5f);
         //LBM_initialize(GRID_SIZE_X, GRID_SIZE_Y, 0.05f, 0.77f);
 	//LBM_initialize(GRID_SIZE_X, GRID_SIZE_Y, 0.01f, 0.2f);
 
@@ -541,26 +656,26 @@ int main (int argc, char** argv)
     mesh_id floor_mesh_id = scene.load_obj_file_as_aggregate("models/obj/grid100.obj");
     object_id floor_obj_id  = scene.add_object(floor_mesh_id);
 	Object& floor_obj = scene.object(floor_obj_id);
-    floor_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
- 	floor_obj.geom.setScale(10.f);
-	floor_obj.mat.diffuse = Blue;
+    floor_obj.geom.setPos(makeVector(0.f,0.f,0.f));
+ 	floor_obj.geom.setScale(20.f);
+	floor_obj.mat.diffuse = White;
 	floor_obj.mat.reflectiveness = 0.95f;
 	floor_obj.mat.refractive_index = 1.5f;
     /*Set slack for bvh*/
     vec3 slack = makeVector(0.f,WAVE_HEIGHT,0.f);
     scene.get_mesh(floor_mesh_id).set_global_slack(slack);
 
-        boat_mesh_id = scene.load_obj_file_as_aggregate("models/obj/frame_boat1.obj");
-        object_id boat_obj_id = scene.add_object(boat_mesh_id);
-        Object& boat_obj = scene.object(boat_obj_id);
-        boat_id = boat_obj_id; 
-        //boat_obj.geom.setPos(makeVector(0.f,-9.f,0.f));
-        boat_obj.geom.setPos(makeVector(0.f,-9.f,0.f));
-        boat_obj.geom.setRpy(makeVector(0.0f,0.f,0.f));
-        boat_obj.geom.setScale(2.f);
-        boat_obj.mat.diffuse = Red;
-        boat_obj.mat.shininess = 0.3f;
-        boat_obj.mat.reflectiveness = 0.0f;
+    boat_mesh_id = scene.load_obj_file_as_aggregate("models/obj/frame_boat1.obj");
+    object_id boat_obj_id = scene.add_object(boat_mesh_id);
+    Object& boat_obj = scene.object(boat_obj_id);
+    boat_id = boat_obj_id; 
+    //boat_obj.geom.setPos(makeVector(0.f,-9.f,0.f));
+    boat_obj.geom.setPos(makeVector(0.f,-0.5f,0.f));
+    boat_obj.geom.setRpy(makeVector(0.0f,0.f,0.f));
+    boat_obj.geom.setScale(2.f);
+    boat_obj.mat.diffuse = Red;
+    boat_obj.mat.shininess = 0.3f;
+    boat_obj.mat.reflectiveness = 0.0f;
 
          if (scene.create_aggregate_mesh()) { 
                 std::cerr << "Failed to create aggregate mesh" << std::endl;
@@ -590,56 +705,34 @@ int main (int argc, char** argv)
 
          } else {
 
-                 if (scene.create_aggregate_accelerator()) {
-                         std::cerr << "Failed to create aggregate accelerator" << std::endl;
+                 if (scene.create_bvhs()) {
+                         std::cerr << "Failed to create bvhs." << std::endl;
                          pause_and_exit(1);
-                 } else {
-                         std::cout << "Created aggregate accelerator succesfully" << std::endl;
                  }
+                 std::cout << "Created bvhs" << std::endl;
 
-                 if (scene.transfer_aggregate_mesh_to_device()) {
-                         std::cerr << "Failed to transfer aggregate mesh to device memory" 
-                                   << std::endl;
+                 if (scene.transfer_meshes_to_device()) {
+                         std::cerr << "Failed to transfer meshes to device." 
+                                 << std::endl;
                          pause_and_exit(1);
-                 } else {
-                         std::cout << "Transfered aggregate mesh to device succesfully" 
-                                   << std::endl;
                  }
+                 std::cout << "Transfered meshes to device" << std::endl;
 
-                 if (scene.transfer_aggregate_accelerator_to_device()) {
-                         std::cerr << "Failed to transfer aggregate accelerator to device memory" 
-                                   << std::endl;
+                 if (scene.transfer_bvhs_to_device()) {
+                         std::cerr << "Failed to transfer bvhs to device." 
+                                 << std::endl;
                          pause_and_exit(1);
-                 } else {
-                         std::cout << "Transfered aggregate accelerator to device succesfully" 
-                                   << std::endl;
                  }
+                 std::cout << "Transfered bvhs to device" << std::endl;
+                 grid_id = floor_mesh_id;
          }
 
-         //if (scene.create_bvhs()) {
-        //        std::cerr << "Failed to create bvhs." << std::endl;
-        //        pause_and_exit(1);
-        //}
-        //std::cout << "Created bvhs" << std::endl;
-    
-        //if (scene.transfer_meshes_to_device()) {
-        //        std::cerr << "Failed to transfer meshes to device." 
-        //                  << std::endl;
-        //        pause_and_exit(1);
-        //}
-        //std::cout << "Transfered meshes to device" << std::endl;
-
-        //if (scene.transfer_bvhs_to_device()) {
-        //        std::cerr << "Failed to transfer bvhs to device." 
-        //                  << std::endl;
-        //        pause_and_exit(1);
-        //}
-        //std::cout << "Transfered bvhs to device" << std::endl;
-        //grid_id = floor_mesh_id;
 
 	/*---------------------- Set initial Camera paramaters -----------------------*/
-	camera.set(makeVector(0,3,-30), makeVector(0,0,1), makeVector(0,1,0), M_PI/4.,
-		   window_size[0] / (float)window_size[1]);
+    camera.set(makeVector(-28,62,-179), makeVector(0.095,-0.417,0.903),
+            makeVector(0,1,0), M_PI/4., window_size[0] / (float)window_size[1]);
+	//camera.set(makeVector(0,3,-30), makeVector(0,0,1), makeVector(0,1,0), M_PI/4.,
+	//	   window_size[0] / (float)window_size[1]);
 
 
 	/*---------------------------- Set tile size ------------------------------*/
@@ -794,6 +887,7 @@ int main (int argc, char** argv)
 
 	glutKeyboardFunc(gl_key);
 	glutMotionFunc(gl_mouse);
+	glutMouseFunc(gl_mouse_click);
 	glutDisplayFunc(gl_loop);
 	glutIdleFunc(gl_loop);
 	glutMainLoop();	

@@ -160,7 +160,10 @@ void kernel scan_post_uint(global unsigned int* out,
 
         local unsigned int sum;
         if (local_id == 0) {
-                sum = sums[global_id/block_size];
+                if (global_id >= block_size)
+                        sum = sums[global_id/block_size];
+                else
+                        sum = 0;
         }
         barrier(CLK_LOCAL_MEM_FENCE);
 

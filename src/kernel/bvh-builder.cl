@@ -1,4 +1,4 @@
-#pragma OPENCL EXTENSION cl_amd_printf:enable
+//#pragma OPENCL EXTENSION cl_amd_printf:enable
 
 #define UINT_MAX_INV 2.3283064370807974e-10f
 #define UINT_MAX_F 4294967295.f

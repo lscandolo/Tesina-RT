@@ -49,7 +49,6 @@ int32_t gpu_scan_uint(DeviceInterface& device,
                         std::cerr << "Scan error initializing sums memory" << std::endl;
                         return -1;
                 }
-                
                 sum_mems.push_back(totals_mem_id);
                 remaining_size /= block_size;
         } while (remaining_size);
@@ -62,23 +61,28 @@ int32_t gpu_scan_uint(DeviceInterface& device,
 
         remaining_size = size;
 
-        do {
+        while (remaining_size) {
                 DeviceMemory& in_mem =  device.memory(in_id);
                 DeviceMemory& sum_mem = device.memory(sum_id);
                 DeviceMemory& out_mem = device.memory(out_id);
 
-                uint32_t in_mem_size = remaining_size;
+                uint32_t in_mem_size;
+                if (sum_idx == 0)
+                        in_mem_size = size;
+                else
+                        in_mem_size = remaining_size+1;
                 size_t local_mem_size = (block_size + CONFLICT_FREE_OFFSET(block_size));
                 local_mem_size *= sizeof(cl_uint);
                 if (scan_local.set_arg(0, in_mem) || 
                     scan_local.set_arg(1, sum_mem) || 
                     scan_local.set_arg(2, local_mem_size, NULL) ||
                     scan_local.set_arg(3, sizeof(cl_uint), &in_mem_size) ||
-                    scan_local.set_arg(4, out_mem)) {
+                    scan_local.set_arg(4, out_mem) ||
+                    sum_idx >= sum_mems.size()) {
                         std::cerr << "Scan error seting args for scan_local" << std::endl;
                         return -1;
                 }
-                
+
                 padded_size = pad(remaining_size,block_size);
                 size_t scan_local_size = padded_size/2; /*2 elements per thread*/
                 if (scan_local.enqueue_single_dim(scan_local_size, group_size)) {
@@ -87,30 +91,12 @@ int32_t gpu_scan_uint(DeviceInterface& device,
                 }
                 device.enqueue_barrier();
                 
-                ////////////////////////////////
-                // // int  N = std::max(remaining_size/block_size,1ul);
-                // // int  N = sum_mem.size()/sizeof(cl_uint);
-                // int  N = 19;
-                // std::vector<uint32_t> vals(N);
-                // DeviceMemory& mem = device.memory(sum_mems[0]);
-                // if (mem.read(sizeof(cl_uint)*vals.size(), &(vals[0])))
-                //         return -1;
-                // std::cout << "SUMS Vals: " << std::endl;
-                // for (int i = 0 ; i < vals.size() ; ++i) {
-                //         std::cout << vals[i] << " ";
-                // }
-                // std::cout << std::endl;
-                ////////////////////////////////
-
                 remaining_size /= block_size;
-                if (!remaining_size) 
-                        break;
-                remaining_size++;
                 sum_idx ++;
                 in_id = sum_id;
                 out_id = sum_id;
                 sum_id = sum_mems[sum_idx];
-        } while(1);
+        }
 
         if (size <= block_size) {
                 for (int i = 0; i < sum_mems.size(); ++i)
@@ -122,12 +108,12 @@ int32_t gpu_scan_uint(DeviceInterface& device,
         sum_idx = sum_mems.size()-2;
         out_id =  sum_idx > 0 ? sum_mems[sum_idx-1] : out_mem_id;
         sum_id =  sum_mems[sum_idx];
-                
+
         do {
                 DeviceMemory& out_mem =  device.memory(out_id);
                 DeviceMemory& sum_mem = device.memory(sum_id);
 
-                uint32_t bsize = block_size;
+                cl_uint bsize = block_size;
                 if (scan_post.set_arg(0, out_mem) || 
                     scan_post.set_arg(1, sum_mem) ||
                     scan_post.set_arg(2, sizeof(cl_uint), &bsize)) {

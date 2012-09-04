@@ -4,7 +4,7 @@
 
 #include <rt/material.hpp>
 
-RT_ALIGN(16)
+//RT_ALIGN(16)
 struct directional_light_cl {
 
 	cl_float3 dir;
@@ -25,7 +25,7 @@ struct directional_light_cl {
 		}
 };
 
-RT_ALIGN(16)
+//RT_ALIGN(16)
 struct spot_light_cl {
 
 	cl_float3 pos;
@@ -71,7 +71,7 @@ typedef enum {
         DIR_L = 1
 } light_cl_type;
 
-RT_ALIGN(16)
+//RT_ALIGN(16)
 struct light_cl {
 
         light_cl_type type;
@@ -82,6 +82,7 @@ struct light_cl {
 
 };
 
+//RT_ALIGN(16)
 struct lights_cl {
 
 	color_cl ambient;
