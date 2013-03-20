@@ -99,6 +99,12 @@
     <ClInclude Include="..\..\include\rt\bvh-builder.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\include\rt\camera-trajectory.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\rt\renderer.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\rt\bvh.cpp">
@@ -168,6 +174,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\rt\bvh-builder.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\rt\camera-trajectory.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\rt\renderer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

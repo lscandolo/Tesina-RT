@@ -40,9 +40,11 @@ void Camera::set(const vec3& Position, /*The position of the camera*/
 	pos = Position;
 	dir = Direction.normalized();
 	right_handed = RightHanded;
-	fov = FOV;
-	aspect = Aspect;
-	
+	if (FOV > 0.f) 
+            fov = FOV;
+    if (Aspect > 0.f)
+            aspect = Aspect;
+
 	right = right_handed ? cross(dir,Up) : cross(Up,dir);
 	up =    right_handed ? cross(right,dir) : cross(dir,right);
 

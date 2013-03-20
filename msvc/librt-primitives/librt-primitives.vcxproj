@@ -82,6 +82,7 @@
     <ClInclude Include="..\..\include\rt\bbox.hpp" />
     <ClInclude Include="..\..\include\rt\bvh-builder.hpp" />
     <ClInclude Include="..\..\include\rt\bvh.hpp" />
+    <ClInclude Include="..\..\include\rt\camera-trajectory.hpp" />
     <ClInclude Include="..\..\include\rt\camera.hpp" />
     <ClInclude Include="..\..\include\rt\cl_aux.hpp" />
     <ClInclude Include="..\..\include\rt\cubemap.hpp" />
@@ -97,6 +98,7 @@
     <ClInclude Include="..\..\include\rt\primary-ray-generator.hpp" />
     <ClInclude Include="..\..\include\rt\ray-shader.hpp" />
     <ClInclude Include="..\..\include\rt\ray.hpp" />
+    <ClInclude Include="..\..\include\rt\renderer.hpp" />
     <ClInclude Include="..\..\include\rt\rt.hpp" />
     <ClInclude Include="..\..\include\rt\scene.hpp" />
     <ClInclude Include="..\..\include\rt\secondary-ray-generator.hpp" />
@@ -109,6 +111,7 @@
     <ClCompile Include="..\..\src\rt\bbox.cpp" />
     <ClCompile Include="..\..\src\rt\bvh-builder.cpp" />
     <ClCompile Include="..\..\src\rt\bvh.cpp" />
+    <ClCompile Include="..\..\src\rt\camera-trajectory.cpp" />
     <ClCompile Include="..\..\src\rt\camera.cpp" />
     <ClCompile Include="..\..\src\rt\cl_aux.cpp" />
     <ClCompile Include="..\..\src\rt\cubemap.cpp" />
@@ -123,6 +126,7 @@
     <ClCompile Include="..\..\src\rt\primary-ray-generator.cpp" />
     <ClCompile Include="..\..\src\rt\ray-shader.cpp" />
     <ClCompile Include="..\..\src\rt\ray.cpp" />
+    <ClCompile Include="..\..\src\rt\renderer.cpp" />
     <ClCompile Include="..\..\src\rt\scene.cpp" />
     <ClCompile Include="..\..\src\rt\secondary-ray-generator.cpp" />
     <ClCompile Include="..\..\src\rt\texture-atlas.cpp" />

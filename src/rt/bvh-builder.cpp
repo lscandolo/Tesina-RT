@@ -26,7 +26,7 @@ static int test_node_2(std::vector<BVHNode>& nodes,
                 std::vector<int>& prim_checked, 
                 std::vector<int>& node_checked) 
 {
-        for (int i = 0; i < nodes.size(); i++) {
+        for (uint32_t i = 0; i < nodes.size(); i++) {
                 BVHNode& node = nodes[i];
                 if (node.m_leaf) {
                         if (node.m_start_index > 12800 ||
@@ -38,7 +38,7 @@ static int test_node_2(std::vector<BVHNode>& nodes,
                                           << std::endl;
                                 continue;
                         }
-                        for (int j = node.m_start_index; j < node.m_end_index; j++)
+                        for (uint32_t j = node.m_start_index; j < node.m_end_index; j++)
                                 prim_checked[j]++;
                 }
         }
@@ -61,7 +61,7 @@ static int test_node (std::vector<BVHNode>& nodes,
                                   << "\tend_index: " << node.m_end_index 
                                   << std::endl;
                 }
-                for (int i = node.m_start_index; i < node.m_end_index; i++)
+                for (uint32_t i = node.m_start_index; i < node.m_end_index; i++)
                         prim_checked[i]++;
                 return depth + 1;
         }
@@ -136,7 +136,9 @@ BVHBuilder::initialize(CLInfo& clinfo)
         /*--------------------------------------------------------------------------*/
 
 	m_timing = true;
-	return 0;
+    m_logging = false;
+    m_log = NULL;
+    return 0;
 }
 
 int32_t
@@ -163,7 +165,6 @@ BVHBuilder::build_bvh(Scene& scene)
                 m_timer.snap_time();
         
         DeviceInterface& device = *DeviceInterface::instance();
-        bool      log_partial_time = false;
         double    partial_time_ms;
         rt_time_t partial_timer;
         size_t triangle_count = scene.triangle_count();
@@ -202,9 +203,13 @@ BVHBuilder::build_bvh(Scene& scene)
         if (primitive_bbox_builder.enqueue_single_dim(triangle_count))
                 return -1;
         device.enqueue_barrier();
-        partial_time_ms = partial_timer.msec_since_snap();
-        if (log_partial_time)
-                std::cout << "BBox builder time: " << partial_time_ms << " ms\n";
+
+        if (m_logging && m_log != NULL) { 
+                device.finish_commands();
+                partial_time_ms = partial_timer.msec_since_snap();
+                (*m_log) << "-----BVH construction times: " << std::endl;
+                (*m_log) << "\tBBox builder time: " << partial_time_ms << " ms\n";
+        }
         
         //////////////////////////////////////////////////////////////////////////
         ///////////// 2. Create morton code encoding of barycenters //////////////
@@ -242,9 +247,11 @@ BVHBuilder::build_bvh(Scene& scene)
         if (morton_encoder.enqueue_single_dim(triangle_count))
                 return -1;
         device.enqueue_barrier();
-        partial_time_ms = partial_timer.msec_since_snap();
-        if (log_partial_time)
-                std::cout << "Morton encoder time: " << partial_time_ms << " ms\n";
+        if (m_logging && m_log != NULL) {
+                device.finish_commands();
+                partial_time_ms = partial_timer.msec_since_snap();
+                (*m_log) << "\tMorton encoder time: " << partial_time_ms << " ms\n";
+        }
 
         //////////////////////////////////////////////////////////////////////////
         ///////////// 3. Sort the primitives by their morton code ////////////////
@@ -333,9 +340,11 @@ BVHBuilder::build_bvh(Scene& scene)
                 }
         }
         // device.finish_commands();
-        partial_time_ms = partial_timer.msec_since_snap();
-        if (log_partial_time)
-                std::cout << "Morton sorter: " << partial_time_ms << " ms" << std::endl;
+        if (m_logging && m_log != NULL) {
+                device.finish_commands();
+                partial_time_ms = partial_timer.msec_since_snap();
+                (*m_log) << "\tMorton sorter: " << partial_time_ms << " ms" << std::endl;
+        }
 
 
 
@@ -683,26 +692,26 @@ BVHBuilder::build_bvh(Scene& scene)
         buffer_release_time += node_time.msec_since_snap();
 
         // device.finish_commands();
-        if (log_partial_time) {
+        if (m_logging && m_log != NULL) {
                 device.finish_commands();
                 partial_time_ms = partial_timer.msec_since_snap();
-                std::cout << "bvh emmission time: " << partial_time_ms << " ms" <<std::endl;
+                (*m_log) << "\tbvh emmission time: " << partial_time_ms << " ms" <<std::endl;
         }
 
-        if (log_partial_time) {
-                std::cout << "segment offset scan time: " << segment_offset_scan_time 
+        if (m_logging  && m_log != NULL) {
+                (*m_log) << "\t\tsegment offset scan time: " << segment_offset_scan_time 
                           << std::endl;
-                std::cout << "maps init time: " << maps_init_time 
+                (*m_log) << "\t\tmaps init time: " << maps_init_time 
                           << std::endl;
-                std::cout << "treelet build time: " << treelet_build_time 
+                (*m_log) << "\t\ttreelet build time: " << treelet_build_time 
                           << std::endl;
-                std::cout << "node count time: " << node_count_time 
+                (*m_log) << "\t\tnode count time: " << node_count_time 
                           << std::endl;
-                std::cout << "node offset scan time: " << node_offset_scan_time 
+                (*m_log) << "\t\tnode offset scan time: " << node_offset_scan_time 
                           << std::endl;
-                std::cout << "node build time: " << node_build_time 
+                (*m_log) << "\t\tnode build time: " << node_build_time 
                           << std::endl;
-                std::cout << "buffer release time: " << buffer_release_time 
+                (*m_log) << "\t\tbuffer release time: " << buffer_release_time 
                           << std::endl;
         }
 
@@ -734,10 +743,12 @@ BVHBuilder::build_bvh(Scene& scene)
                 device.enqueue_barrier();
         } 
         
-        partial_time_ms = partial_timer.msec_since_snap();
-        if (log_partial_time)
-                std::cout << "Node bbox compute time: " 
-                          << partial_time_ms << " ms" << std::endl;
+        if (m_logging && m_log != NULL) {
+                device.finish_commands();
+                partial_time_ms = partial_timer.msec_since_snap();
+                (*m_log) << "\tNode bbox compute time: " 
+                          << partial_time_ms << " ms" << std::endl << std::endl;
+        }
         //////////////////////////////////
 
         if (device.delete_memory(node_map_id) || 
@@ -761,6 +772,7 @@ BVHBuilder::build_bvh(Scene& scene)
                 m_time_ms = m_timer.msec_since_snap();
         }
 
+        scene.m_accelerator_type = BVH_ACCELERATOR;
         scene.m_aggregate_bvh_built = true;
         scene.m_aggregate_bvh_transfered = true;
 
@@ -780,5 +792,12 @@ BVHBuilder::get_exec_time()
 }
 
 
+void BVHBuilder::set_log(Log* log)
+{
+        m_log = log;
+}
  
-
+void BVHBuilder::logging(bool l)
+{
+        m_logging = l;
+}

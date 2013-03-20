@@ -10,6 +10,8 @@
 #include <gpu/interface.hpp>
 #include <rt/mesh.hpp>
 #include <rt/material.hpp>
+#include <rt/cubemap.hpp>
+#include <rt/camera.hpp>
 #include <rt/texture-atlas.hpp>
 #include <rt/bvh.hpp>
 #include <rt/kdtree.hpp>
@@ -132,8 +134,9 @@ public:
         size_t triangle_count();
         size_t vertex_count();
 
-
         TextureAtlas texture_atlas;
+        Camera camera;
+        Cubemap cubemap;
 private:
 
         Mesh aggregate_mesh;

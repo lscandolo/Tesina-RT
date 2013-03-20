@@ -19,6 +19,7 @@
 #include <rt/light.hpp>
 #include <rt/timing.hpp>
 #include <rt/camera.hpp>
+#include <rt/camera-trajectory.hpp>
 #include <rt/primary-ray-generator.hpp>
 #include <rt/secondary-ray-generator.hpp>
 #include <rt/cubemap.hpp>
@@ -32,6 +33,7 @@
 #include <rt/bvh-builder.hpp>
 #include <rt/kdtree.hpp>
 #include <rt/cl_aux.hpp>
+#include <rt/renderer.hpp>
 
 void pause_and_exit(int val)
 {

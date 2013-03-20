@@ -35,9 +35,9 @@ public:
 	void set(const vec3& Position, /*The position of the camera*/
 		 const vec3& Direction, /*The viewing direction of the camera*/ 
 		 const vec3& Up, /*Camera Up direction*/
-		 float FOV, /*Angle between the top and 
+		 float FOV = 0.f, /*Angle between the top and 
 			      bottom image planes (in radians)*/
-		 float Aspect, /*The aspect ratio of the image (width/height)*/
+		 float Aspect = 0.f, /*The aspect ratio of the image (width/height)*/
 		 bool RightHanded=false); /*Righthandedness of the 
 					    coordinate system of the camera*/
 	

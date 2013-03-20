@@ -7,7 +7,7 @@
 
 #define WAVE_HEIGHT 0.2
 
-int MAX_BOUNCE = 5;
+uint32_t MAX_BOUNCE = 5;
 
 CLInfo clinfo;
 GLInfo glinfo;
@@ -77,10 +77,10 @@ void gl_key(unsigned char key, int x, int y)
 				      { 0.33f , 0.33f, 0.11111f}};
 	switch (key){
         case '+':
-                MAX_BOUNCE = std::min(MAX_BOUNCE+1, 10);
+                MAX_BOUNCE = std::min(MAX_BOUNCE+1, 10u);
                 break;
         case '-':
-                MAX_BOUNCE = std::max(MAX_BOUNCE-1, 0);
+                MAX_BOUNCE = std::max(MAX_BOUNCE-1, 0u);
                 break;
 	case 'a':
 		camera.panRight(-delta);

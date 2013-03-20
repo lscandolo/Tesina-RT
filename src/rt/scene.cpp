@@ -349,7 +349,7 @@ Scene::add_object(mesh_id mid)
 {
 	object_id oid = object_id(objects.size());
 	objects.push_back(Object(mid));
-        if (mid >= 0 && mid < mesh_atlas.size()) {
+        if (mid >= 0 && mid < (int32_t)mesh_atlas.size()) {
                 material_cl& mat = objects[oid].mat;
                 MeshMaterial& mesh_mat = mesh_atlas[mid].original_materials[0];
                 mat = mesh_mat.material;
@@ -927,7 +927,8 @@ Scene::acquire_graphic_resources()
         if (!m_initialized)
                 return -1;
 
-        if (texture_atlas.acquire_graphic_resources())
+        if (texture_atlas.acquire_graphic_resources() ||
+            cubemap.acquire_graphic_resources())
                 return -1;
 
         return 0;
@@ -939,9 +940,10 @@ Scene::release_graphic_resources()
         if (!m_initialized)
                 return -1;
 
-        if (texture_atlas.release_graphic_resources())
+        if (texture_atlas.release_graphic_resources() || 
+            cubemap.release_graphic_resources())
                 return -1;
-
+        
         return 0;
 }
 

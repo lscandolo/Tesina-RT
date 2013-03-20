@@ -31,12 +31,14 @@ GLInfo glinfo;
 
 int loging_state = 0;
 bool is_raining = false;
+bool show_boat = false;
 
 DeviceInterface& device = *DeviceInterface::instance();
 memory_id tex_id;
 mesh_id   grid_id;
 mesh_id   boat_mesh_id;
 object_id boat_id;
+std::vector<object_id> boat_ids;
 
 RayBundle             ray_bundle_1,ray_bundle_2;
 HitBundle             hit_bundle;
@@ -93,8 +95,8 @@ uint32_t drop_click(vec3 raypos, vec3 raydir, vec3 v0, vec3 v1, vec3 v2, bool in
                         v = 1.f-v;
                         u = 1.f-u;
                 }
-                LBM_addEvent(v*GRID_SIZE_X      ,u*GRID_SIZE_Y,
-                             v*GRID_SIZE_X + 2.f,u*GRID_SIZE_Y+2.f,
+                LBM_addEvent(v*GRID_SIZE_X       ,u*GRID_SIZE_Y,
+                            (v+0.02f)*GRID_SIZE_X,(u+0.02f)*GRID_SIZE_Y,
                              0.035f);
                 return 0;
         }
@@ -169,7 +171,7 @@ void gl_mouse(int x, int y)
 void gl_key(unsigned char key, int x, int y)
 {
 	float delta = 2.f;
-    static vec3 boat_pos = makeVector(0.f,-0.5f,0.f);
+    static vec3 boat_pos = makeVector(0.f,5.5f,0.f);
     Object& boat_obj = scene.object(boat_id);
 	const pixel_sample_cl samples1[] = {{ 0.f , 0.f, 1.f}};
 	const pixel_sample_cl samples4[] = {{ 0.25f , 0.25f, 0.25f},
@@ -208,34 +210,63 @@ void gl_key(unsigned char key, int x, int y)
             rt_log.silent = !rt_log.silent;
             break;
     case 'l':
-            if (rt_log.initialize("rt-lbm-log")){
+            if (rt_log.initialize("rt-lbm-log-100")){
                     std::cerr << "Error initializing log!" << std::endl;
             }
             loging_state = 1;
             rt_log.enabled = true;
+            bvh_builder.logging(true);
             rt_log << "SPP: " << prim_ray_gen.get_spp() << std::endl;
+            rt_log << "Resolution: " << window_size[0] << "x" << window_size[1] << std::endl;
     case 'u':
+            if (!show_boat)
+                    break;
             boat_pos[2] += 1.f;
-            boat_obj.geom.setPos(boat_pos);
-            scene.update_mesh_vertices(boat_mesh_id);
-            //scene.update_bvh_roots();
+            for (uint32_t i = 0; i < boat_ids.size(); ++i) {
+                    Object& boat_part = scene.object(boat_ids[i]);
+                    boat_part.geom.setPos(boat_pos);
+                    scene.update_mesh_vertices(boat_ids[i]);
+            }
+                    //scene.update_bvh_roots();
             break;
     case 'j':
+            if (!show_boat)
+                    break;
             boat_pos[2] -= 1.f;
-            boat_obj.geom.setPos(boat_pos);
-            scene.update_mesh_vertices(boat_mesh_id);
+            for (uint32_t i = 0; i < boat_ids.size(); ++i) {
+                    Object& boat_part = scene.object(boat_ids[i]);
+                    boat_part.geom.setPos(boat_pos);
+                    scene.update_mesh_vertices(boat_ids[i]);
+            }
+
+            //boat_obj.geom.setPos(boat_pos);
+            //scene.update_mesh_vertices(boat_mesh_id);
             //scene.update_bvh_roots();
             break;
     case 'h':
+            if (!show_boat)
+                    break;
             boat_pos[0] -= 1.f;
-            boat_obj.geom.setPos(boat_pos);
-            scene.update_mesh_vertices(boat_mesh_id);
+            for (uint32_t i = 0; i < boat_ids.size(); ++i) {
+                    Object& boat_part = scene.object(boat_ids[i]);
+                    boat_part.geom.setPos(boat_pos);
+                    scene.update_mesh_vertices(boat_ids[i]);
+            }
+            //boat_obj.geom.setPos(boat_pos);
+            //scene.update_mesh_vertices(boat_mesh_id);
             //scene.update_bvh_roots();
             break;
     case 'k':
+            if (!show_boat)
+                    break;
             boat_pos[0] += 1.f;
-            boat_obj.geom.setPos(boat_pos);
-            scene.update_mesh_vertices(boat_mesh_id);
+            for (uint32_t i = 0; i < boat_ids.size(); ++i) {
+                    Object& boat_part = scene.object(boat_ids[i]);
+                    boat_part.geom.setPos(boat_pos);
+                    scene.update_mesh_vertices(boat_ids[i]);
+            }
+            //boat_obj.geom.setPos(boat_pos);
+            //scene.update_mesh_vertices(boat_mesh_id);
             //scene.update_bvh_roots();
             break;
     case 'e':
@@ -321,10 +352,11 @@ void gl_loop()
 		} else if (loging_state == 9) {
 			rt_log.enabled = false;
 			rt_log.silent = true;
-			camera.set(makeVector(0,3,-30), makeVector(0,0,1), makeVector(0,1,0), M_PI/4.,
+            bvh_builder.logging(false);
+            camera.set(makeVector(0,3,-30), makeVector(0,0,1), makeVector(0,1,0), M_PI/4.,
                                             window_size[0] / (float)window_size[1]);
             std::cout << "Done loging!"	<< std::endl;
-			loging_state = 0;
+            loging_state = 0;
 		}
 		if (loging_state)
 			loging_state++;
@@ -651,8 +683,10 @@ int main (int argc, char** argv)
             } else {
                     std::cout << "Initialized bvh builder succesfully" << std::endl;
             }
+            bvh_builder.set_log(&rt_log);
     }
 
+    /////////// Water
     mesh_id floor_mesh_id = scene.load_obj_file_as_aggregate("models/obj/grid100.obj");
     object_id floor_obj_id  = scene.add_object(floor_mesh_id);
 	Object& floor_obj = scene.object(floor_obj_id);
@@ -665,17 +699,32 @@ int main (int argc, char** argv)
     vec3 slack = makeVector(0.f,WAVE_HEIGHT,0.f);
     scene.get_mesh(floor_mesh_id).set_global_slack(slack);
 
-    boat_mesh_id = scene.load_obj_file_as_aggregate("models/obj/frame_boat1.obj");
-    object_id boat_obj_id = scene.add_object(boat_mesh_id);
-    Object& boat_obj = scene.object(boat_obj_id);
-    boat_id = boat_obj_id; 
-    //boat_obj.geom.setPos(makeVector(0.f,-9.f,0.f));
-    boat_obj.geom.setPos(makeVector(0.f,-0.5f,0.f));
-    boat_obj.geom.setRpy(makeVector(0.0f,0.f,0.f));
-    boat_obj.geom.setScale(2.f);
-    boat_obj.mat.diffuse = Red;
-    boat_obj.mat.shininess = 0.3f;
-    boat_obj.mat.reflectiveness = 0.0f;
+
+    ///////////// Boat
+    if (show_boat) {
+            std::vector<mesh_id> boat_parts =  scene.load_obj_file(
+                    // "models/obj/NYERSEY/NYERSEY.obj");
+                    "models/obj/ROMANSHP/ROMANSHP2.obj");
+            boat_ids = scene.add_objects(boat_parts);
+            for (uint32_t i = 0 ; i < boat_parts.size(); ++i){
+                    Object& part = scene.object(boat_ids[i]);
+                    part.geom.setScale(0.017f);
+                    part.geom.setPos(makeVector(0.f,5.5f,0.f));
+                    part.geom.setRpy(makeVector(M_PI/2.f,-M_PI/2.f,0.f));
+            }
+    }
+
+    //boat_mesh_id = scene.load_obj_file_as_aggregate("models/obj/frame_boat1.obj");
+    //object_id boat_obj_id = scene.add_object(boat_mesh_id);
+    //Object& boat_obj = scene.object(boat_obj_id);
+    //boat_id = boat_obj_id; 
+    ////boat_obj.geom.setPos(makeVector(0.f,-9.f,0.f));
+    //boat_obj.geom.setPos(makeVector(0.f,-0.5f,0.f));
+    //boat_obj.geom.setRpy(makeVector(0.0f,0.f,0.f));
+    //boat_obj.geom.setScale(2.f);
+    //boat_obj.mat.diffuse = Red;
+    //boat_obj.mat.shininess = 0.3f;
+    //boat_obj.mat.reflectiveness = 0.0f;
 
          if (scene.create_aggregate_mesh()) { 
                 std::cerr << "Failed to create aggregate mesh" << std::endl;

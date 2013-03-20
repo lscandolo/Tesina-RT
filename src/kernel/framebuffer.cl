@@ -22,9 +22,9 @@ init(global ColorInt* image)
 {
 	int index = get_global_id(0);
 	/* image[index].rgb = 0; */
-	image[index].r = 0;
-	image[index].g = 0;
-	image[index].b = 0;
+	image[index].r = 0.f;
+	image[index].g = 0.f;
+	image[index].b = 0.f;
 }
 
 kernel void 

@@ -1,6 +1,8 @@
+#pragma once
 #ifndef LOG_HPP
 #define LOG_HPP
 
+#include <string>
 #include <fstream>
 #include <iostream>
 
@@ -41,7 +43,7 @@ private:
 
 
 template <typename T>
-Log& operator<<(Log& l, T t)
+static Log& operator<<(Log& l, T t)
 {
     if(!l.silent)
         std::cout << t;
@@ -56,7 +58,7 @@ typedef std::basic_ostream<char, std::char_traits<char> > CoutType;
 typedef CoutType& (*StandardEndLine)(CoutType&);
 //Tnx GManNickG from StackOverflow!
 
-Log& operator<<(Log& l, StandardEndLine e)
+static Log& operator<<(Log& l, StandardEndLine e)
 {
     if(!l.silent)
         std::cout << e;
