@@ -59,7 +59,9 @@ class Scene {
 public:
 
         Scene();
+        ~Scene();
         int32_t initialize();
+        int32_t destroy();
         bool    valid();
         bool    valid_aggregate();
         bool    valid_bvhs();

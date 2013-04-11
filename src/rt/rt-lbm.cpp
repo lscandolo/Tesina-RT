@@ -46,11 +46,9 @@ Scene                 scene;
 PrimaryRayGenerator   prim_ray_gen;
 SecondaryRayGenerator sec_ray_gen;
 RayShader             ray_shader;
-Cubemap               cubemap;
 FrameBuffer           framebuffer;
 Tracer                tracer;
 BVHBuilder            bvh_builder;
-Camera                camera;
 
 GLuint gl_tex;
 rt_time_t rt_time;
@@ -129,9 +127,9 @@ void gl_mouse_click(int button, int state, int x, int y)
 
                 float xPosNDC = ((float)x)/window_size[0];
                 float yPosNDC = 1.f - ((float)y)/window_size[1];
-                vec3 raydir = (camera.dir + camera.right * (xPosNDC * 2.0f - 1.0f) +
-                        camera.up    * (yPosNDC * 2.0f - 1.0f)).normalized();
-                vec3 raypos = camera.pos;
+                vec3 raydir = (scene.camera.dir + scene.camera.right * (xPosNDC * 2.0f - 1.0f) +
+                        scene.camera.up    * (yPosNDC * 2.0f - 1.0f)).normalized();
+                vec3 raypos = scene.camera.pos;
                 //std::cout << "Ray dir: " << raydir << std::endl;
                 
                 const vec3 v0 = makeVector(100.f,0.f,100.f);
@@ -162,8 +160,8 @@ void gl_mouse(int x, int y)
                 if (d_inc == 0.f && d_yaw == 0.f)
                         return;
 
-                camera.modifyAbsYaw(d_yaw);
-                camera.modifyPitch(d_inc);
+                scene.camera.modifyAbsYaw(d_yaw);
+                scene.camera.modifyPitch(d_inc);
                 glutWarpPointer(window_size[0] * 0.5f, window_size[1] * 0.5f);
         }
 }
@@ -187,20 +185,20 @@ void gl_key(unsigned char key, int x, int y)
             MAX_BOUNCE = std::max(MAX_BOUNCE-1, 0);
             break;
     case 'a':
-            camera.panRight(-delta);
+            scene.camera.panRight(-delta);
             break;
     case 's':
-            camera.panForward(-delta);
+            scene.camera.panForward(-delta);
             break;
 	case 'w':
-            camera.panForward(delta);
+            scene.camera.panForward(delta);
             break;
     case 'd':
-            camera.panRight(delta);
+            scene.camera.panRight(delta);
             break;
     case 'z':
-            std::cout << "Pos: " << camera.pos << std::endl;
-            std::cout << "Dir: " << camera.dir << std::endl;
+            std::cout << "Pos: " << scene.camera.pos << std::endl;
+            std::cout << "Dir: " << scene.camera.dir << std::endl;
             break;
     case 'q':
             std::cout << std::endl << "Exiting..." << std::endl;
@@ -314,7 +312,7 @@ void gl_loop()
 	glClear(GL_COLOR_BUFFER_BIT);
 
         if (device.acquire_graphic_resource(tex_id) ||
-            cubemap.acquire_graphic_resources() || 
+            scene.cubemap.acquire_graphic_resources() || 
             scene.acquire_graphic_resources()) {
                 std::cerr << "Error acquiring texture resource." << std::endl;
                 pause_and_exit(1);
@@ -334,26 +332,26 @@ void gl_loop()
 
 	if (loging_state){
 		if(loging_state == 1){
-			rt_log << "Camera configuration 'o' " << std::endl;
-			camera.set(makeVector(0,3,-30), makeVector(0,0,1), makeVector(0,1,0), M_PI/4.,
+			rt_log << "scene.camera configuration 'o' " << std::endl;
+			scene.camera.set(makeVector(0,3,-30), makeVector(0,0,1), makeVector(0,1,0), M_PI/4.,
                                    window_size[0] / (float)window_size[1]);
 		} else if (loging_state == 3){
-			rt_log << "Camera configuration 'i' " << std::endl;
-			camera.set(makeVector(0,5,-30), makeVector(0,-0.5,1), makeVector(0,1,0), M_PI/4.,
+			rt_log << "scene.camera configuration 'i' " << std::endl;
+			scene.camera.set(makeVector(0,5,-30), makeVector(0,-0.5,1), makeVector(0,1,0), M_PI/4.,
                                    window_size[0] / (float)window_size[1]);
 		} else if (loging_state == 5) {
-			rt_log << "Camera configuration 'k' " << std::endl;
-			camera.set(makeVector(0,25,-60), makeVector(0,-0.5,1), makeVector(0,1,0), M_PI/4.,
+			rt_log << "scene.camera configuration 'k' " << std::endl;
+			scene.camera.set(makeVector(0,25,-60), makeVector(0,-0.5,1), makeVector(0,1,0), M_PI/4.,
                                    window_size[0] / (float)window_size[1]);
 		} else if (loging_state == 7) {
-			rt_log << "Camera configuration 'l' " << std::endl;
-			camera.set(makeVector(0,120,0), makeVector(0,-1,0.01), makeVector(0,1,0), M_PI/4.,
+			rt_log << "scene.camera configuration 'l' " << std::endl;
+			scene.camera.set(makeVector(0,120,0), makeVector(0,-1,0.01), makeVector(0,1,0), M_PI/4.,
                                    window_size[0] / (float)window_size[1]);
 		} else if (loging_state == 9) {
 			rt_log.enabled = false;
 			rt_log.silent = true;
             bvh_builder.logging(false);
-            camera.set(makeVector(0,3,-30), makeVector(0,0,1), makeVector(0,1,0), M_PI/4.,
+            scene.camera.set(makeVector(0,3,-30), makeVector(0,0,1), makeVector(0,1,0), M_PI/4.,
                                             window_size[0] / (float)window_size[1]);
             std::cout << "Done loging!"	<< std::endl;
             loging_state = 0;
@@ -452,7 +450,7 @@ void gl_loop()
                 if (sample_count - offset < tile_size)
                         tile_size = sample_count - offset;
 
-                if (prim_ray_gen.set_rays(camera, ray_bundle_1, window_size,
+                if (prim_ray_gen.generate(scene.camera, ray_bundle_1, window_size,
                                           tile_size, offset)) {
                         std::cerr << "Error seting primary ray bundle" << std::endl;
                         pause_and_exit(1);
@@ -474,7 +472,7 @@ void gl_loop()
                 prim_shadow_trace_time += tracer.get_shadow_exec_time();
 
                 if (ray_shader.shade(*ray_in, hit_bundle, scene,
-                                     cubemap, framebuffer, tile_size,true)){
+                                     scene.cubemap, framebuffer, tile_size,true)){
                         std::cerr << "Failed to update framebuffer." << std::endl;
                         pause_and_exit(1);
                 }
@@ -513,7 +511,7 @@ void gl_loop()
                         sec_shadow_trace_time += tracer.get_shadow_exec_time();
 
                         if (ray_shader.shade(*ray_in, hit_bundle, scene,
-                                             cubemap, framebuffer, sec_ray_count)){
+                                             scene.cubemap, framebuffer, sec_ray_count)){
                                 std::cerr << "Ray shader failed execution." << std::endl;
                                 pause_and_exit(1);
                         }
@@ -530,7 +528,7 @@ void gl_loop()
         double total_msec = rt_time.msec_since_snap();
 
         if (device.release_graphic_resource(tex_id) ||
-            cubemap.release_graphic_resources() ||
+            scene.cubemap.release_graphic_resources() ||
             scene.release_graphic_resources()) {
                 std::cerr << "Error releasing texture resource." << std::endl;
                 pause_and_exit(1);
@@ -777,10 +775,10 @@ int main (int argc, char** argv)
          }
 
 
-	/*---------------------- Set initial Camera paramaters -----------------------*/
-    camera.set(makeVector(-28,62,-179), makeVector(0.095,-0.417,0.903),
+	/*---------------------- Set initial scene.camera paramaters -----------------------*/
+    scene.camera.set(makeVector(-28,62,-179), makeVector(0.095,-0.417,0.903),
             makeVector(0,1,0), M_PI/4., window_size[0] / (float)window_size[1]);
-	//camera.set(makeVector(0,3,-30), makeVector(0,0,1), makeVector(0,1,0), M_PI/4.,
+	//scene.camera.set(makeVector(0,3,-30), makeVector(0,0,1), makeVector(0,1,0), M_PI/4.,
 	//	   window_size[0] / (float)window_size[1]);
 
 
@@ -815,9 +813,9 @@ int main (int argc, char** argv)
 	}
 	std::cout << "Initialized hit bundle succesfully" << std::endl;
 
-	/*----------------------- Initialize cubemap ---------------------------*/
+	/*----------------------- Initialize scene.cubemap ---------------------------*/
 	
-	if (cubemap.initialize("textures/cubemap/Path/posx.jpg",
+	if (scene.cubemap.initialize("textures/cubemap/Path/posx.jpg",
                                "textures/cubemap/Path/negx.jpg",
                                "textures/cubemap/Path/posy.jpg",
                                "textures/cubemap/Path/negy.jpg",
@@ -826,7 +824,7 @@ int main (int argc, char** argv)
 		std::cerr << "Failed to initialize cubemap." << std::endl;
 		pause_and_exit(1);
 	}
-	std::cerr << "Initialized cubemap succesfully." << std::endl;
+	std::cerr << "Initialized scene.cubemap succesfully." << std::endl;
 
 	/*------------------------ Initialize FrameBuffer ---------------------------*/
 	if (framebuffer.initialize(window_size)) {
@@ -886,7 +884,7 @@ int main (int argc, char** argv)
 	total_cl_mem += pixel_count * 4; /* 4bpp texture */
 	total_cl_mem += ray_bundle_1.mem().size() + ray_bundle_2.mem().size();
 	total_cl_mem += hit_bundle.mem().size();
-	total_cl_mem += cubemap.positive_x_mem().size() * 6;
+	total_cl_mem += scene.cubemap.positive_x_mem().size() * 6;
 	total_cl_mem += framebuffer.image_mem().size();
 	
 	std::cout << "\nMemory stats: " << std::endl;
@@ -895,8 +893,8 @@ int main (int argc, char** argv)
 	std::cout << "\tFramebuffer+Tex mem usage: "
                   << (framebuffer.image_mem().size() + pixel_count * 4)/1e6
                   << " MB."<< std::endl;
-	std::cout << "\tCubemap mem usage: "
-                  << (cubemap.positive_x_mem().size()*6)/1e6
+	std::cout << "\tscene.cubemap mem usage: "
+                  << (scene.cubemap.positive_x_mem().size()*6)/1e6
                   << " MB."<< std::endl;
 	std::cout << "\tRay mem usage: "
                   << (ray_bundle_1.mem().size()*2)/1e6

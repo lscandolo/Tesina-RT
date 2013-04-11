@@ -215,7 +215,7 @@ void gl_loop()
 		if (sample_count - offset < tile_size)
 			tile_size = sample_count - offset;
 
-		if (prim_ray_gen.set_rays(camera, *ray_in, window_size,
+		if (prim_ray_gen.generate(camera, *ray_in, window_size,
                                           tile_size, offset)) {
 			std::cerr << "Error seting primary ray bundle" << std::endl;
 			exit(1);

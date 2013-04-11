@@ -59,3 +59,11 @@ void Mesh::set_global_slack(vec3 slack)
         slacks = std::vector<vec3>(triangles.size(),slack);
 }
 
+/* Clear all data */
+void Mesh::destroy()
+{
+        vertices.clear();
+        triangles.clear();
+        slacks.clear();
+        original_materials.clear();
+}

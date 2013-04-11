@@ -22,6 +22,7 @@ struct BBox {
 	uint8_t largestAxis() const;
 	vec3 centroid() const;
 	float surfaceArea() const;
+    void reset();
 
 	cl_float3 hi,lo;
 

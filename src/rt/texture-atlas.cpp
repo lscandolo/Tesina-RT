@@ -6,6 +6,10 @@ TextureAtlas::initialize()
         DeviceInterface& device = *DeviceInterface::instance();
         if (!device.good())
                 return -1;
+
+        if (m_initialized)
+                return 0;
+
         invalid_tex_mem_id = device.new_memory();
 
         DeviceMemory& invalid_tex_mem = device.memory(invalid_tex_mem_id);
@@ -13,6 +17,8 @@ TextureAtlas::initialize()
         if (invalid_gl_tex_id < 0)
                 return -1;
         if (invalid_tex_mem.initialize_from_gl_texture(invalid_gl_tex_id))
+                return -1;
+        if (device.acquire_graphic_resource(invalid_tex_mem_id, true))
                 return -1;
 
         m_initialized = true;
@@ -44,7 +50,10 @@ TextureAtlas::load_texture(std::string filename)
         // std::cout << "new_tex_gl_id: " << new_tex_gl_id << std::endl;
         if (new_tex_mem.initialize_from_gl_texture(new_tex_gl_id))
                 return invalid_tex_id;
-        
+        if (device.acquire_graphic_resource(new_tex_mem_id,true))
+                return invalid_tex_id;
+
+
         texture_id new_tex_id = tex_mem_ids.size();
         // std::cout << "new_tex_id: " << new_tex_id << std::endl;
         tex_mem_ids.push_back(new_tex_mem_id);
@@ -56,7 +65,7 @@ DeviceMemory&
 TextureAtlas::texture_mem(texture_id tex_id)
 {
         DeviceInterface& device = *DeviceInterface::instance();
-        if (tex_id < 0 || tex_id >= tex_mem_ids.size())
+        if (tex_id < 0 || tex_id >= (signed)tex_mem_ids.size())
                 return device.memory(invalid_tex_mem_id);
 
         return device.memory(tex_mem_ids[tex_id]);
@@ -98,3 +107,22 @@ TextureAtlas::release_graphic_resources()
 
         return 0;
 }
+
+void
+TextureAtlas::destroy()
+{
+        DeviceInterface& device = *DeviceInterface::instance();
+        if (!m_initialized)
+                return;
+
+        file_map.clear();
+        std::vector<memory_id>::iterator it;
+        for (it = tex_mem_ids.begin(); it != tex_mem_ids.end(); it++) {
+                DeviceMemory& mem = device.memory(*it);
+                if(mem.valid())
+                        mem.release();
+        }
+        tex_mem_ids.clear();
+}
+
+

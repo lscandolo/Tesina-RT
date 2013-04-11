@@ -212,7 +212,7 @@ DeviceInterface::delete_function(function_id id)
 }
 
 int32_t
-DeviceInterface::acquire_graphic_resource(memory_id tex_id)
+DeviceInterface::acquire_graphic_resource(memory_id tex_id, bool enqueue_barrier)
 {
         if (!good())
                 return -1;
@@ -227,13 +227,15 @@ DeviceInterface::acquire_graphic_resource(memory_id tex_id)
         if (error_cl(err, "clEnqueueAcquireGLObjects"))
                 return -1;
 
-        err = clFinish(m_clinfo.command_queue);
-        if (error_cl(err, "clFinish"))
+        if (enqueue_barrier) {
+                err = clEnqueueBarrier(m_clinfo.command_queue);
+                if (error_cl(err, "clEnqueueBarrier"))
                 return -1;
+        }
         return 0;
 }
 int32_t
-DeviceInterface::release_graphic_resource(memory_id tex_id)
+DeviceInterface::release_graphic_resource(memory_id tex_id, bool enqueue_barrier)
 {
         if (!good())
                 return -1;
@@ -248,9 +250,11 @@ DeviceInterface::release_graphic_resource(memory_id tex_id)
         if (error_cl(err, "clEnqueueReleaseGLObjects"))
                 return -1;
 
-        err = clFinish(m_clinfo.command_queue);
-        if (error_cl(err, "clFinish"))
-                return -1;
+        if (enqueue_barrier) {
+                err = clEnqueueBarrier(m_clinfo.command_queue);
+                if (error_cl(err, "clEnqueueBarrier"))
+                        return -1;
+        }
         return 0;
 }
 

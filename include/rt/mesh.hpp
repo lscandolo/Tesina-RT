@@ -82,6 +82,9 @@ public:
         /* Set a global slack for all triangles */
         void set_global_slack(vec3 slack); 
 
+        /* Clear all data */
+        void destroy();
+
 };
 
 #endif /* RT_MESH_HPP */

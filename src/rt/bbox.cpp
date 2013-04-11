@@ -2,6 +2,12 @@
 
 BBox::BBox()
 {
+        reset();
+}
+
+void
+BBox::reset()
+{
 	float M = std::numeric_limits<float>::max();
 	float m = std::numeric_limits<float>::min();
 	

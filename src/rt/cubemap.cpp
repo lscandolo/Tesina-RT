@@ -41,6 +41,17 @@ Cubemap::initialize(std::string posx, std::string negx,
         negz_id = device.new_memory();
         if (device.memory(negz_id).initialize_from_gl_texture(negz_tex))
                 return -1;
+
+        //////// Acquire resources
+
+        if (device.acquire_graphic_resource(posx_id) ||
+            device.acquire_graphic_resource(posy_id) ||
+            device.acquire_graphic_resource(posz_id) ||
+            device.acquire_graphic_resource(negx_id) ||
+            device.acquire_graphic_resource(negy_id) ||
+            device.acquire_graphic_resource(negz_id))
+                return -1;
+
         m_initialized = true;
         enabled = true;
 	return 0;

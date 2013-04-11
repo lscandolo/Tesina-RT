@@ -40,7 +40,7 @@ PrimaryRayGenerator::initialize()
 
 
 int32_t 
-PrimaryRayGenerator::set_rays(const Camera& cam, RayBundle& bundle, size_t size[2],
+PrimaryRayGenerator::generate(const Camera& cam, RayBundle& bundle, size_t size[2],
 			      const size_t ray_count, const size_t offset)
 {
 
@@ -96,8 +96,8 @@ PrimaryRayGenerator::set_rays(const Camera& cam, RayBundle& bundle, size_t size[
         device.enqueue_barrier();
 
 	if (m_timing) {
-                device.finish_commands();
-		m_time_ms = m_timer.msec_since_snap();
+            device.finish_commands();
+            m_time_ms = m_timer.msec_since_snap();
         }
 
 	return ret;

@@ -26,8 +26,8 @@ public:
 	DeviceMemory&       get_pixel_samples();
 
 
-	int32_t set_rays(const Camera& cam, RayBundle& bundle, size_t size[2],
-                         const size_t ray_count, const size_t offset);
+	int32_t generate(const Camera& cam, RayBundle& bundle, size_t size[2],
+                     const size_t ray_count, const size_t offset);
 
 	void   timing(bool b);
 	double get_exec_time();

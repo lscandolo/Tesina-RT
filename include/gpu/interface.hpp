@@ -44,8 +44,8 @@ public:
         bool valid_function_id(function_id id);
         bool valid_memory_id(memory_id id);
 
-        int32_t acquire_graphic_resource(memory_id tex_id);
-        int32_t release_graphic_resource(memory_id tex_id);
+        int32_t acquire_graphic_resource(memory_id tex_id, bool enqueue_barrier = false);
+        int32_t release_graphic_resource(memory_id tex_id, bool enqueue_barrier = false);
 
         int32_t enqueue_barrier();
         int32_t finish_commands();

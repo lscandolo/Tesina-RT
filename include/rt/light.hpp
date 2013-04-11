@@ -87,6 +87,8 @@ struct lights_cl {
 
 	color_cl ambient;
 	light_cl light;
+
+    void destroy(){}
 };
 
 #endif /* RT_LIGHT_HPP */

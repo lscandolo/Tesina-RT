@@ -20,6 +20,68 @@
 #include <string>
 
 
+enum rt_stage {
+        BVH_BUILD = 0,
+        PRIM_RAY_GEN,
+        SEC_RAY_GEN,
+        PRIM_TRACE,
+        PRIM_SHADOW_TRACE,
+        SEC_TRACE,
+        SEC_SHADOW_TRACE,
+        SHADE,
+        FB_CLEAR,
+        FB_COPY
+};
+
+const size_t rt_stages = 10;
+
+struct FrameStats {
+        double   get_stage_time(rt_stage stage) const {
+                return stage_times[stage];}
+        double   get_stage_mean_time(rt_stage stage) const {
+                if (acc_frames)
+                        return stage_acc_times[stage]/acc_frames;
+                return 0;
+        }
+
+        double   get_frame_time() const {
+                return frame_time;}
+        double   get_mean_frame_time() const {
+                if (acc_frames)
+                        return frame_acc_time/acc_frames;
+                return 0;
+        };
+
+        size_t  get_ray_count() const {
+               return total_ray_count;}
+        size_t  get_secondary_ray_count() const {
+               return total_sec_ray_count;}
+
+        void clear_times() {
+                for (uint32_t i = 0; i < rt_stages; ++i) {
+                        stage_times[i] = 0;
+                }
+        }
+
+        void clear_mean_times() {
+                acc_frames = 0;
+                for (uint32_t i = 0; i < rt_stages; ++i) {
+                        stage_acc_times[i] = 0;
+                }
+        }
+
+        double stage_times[rt_stages];
+        double stage_acc_times[rt_stages];
+        uint32_t acc_frames;
+
+        double frame_time;
+        double frame_acc_time;
+
+        size_t total_ray_count;
+        size_t total_sec_ray_count;
+
+};
+
 class Renderer {
 
 public:
@@ -39,16 +101,27 @@ public:
         uint32_t conclude_frame(Scene& scene, memory_id tex_id);
 
         uint32_t initialize_from_ini_file(std::string file_path);
-        //uint32_t initialize_scene(Scene& scene);
-        uint32_t initialize(CLInfo clinfo);
+        uint32_t initialize(CLInfo clinfo, std::string log_filename = "rt-log");
 
         uint32_t get_framebuffer_h(){return fb_h;}
         uint32_t get_framebuffer_w(){return fb_w;}
 
+        int32_t  set_samples_per_pixel(size_t spp,
+                                       pixel_sample_cl const* pixel_samples);
+        size_t   get_samples_per_pixel();
+
         void     set_static_bvh(bool b){static_bvh = b;}
-        void     set_max_bounces(size_t b){max_bounces = b;}
+        bool     is_static_bvh(){return static_bvh;}
+
+        void     set_max_bounces(uint32_t b){max_bounces = b;}
+        uint32_t get_max_bounces(){return max_bounces;}
+
+        void     clear_stats() {stats.clear_times(); stats.clear_mean_times();}
+        const FrameStats& get_frame_stats() {return stats;}
 
         INIReader ini;
+
+        Log                   log;
 
 private:
 
@@ -64,32 +137,15 @@ private:
         RayShader             ray_shader;
         Tracer                tracer;
 
-        Log                   log;
+        uint32_t              fb_w,fb_h;
+        size_t                tile_size;
+        bool                  static_bvh;
+        uint32_t              max_bounces;
 
-        uint32_t fb_w,fb_h;
+        FrameStats            stats;
+        rt_time_t             frame_timer;
 
-        rt_time_t frame_timer;
-
-        void   clear_timers();
-        double bvh_build_time;
-        double prim_gen_time;
-        double sec_gen_time;
-        double prim_trace_time;
-        double sec_trace_time;
-        double prim_shadow_trace_time;
-        double sec_shadow_trace_time;
-        double shader_time;
-        double fb_clear_time;
-        double fb_copy_time;
-
-        size_t total_ray_count;
-        size_t total_sec_ray_count;
-        size_t tile_size;
-
-        memory_id target_tex_id;
-        size_t max_bounces;
-        bool static_bvh;
-
+        memory_id             target_tex_id;
 };
 
 #endif /* RENDERER_HPP */

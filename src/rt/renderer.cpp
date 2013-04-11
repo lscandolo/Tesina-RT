@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <conio.h>
 
-uint32_t Renderer::set_up_frame(memory_id tex_id, Scene& scene)
+uint32_t Renderer::set_up_frame(const memory_id tex_id, Scene& scene)
 {
         // Initialize frame timer
         frame_timer.snap_time();
@@ -18,17 +18,17 @@ uint32_t Renderer::set_up_frame(memory_id tex_id, Scene& scene)
         target_tex_id = tex_id;
 
         //Set time variables to 0
-        clear_timers();
+        stats.clear_times();
 
         //Set ray counters to 0
-        total_ray_count = 0;
-        total_sec_ray_count = 0;
+        stats.total_ray_count = 0;
+        stats.total_sec_ray_count = 0;
 
-        // Acquire resources for texture
-        if (device.acquire_graphic_resource(target_tex_id) ||
-            scene.acquire_graphic_resources()) {
-                        std::cerr << "Error acquiring texture resource." << std::endl;
-                        return -1;
+        // Acquire resources for render texture
+        if (device.acquire_graphic_resource(target_tex_id)) {
+                //|| scene.acquire_graphic_resources()) {// Scene acquire is not needed
+                std::cerr << "Error acquiring texture resource." << std::endl;
+                return -1;
         }
         
         // Clear the framebuffer
@@ -36,7 +36,7 @@ uint32_t Renderer::set_up_frame(memory_id tex_id, Scene& scene)
                 std::cerr << "Failed to clear framebuffer." << std::endl;
                 return -1;
         }
-        fb_clear_time = framebuffer.get_clear_exec_time();
+        stats.stage_times[FB_CLEAR] = framebuffer.get_clear_exec_time();
 
         // Create accelerator (if needed)
         if (update_accelerator(scene))
@@ -55,7 +55,7 @@ uint32_t Renderer::update_accelerator(Scene& scene)
                         std::cout << "BVH builder failed." << std::endl;
                         return -1;
                 } 
-                bvh_build_time = bvh_builder.get_exec_time();
+                stats.stage_times[BVH_BUILD] = bvh_builder.get_exec_time();
         }
         return 0;
 }
@@ -67,7 +67,7 @@ uint32_t Renderer::render_to_framebuffer(Scene& scene)
         size_t fb_size[] = {fb_w, fb_h};
         size_t current_tile_size = tile_size;
 
-        for (int32_t offset = 0; offset < sample_count; offset+= current_tile_size) {
+        for (size_t offset = 0; offset < sample_count; offset+= current_tile_size) {
 
 
                 RayBundle* ray_in =  &ray_bundle_1;
@@ -76,32 +76,32 @@ uint32_t Renderer::render_to_framebuffer(Scene& scene)
                 if (sample_count - offset < current_tile_size)
                         current_tile_size = sample_count - offset;
 
-                if (prim_ray_gen.set_rays(scene.camera, *ray_in, fb_size,
+                if (prim_ray_gen.generate(scene.camera, *ray_in, fb_size,
                     current_tile_size, offset)) {
                          std::cerr << "Error seting primary ray bundle" << std::endl;
                          return -1;
                 }
-                prim_gen_time += prim_ray_gen.get_exec_time();
-                total_ray_count += current_tile_size;
+                stats.stage_times[PRIM_RAY_GEN] += prim_ray_gen.get_exec_time();
+                stats.total_ray_count += current_tile_size;
 
                 if (tracer.trace(scene, current_tile_size, *ray_in, hit_bundle)) {
                         std::cerr << "Error tracing primary rays" << std::endl;
                         return -1;
                 }
-                prim_trace_time += tracer.get_trace_exec_time();
+                stats.stage_times[PRIM_TRACE] += tracer.get_trace_exec_time();
 
                 if (tracer.shadow_trace(scene, current_tile_size, *ray_in, hit_bundle)) {
                         std::cerr << "Error shadow tracing primary rays" << std::endl;
                         return - 1;
                 }
-                prim_shadow_trace_time += tracer.get_shadow_exec_time();
-
+                stats.stage_times[PRIM_SHADOW_TRACE] += tracer.get_shadow_exec_time();
+                
                 if (ray_shader.shade(*ray_in, hit_bundle, scene,
                     scene.cubemap, framebuffer, current_tile_size,true)){
                          std::cerr << "Failed to update framebuffer." << std::endl;
                          return -1;
                 }
-                shader_time += ray_shader.get_exec_time();
+                stats.stage_times[SHADE] += ray_shader.get_exec_time();
 
                 size_t sec_ray_count = current_tile_size;
                 for (uint32_t i = 0; i < max_bounces; ++i) {
@@ -112,7 +112,7 @@ uint32_t Renderer::render_to_framebuffer(Scene& scene)
                                                 << std::endl;
                                         return -1;
                         }
-                        sec_gen_time += sec_ray_gen.get_exec_time();
+                        stats.stage_times[SEC_RAY_GEN] += sec_ray_gen.get_exec_time();
 
                         std::swap(ray_in,ray_out);
 
@@ -121,8 +121,8 @@ uint32_t Renderer::render_to_framebuffer(Scene& scene)
                         if (sec_ray_count == ray_out->count())
                                 std::cerr << "Max sec rays reached!\n";
 
-                        total_ray_count += sec_ray_count;
-                        total_sec_ray_count += sec_ray_count;
+                        stats.total_ray_count += sec_ray_count;
+                        stats.total_sec_ray_count += sec_ray_count;
 
                         if (tracer.trace(scene, sec_ray_count, 
                                 *ray_in, hit_bundle, true)) {
@@ -130,25 +130,26 @@ uint32_t Renderer::render_to_framebuffer(Scene& scene)
                                         return -1;
                         }
 
-                        sec_trace_time += tracer.get_trace_exec_time();
-
+                        stats.stage_times[SEC_TRACE] += tracer.get_trace_exec_time();
+                        
                         if (tracer.shadow_trace(scene, sec_ray_count, 
                                 *ray_in, hit_bundle, true)) {
                                         std::cerr << "Error shadow tracing primary rays" 
                                                 << std::endl;
                                         return -1;
                         }
-                        sec_shadow_trace_time += tracer.get_shadow_exec_time();
+                        stats.stage_times[SEC_SHADOW_TRACE] += tracer.get_shadow_exec_time();
 
                         if (ray_shader.shade(*ray_in, hit_bundle, scene,
                                 scene.cubemap, framebuffer, sec_ray_count)){
                                         std::cerr << "Ray shader failed execution." << std::endl;
                                         return -1;
                         }
-                        shader_time += ray_shader.get_exec_time();
+                        stats.stage_times[SHADE] += ray_shader.get_exec_time();
                 }
         }
 
+        log.silent = true;
         return 0;
 }
 
@@ -160,7 +161,7 @@ uint32_t Renderer::copy_framebuffer(memory_id tex_id)
                 std::cerr << "Failed to copy framebuffer." << std::endl;
                 return -1;
         }
-        fb_copy_time = framebuffer.get_copy_exec_time();
+        stats.stage_times[FB_COPY] = framebuffer.get_copy_exec_time();
         
         return 0;
 }
@@ -191,14 +192,20 @@ uint32_t Renderer::conclude_frame(Scene& scene, memory_id tex_id)
         if (!device.good())
                 return -1;
         
-        if (device.release_graphic_resource(tex_id) ||
-            scene.release_graphic_resources()) {
+        // Release render texture resource
+        if (device.release_graphic_resource(tex_id)) {
+                //|| scene.release_graphic_resources()) { // Scene release is not needed
             std::cerr << "Error releasing texture resource." << std::endl;
             return -1;
         }
         device.finish_commands();
-        double frame_msec = frame_timer.msec_since_snap();
 
+        stats.frame_time = frame_timer.msec_since_snap();
+        stats.frame_acc_time += stats.frame_time;
+        for (uint32_t i = 0; i < rt_stages; ++i)
+                stats.stage_acc_times[i] += stats.stage_times[i];
+
+        stats.acc_frames++;
         return 0;
 }
 
@@ -228,22 +235,20 @@ uint32_t Renderer::initialize_from_ini_file(std::string file_path)
                         max_bounces = int_val;
         }        return 0;
 
-        log.initialize("rt-log");//!!
-        
-        log.silent = false;
-        log.enabled = true;
-
 }
 
-uint32_t Renderer::initialize(CLInfo clinfo)
+uint32_t Renderer::initialize(CLInfo clinfo, std::string log_filename)
 {
         
+        log.initialize(log_filename);
+        log.silent = false;
+        log.enabled = false;
 
         if (bvh_builder.initialize(clinfo)) {
                 std::cerr << "Failed to initialize bvh builder" << std::endl;
                 return -1;
         } else {
-                log << "Initialized bvh builder succesfully" << std::endl;
+                std::cout << "Initialized bvh builder succesfully" << std::endl;
         }
         bvh_builder.set_log(&log);
 
@@ -328,20 +333,19 @@ uint32_t Renderer::initialize(CLInfo clinfo)
         tracer.timing(true);
         ray_shader.timing(true);
 
+        clear_stats();
+
         return 0;
 }
 
-void Renderer::clear_timers()
+int32_t 
+Renderer::set_samples_per_pixel(size_t spp, pixel_sample_cl const* pixel_samples)
 {
-        bvh_build_time = 0;
-        prim_gen_time = 0;
-        sec_gen_time = 0;
-        prim_trace_time = 0;
-        sec_trace_time = 0;
-        prim_shadow_trace_time = 0;
-        sec_shadow_trace_time = 0;
-        shader_time = 0;
-        fb_clear_time = 0;
-        fb_copy_time = 0;
+        return prim_ray_gen.set_spp(spp,pixel_samples);
+}
 
+size_t
+Renderer::get_samples_per_pixel() 
+{
+	return prim_ray_gen.get_spp();
 }

@@ -178,6 +178,18 @@ BVH::construct_and_map(Mesh& mesh, std::vector<cl_int>& map,
 	return 0;
 }
 
+void
+BVH::destroy()
+{
+        m_nodes.clear();
+        m_triangle_order.clear();
+}
+
+BVH::~BVH()
+{
+        destroy();
+}
+
 BBox 
 BVHNode::computeBBox(const std::vector<BBox>& bboxes, 
 		     const std::vector<tri_id>& ordered_triangles) const

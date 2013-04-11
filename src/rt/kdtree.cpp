@@ -51,7 +51,20 @@ KDTree::construct(Mesh& mesh, BBox* scene_bbox, int32_t node_offset, int32_t tri
 	return 0;
 }
 
-int32_t 
+void
+KDTree::destroy()
+{
+        m_nodes.clear();
+        m_leaf_tris.clear();
+}
+
+KDTree::~KDTree()
+{
+        destroy();
+}
+
+
+int32_t
 KDTNode::process(const BBox bbox, 
                  const std::vector<BBox>& bboxes,
                  std::vector<KDTNode>& nodes, 

@@ -6,10 +6,24 @@
 #include <cl-gl/opencl-init.hpp>
 #include <rt/rt.hpp>
 
+#include <rt/test-params-hand.hpp>
+#include <rt/test-params.hpp>
+
 #define TOTAL_STATS_TO_LOG 12
 #define CONF_STATS_TO_LOG  4
 
-LinearCameraTrajectory cam_traj;
+/*
+ *  Debug Declaration Area
+ */
+
+rt_time_t debug_timer;
+FrameStats debug_stats;
+
+/*
+ *
+ */
+
+size_t frame = 0;
 Renderer renderer;
 
 CLInfo clinfo;
@@ -23,7 +37,6 @@ int current_model = 0;
 Scene scene;
 std::vector<Scene> scenes;
 
-Log rt_log;
 GLuint gl_tex;
 
 bool  print_fps = true;
@@ -31,61 +44,6 @@ bool logging = false;
 bool logged = false;
 bool custom_logging = false;
 int  stats_logged = 0;
-
-//hand
- //vec3 stats_camera_pos[] = {makeVector(-0.542773, 0.851275, 0.193901) ,
- //                           makeVector(0.496716, 0.56714, 0.721966) ,
- //                           makeVector(-0.563173, 1.41939, -0.134797) };
- //vec3 stats_camera_dir[] = {makeVector(0.658816, -0.55455, -0.508365),
- //                           makeVector(-0.472905, -0.0779194, -0.877661) ,
- //                           makeVector(0.502332, -0.860415, -0.0857217) };
-
-//ben
- //vec3 stats_camera_pos[] = {makeVector(-0.126448, 0.546994, 0.818811) ,
- //                           makeVector(0.231515, 0.555109, 0.274977) ,
- //                           makeVector(0.198037, 0.799047, 0.392632) };
- //vec3 stats_camera_dir[] = {makeVector(0.157556,-0.121695, -0.979983),
- //                           makeVector(-0.745308, 0.139962, -0.651864) ,
- //                           makeVector(-0.329182, -0.636949, -0.697091) };
-
-//fairy
-// vec3 stats_camera_pos[] = {makeVector(-0.118154, 0.417017, 1.14433) ,
-//                           makeVector(-0.464505, 0.717691, 0.279553) ,
-//                           makeVector(0.560874, 3.02102, 2.22842) };
-// vec3 stats_camera_dir[] = {makeVector(0.0700268, -0.095778, -0.992936),
-//                           makeVector(0.666486, -0.576098, -0.473188) ,
-//                           makeVector(-0.149838, -0.788657, -0.596295) };
-
-//Boat
-vec3 stats_camera_pos[] = {makeVector(20.0186, -5.49632, 71.8718) ,
-                           makeVector(-56.9387, -2.41959, 29.574) ,
-                           makeVector(68.6859, 5.18034, 13.6691) };
-vec3 stats_camera_dir[] = {makeVector(0.131732, 0.0845093, -0.987677),
-                           makeVector(0.927574, -0.22893, -0.295292) ,
-                           makeVector(-0.820819, -0.478219, -0.31235) };
-
-//dragon
-  //vec3 stats_camera_pos[] = {makeVector(-39.9102, 9.42978, 55.1501) ,
-  //                          makeVector(-1.1457, -0.774464, 49.4609) ,
-  //                          makeVector(16.6885, 22.435, 25.0718) };
-
-
-
-
-  //vec3 stats_camera_dir[] = {makeVector(0.558171, -0.165305, -0.813093),
-  //                          makeVector(-0.00931118, -0.14159, -0.989882) ,
-  //                          makeVector(-0.402962, -0.631356, -0.66258) };
-
-///Buddha
- //vec3 stats_camera_pos[] = {makeVector(0.741773, -1.754, 4.95699) ,
- //                           makeVector(-56.9387, -2.41959, 29.574) ,
- //                           makeVector(68.6859, 5.18034, 13.6691) };
- //vec3 stats_camera_dir[] = {makeVector(-0.179715, -0.0878783, -0.979786),
- //                           makeVector(0.927574, -0.22893, -0.295292) ,
- //                           makeVector(-0.820819, -0.478219, -0.31235) };
-
-
-#define STEPS 16
 
 void gl_mouse(int x, int y)
 {
@@ -123,10 +81,10 @@ void gl_key(unsigned char key, int x, int y)
 
         switch (key){
         case '+':
-                //MAX_BOUNCE = std::min(MAX_BOUNCE+1, 10u);!!
+                renderer.set_max_bounces(std::min(renderer.get_max_bounces()+1, 10u));
                 break;
         case '-':
-                //MAX_BOUNCE = std::max(MAX_BOUNCE-1, 0u);!!
+                renderer.set_max_bounces(std::min(renderer.get_max_bounces()-1, 0u));
                 break;
         case 'a':
                 scene.camera.panRight(-delta*scale);
@@ -169,33 +127,8 @@ void gl_key(unsigned char key, int x, int y)
                            window_size[0] / (float)window_size[1]);
         
                 break;
-        case 'k':
-                rt_log.silent = true;
-                rt_log.enabled = true;
-                rt_log << "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- " 
-                       << "CUSTOM LOG: " 
-                       << "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- " 
-                       << std::endl;
-                rt_log << "scene.camera Pos: " << scene.camera.pos << std::endl;
-                rt_log << "scene.camera Dir: " << scene.camera.dir << std::endl;
-                //rt_log << "MAX_BOUNCE: "<< MAX_BOUNCE << std::endl;!!
-                rt_log << std::endl;
-                logging = true;
-                custom_logging = true;
-                stats_logged = 0;
-                break;
-        case 'l':
-                if (logged)
-                        break;
-                rt_log.silent = true;
-                rt_log.enabled = true;
-                logging = true;
-                logged = true;
-                stats_logged = 0;
-                //MAX_BOUNCE = 9;
-                break;
         case 'b':
-                rt_log.silent = !rt_log.silent;
+                renderer.log.silent = !renderer.log.silent;
                 break;
         case 'f':
                 print_fps = !print_fps;
@@ -207,16 +140,16 @@ void gl_key(unsigned char key, int x, int y)
                 scene.cubemap.enabled = !scene.cubemap.enabled;
                 break;
         case '1': /* Set 1 sample per pixel */
-                //if (prim_ray_gen.set_spp(1,samples1)){
-                //        std::cerr << "Error seting spp" << std::endl;
-                //        pause_and_exit(1);
-                //}
+                if (renderer.set_samples_per_pixel(1,samples1)){
+                        std::cerr << "Error seting spp" << std::endl;
+                        pause_and_exit(1);
+                }
                 break;
         case '4': /* Set 4 samples per pixel */
-                //if (prim_ray_gen.set_spp(4,samples4)){
-                //        std::cerr << "Error seting spp" << std::endl;
-                //        pause_and_exit(1);
-                //}
+                if (renderer.set_samples_per_pixel(4,samples4)){
+                        std::cerr << "Error seting spp" << std::endl;
+                        pause_and_exit(1);
+                }
                 break;
         case 'q':
                 std::cout << std::endl << "pause_and_exiting..." << std::endl;
@@ -240,27 +173,52 @@ void gl_key(unsigned char key, int x, int y)
 
 void gl_loop()
 {
+        debug_timer.snap_time();//!!
+
         glClear(GL_COLOR_BUFFER_BIT);
 
         //Acquire graphics library resources, clear framebuffer, 
         // clear counters and create bvh if needed
-        renderer.set_up_frame(tex_id ,scene);
+        if (renderer.set_up_frame(tex_id ,scene)) {
+                std::cerr << "Error in setting up frame" << std::endl;
+                exit(-1);
+        }
 
         //Set camera parameters (if needed)
+        CameraTrajectory* cam_traj;
+        cam_traj = &hand_cam_traj;
+
+        debug_stats.stage_acc_times[0] += debug_timer.msec_since_snap();//!!
+
+
         vec3 cam_pos,cam_up,cam_dir;
-        cam_traj.get_next_camera_params(&cam_pos, &cam_dir, &cam_up);
-        cam_pos = makeVector(0.f,0.f,0.f);
-        cam_dir = makeVector(0.f,0.f,1.f);
-        cam_up = makeVector(0.f,1.f,0.f);
-        float FOV = M_PI/4.f;
-        float aspect = 1.f; //!!window_size[0] / (float)window_size[1];
-        //scene.camera.set(cam_pos,cam_dir,cam_up, FOV, aspect);
+        if (frame > 0 && frame < 100) {
+                cam_traj->get_next_camera_params(&cam_pos, &cam_dir, &cam_up);
+                float FOV = M_PI/4.f;
+                float aspect = renderer.get_framebuffer_w()/(float)renderer.get_framebuffer_h(); 
+                scene.camera.set(cam_pos,cam_dir,cam_up, FOV, aspect);
+        }
         
+        debug_stats.stage_acc_times[1] += debug_timer.msec_since_snap();//!!
+
         //Render image to framebuffer and copy to set up texture
-        renderer.render_to_texture(scene);
+        //renderer.render_to_texture(scene);
+
+        renderer.render_to_framebuffer(scene);//!!
         
+        debug_stats.stage_acc_times[2] += debug_timer.msec_since_snap();//!!
+
+        renderer.copy_framebuffer();//!!
+
+        debug_stats.stage_acc_times[3] += debug_timer.msec_since_snap();//!!
+
         //Do cleanup after rendering frame
-        renderer.conclude_frame(scene);
+        if (renderer.conclude_frame(scene)) {
+                std::cerr << "Error concluding frame" << std::endl;
+                exit(-1);
+        }
+
+        debug_stats.stage_acc_times[4] += debug_timer.msec_since_snap();//!!
 
         ////////////////// Immediate mode textured quad
         glLoadIdentity();
@@ -283,53 +241,154 @@ void gl_loop()
         glEnd();
         ////////////////////////////////////////////
         
+        debug_stats.stage_acc_times[5] += debug_timer.msec_since_snap();//!!
+
+        frame++;
+        //std::cout << "Camera Pos: " << scene.camera.pos << std::endl;
+        const FrameStats& stats = renderer.get_frame_stats();
+
+        if (print_fps) {
+                glRasterPos2f(-0.95f,0.9f);
+                std::stringstream ss;
+                ss << "FPS: " << (1000.f / stats.get_frame_time());
+                if (frame < 100) {
+                        ss << "\n  LOGGING";
+                }
+                std::string fps_s = ss.str();
+                for (uint32_t i = 0; i < fps_s.size(); ++i)
+                        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *(fps_s.c_str()+i));
+        }
+
+
         glutSwapBuffers();
+
+        if (frame == 1){
+                debug_stats.clear_mean_times();//!!
+                debug_stats.clear_times();//!!
+                renderer.clear_stats();
+        }
+
+        debug_stats.acc_frames++;//!!
+        if (frame == 100) {
+                renderer.log.enabled = true;
+                renderer.log << "========================================================\n";
+                renderer.log << "========================================================\n";
+                renderer.log << "                      HAND SCENE\n";
+                renderer.log << "========================================================\n";
+                renderer.log << "========================================================\n";
+
+                renderer.log << "\nFrame mean time:\t" << stats.get_mean_frame_time()
+                             << std::endl;
+                renderer.log << "Mean FPS:\t" << 1000.f/stats.get_mean_frame_time()
+                             << std::endl << std::endl;
+
+                renderer.log << "Resolution:\t" << renderer.get_framebuffer_w() << "x" << renderer.get_framebuffer_h() << std::endl;
+                renderer.log << "Max ray bounces:\t" << renderer.get_max_bounces() << std::endl;
+                
+                renderer.log << "\n====== Stage times\n\n" ;
+                renderer.log << "\nBVH Build mean time:\t" << stats.get_stage_mean_time(BVH_BUILD) << std::endl;
+                renderer.log << "Prim Gen mean time: \t" << stats.get_stage_mean_time(PRIM_RAY_GEN)<< std::endl;
+                renderer.log << "Sec Gen mean time: \t" << stats.get_stage_mean_time(SEC_RAY_GEN)  << std::endl;
+                renderer.log << "Tracer mean time: \t" << stats.get_stage_mean_time(PRIM_TRACE) + stats.get_stage_mean_time(SEC_TRACE)
+                        << " (" <<  stats.get_stage_mean_time(PRIM_TRACE) << " - " << stats.get_stage_mean_time(SEC_TRACE)
+                        << ")" << std::endl;
+                renderer.log << "Shadow mean time: \t" << stats.get_stage_mean_time(PRIM_SHADOW_TRACE) + stats.get_stage_mean_time(SEC_SHADOW_TRACE)
+                        << " (" <<  stats.get_stage_mean_time(PRIM_SHADOW_TRACE)
+                        << " - " << stats.get_stage_mean_time(SEC_SHADOW_TRACE) << ")" << std::endl;
+                renderer.log << "Shader mean time: \t" << stats.get_stage_mean_time(SHADE) << std::endl;
+                renderer.log << "Fb clear mean time: \t" << stats.get_stage_mean_time(FB_CLEAR) << std::endl;
+                renderer.log << "Fb copy mean time: \t" << stats.get_stage_mean_time(FB_COPY) << std::endl;
+                renderer.log << std::endl;
+
+                ////////// Debug Info
+                renderer.log << "\n\n\nUPTO Stats: \n";
+                renderer.log << "Up to start_up_frame:\t" << debug_stats.get_stage_mean_time((rt_stage)0)
+                             << std::endl;
+                renderer.log << "Up to camera.set:\t" << debug_stats.get_stage_mean_time(rt_stage(1))
+                             << std::endl;
+                renderer.log << "Up to render_to_framebuffer:\t" << debug_stats.get_stage_mean_time(rt_stage(2))
+                             << std::endl;
+                renderer.log << "Up to copy_framebuffer:\t" << debug_stats.get_stage_mean_time(rt_stage(3))
+                             << std::endl;
+                renderer.log << "Up to conclude_frame:\t" << debug_stats.get_stage_mean_time(rt_stage(4))
+                             << std::endl;
+                renderer.log << "Up to glEnd:\t" << debug_stats.get_stage_mean_time(rt_stage(5))
+                             << std::endl;
+                ////////////////
+
+
+                renderer.log.enabled = false;
+        }
+
+        if (!(frame % 100) && frame < 500 && false){
+                std::cout << "Switching scene!" << std::endl;
+                if (scene.destroy()) {
+                        std::cout << "Error destroying scene!!\n";
+                        exit(-1);
+                }
+                scene.initialize();
+
+                if (frame == 100)
+                        hand_set_scene(scene);
+                if (frame == 200)
+                        hand_set_scene(scene);
+                if (frame == 300)
+                        hand_set_scene(scene);
+                if (frame == 400)
+                        hand_set_scene(scene);
+
+                if (scene.create_aggregate_mesh() || scene.create_aggregate_bvh()) { 
+                        std::cerr << "Failed to create aggregate mesh" << std::endl;
+                        pause_and_exit(1);
+                } else {
+                        std::cout << "Created aggregate mesh succesfully" << std::endl;
+                }
+                if (scene.transfer_aggregate_mesh_to_device() ||
+                    scene.transfer_aggregate_bvh_to_device()) {
+                        std::cerr << "Failed to transfer aggregate mesh to device memory"
+                                << std::endl;
+                        pause_and_exit(1);
+                } else {
+                        std::cout << "Transfered aggregate mesh to device succesfully"
+                                << std::endl;
+                }
+        }
+
+        renderer.log << "Time elapsed: " 
+                  << stats.get_frame_time() << " milliseconds " 
+                  << "\t" 
+                  << (1000.f / stats.get_frame_time())
+                  << " FPS"
+                  << "\t"
+                  << stats.get_ray_count()
+                  << " rays casted "
+                  << "\t(" << stats.get_ray_count() - stats.get_secondary_ray_count() << " primary, "
+                  << stats.get_secondary_ray_count() << " secondary)"
+                  << std::endl;
+        if (renderer.log.silent)
+                renderer.log<< "Time elapsed: "
+                << stats.get_frame_time() << " milliseconds "
+                << "\t"
+                << (1000.f / stats.get_frame_time())
+                << " FPS"
+                << "                \r";
+        //std::flush(renderer.log.o());
+        renderer.log << "\nBVH Build time:\t" << stats.get_stage_time(BVH_BUILD) << std::endl;
+        renderer.log << "Prim Gen time: \t" << stats.get_stage_time(PRIM_RAY_GEN)<< std::endl;
+        renderer.log << "Sec Gen time: \t" << stats.get_stage_time(SEC_RAY_GEN)  << std::endl;
+        renderer.log << "Tracer time: \t" << stats.get_stage_time(PRIM_TRACE) + stats.get_stage_time(SEC_TRACE)
+                  << " (" <<  stats.get_stage_time(PRIM_TRACE) << " - " << stats.get_stage_time(SEC_TRACE)
+                  << ")" << std::endl;
+        renderer.log << "Shadow time: \t" << stats.get_stage_time(PRIM_SHADOW_TRACE) + stats.get_stage_time(SEC_SHADOW_TRACE)
+                  << " (" <<  stats.get_stage_time(PRIM_SHADOW_TRACE)
+                  << " - " << stats.get_stage_time(SEC_SHADOW_TRACE) << ")" << std::endl;
+        renderer.log << "Shader time: \t" << stats.get_stage_time(SHADE) << std::endl;
+        renderer.log << "Fb clear time: \t" << stats.get_stage_time(FB_CLEAR) << std::endl;
+        renderer.log << "Fb copy time: \t" << stats.get_stage_time(FB_COPY) << std::endl;
+        renderer.log << std::endl;
+
 }
 
-        //rt_log<< "Time elapsed: " 
-        //          << total_msec << " milliseconds " 
-        //          << "\t" 
-        //          << (1000.f / total_msec)
-        //          << " FPS"
-        //          << "\t"
-        //          << total_ray_count
-        //          << " rays casted "
-        //          << "\t(" << total_ray_count - total_sec_ray_count << " primary, " 
-        //          << total_sec_ray_count << " secondary)"
-        //          << std::endl;
-        //if (rt_log.silent)
-        //        std::cout<< "Time elapsed: "
-        //        << total_msec << " milliseconds "
-        //        << "\t"
-        //        << (1000.f / total_msec)
-        //        << " FPS"
-        //        << "                \r";
-        //std::flush(std::cout);
-        //rt_log << "\nBVH Build time:\t" << bvh_build_time << std::endl;
-        //rt_log << "Prim Gen time: \t" << prim_gen_time << std::endl;
-        //rt_log << "Sec Gen time: \t" << sec_gen_time << std::endl;
-        //rt_log << "Tracer time: \t" << prim_trace_time + sec_trace_time  
-        //          << " (" <<  prim_trace_time << " - " << sec_trace_time 
-        //          << ")" << std::endl;
-        //rt_log << "Shadow time: \t" << prim_shadow_trace_time + sec_shadow_trace_time 
-        //          << " (" <<  prim_shadow_trace_time 
-        //          << " - " << sec_shadow_trace_time << ")" << std::endl;
-        //rt_log << "Shader time: \t" << shader_time << std::endl;
-        //rt_log << "Fb clear time: \t" << fb_clear_time << std::endl;
-        //rt_log << "Fb copy time: \t" << fb_copy_time << std::endl;
-        //rt_log << std::endl;
-
-        //if (print_fps) {
-        //        glRasterPos2f(-0.95f,0.9f);
-        //        std::stringstream ss;
-        //        ss << "FPS: " << (1000.f / total_msec);
-        //        if (logging) {
-        //                ss << "   LOGGING";
-        //        }
-        //        std::string fps_s = ss.str();
-        //        for (uint32_t i = 0; i < fps_s.size(); ++i)
-        //                glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *(fps_s.c_str()+i));
-        //}
 
 int main (int argc, char** argv) 
 {
@@ -375,40 +434,9 @@ int main (int argc, char** argv)
                 std::cout << "Initialized scene succesfully" << std::endl;
         }
         
-        /* Scene definition */
-        //// Boat
-         mesh_id floor_mesh_id = 
-                scene.load_obj_file_as_aggregate("models/obj/frame_water1.obj");
-                //scene.load_obj_file_as_aggregate("models/obj/grid200.obj");
-         object_id floor_obj_id  = scene.add_object(floor_mesh_id);
-         Object& floor_obj = scene.object(floor_obj_id);
-         floor_obj.geom.setScale(2.f);
-         floor_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
-         floor_obj.mat.diffuse = White;
-         floor_obj.mat.diffuse = Blue;
-         floor_obj.mat.reflectiveness = 0.98f;
-         floor_obj.mat.refractive_index = 1.333f;
-
-         mesh_id boat_mesh_id = 
-                 scene.load_obj_file_as_aggregate("models/obj/frame_boat1.obj");
-         object_id boat_obj_id = scene.add_object(boat_mesh_id);
-         Object& boat_obj = scene.object(boat_obj_id);
-         boat_obj.geom.setPos(makeVector(0.f,-8.f,0.f));
-         boat_obj.geom.setRpy(makeVector(0.f,0.f,0.f));
-          boat_obj.geom.setScale(2.f);
-         //boat_obj.geom.setScale(0.005f);
-         boat_obj.mat.diffuse = Red;
-         boat_obj.mat.shininess = 1.f;
-         boat_obj.mat.reflectiveness = 0.0f;
-
-         directional_light_cl light;
-         light.set_dir(0.05f, -1.f, -0.02f);
-         light.set_color(0.7f,0.7f,0.7f);
-         scene.set_dir_light(light);
-
-         color_cl ambient;
-         ambient[0] = ambient[1] = ambient[2] = 0.2f;
-         scene.set_ambient_light(ambient);
+        /*---------------------- Scene definition -----------------------*/
+        hand_set_cam_traj();
+        hand_set_scene(scene);
 
         /*---------------------- Move scene data to gpu -----------------------*/
          if (scene.create_aggregate_mesh()) { 
@@ -417,12 +445,19 @@ int main (int argc, char** argv)
          } else {
                  std::cout << "Created aggregate mesh succesfully" << std::endl;
          }
-         if (scene.transfer_aggregate_mesh_to_device()) {
-                 std::cerr << "Failed to transfer aggregate mesh to device memory"
+         if (scene.create_aggregate_bvh()) { 
+                std::cerr << "Failed to create aggregate bvh" << std::endl;
+                pause_and_exit(1);
+         } else {
+                 std::cout << "Created aggregate bvh succesfully" << std::endl;
+         }
+         if (scene.transfer_aggregate_mesh_to_device() ||
+             scene.transfer_aggregate_bvh_to_device()) {
+                     std::cerr << "Failed to transfer aggregate mesh and bvh to device memory"
                          << std::endl;
                  pause_and_exit(1);
          } else {
-                 std::cout << "Transfered aggregate mesh to device succesfully"
+                 std::cout << "Transfered aggregate mesh and bvh to device succesfully"
                          << std::endl;
          }
 
@@ -445,9 +480,11 @@ int main (int argc, char** argv)
         }
 
         /* Initialize renderer */
-        renderer.initialize(clinfo);
+        log_filename = "rt-hand-mod-log"; 
+        renderer.initialize(clinfo, log_filename);
         renderer.set_max_bounces(5);
-        
+        renderer.log.silent = true;
+
         /* Set callbacks */
         glutKeyboardFunc(gl_key);
         glutMotionFunc(gl_mouse);

@@ -69,7 +69,7 @@ SecondaryRayGenerator::generate(Scene& scene, RayBundle& ray_in, size_t rays_in,
         }
 
         /////////////// Mark secondary rays to be created in aux mem //////////////
-	/* Arguments */
+        /* Arguments */
         if (marker.set_arg(0, hits.mem()) || 
             marker.set_arg(1, ray_in.mem()) ||
             marker.set_arg(2, scene.material_list_mem()) || 

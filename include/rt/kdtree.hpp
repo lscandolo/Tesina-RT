@@ -51,23 +51,26 @@ public:
 
 	int32_t construct(Mesh& mesh, BBox* scene_bbox,
                           int32_t node_offset = 0, int32_t tri_offset = 0);
-
-        std::vector<KDTNode> m_nodes;
-        // std::vector<cl_uint> m_tris;
-        std::vector<cl_uint> m_leaf_tris;
-
-        static const size_t MAX_PRIMS_PER_NODE = 4;
+    void destroy();
+    ~KDTree();
 
 
-        KDTNode* node_array() 
-                {return &(m_nodes[0]);}
-	size_t node_array_size()
-		{return m_nodes.size();}
+    static const size_t MAX_PRIMS_PER_NODE = 4;
 
-	cl_uint* leaf_tris_array()
-		{return &(m_leaf_tris[0]);}
-	size_t   leaf_tris_array_size()
-		{return m_leaf_tris.size();}
+
+    KDTNode* node_array()
+        {return &(m_nodes[0]);}
+    size_t node_array_size()
+        {return m_nodes.size();}
+    
+    cl_uint* leaf_tris_array()
+        {return &(m_leaf_tris[0]);}
+    size_t   leaf_tris_array_size()
+        {return m_leaf_tris.size();}
+
+    std::vector<KDTNode> m_nodes;
+    // std::vector<cl_uint> m_tris;
+    std::vector<cl_uint> m_leaf_tris;
 };
 
 struct SplitPlane {

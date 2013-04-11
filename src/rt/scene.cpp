@@ -49,6 +49,10 @@ Scene::Scene()
         m_accelerator_type = BVH_ACCELERATOR;
 }
 
+Scene::~Scene()
+{
+        destroy();
+}
 int32_t 
 Scene::initialize()
 {
@@ -931,6 +935,9 @@ Scene::acquire_graphic_resources()
             cubemap.acquire_graphic_resources())
                 return -1;
 
+        DeviceInterface::instance()->enqueue_barrier();
+
+
         return 0;
 }
 
@@ -944,6 +951,8 @@ Scene::release_graphic_resources()
             cubemap.release_graphic_resources())
                 return -1;
         
+        DeviceInterface::instance()->enqueue_barrier();
+
         return 0;
 }
 
@@ -1036,6 +1045,78 @@ Scene::vertex_count()
                 vtx_count += mesh.vertexCount();
         }
         return vtx_count;
+}
+
+int32_t
+Scene::destroy() 
+{
+        DeviceInterface& device = *DeviceInterface::instance();
+
+        objects.clear();
+        mesh_atlas.clear();
+        material_list.clear();
+        material_map.clear();
+        bvhs.clear();
+        mmaps.clear();
+        bvh_order.clear();
+        bvh_roots.clear();
+
+        aggregate_mesh.destroy();
+        aggregate_bvh.destroy();
+        aggregate_kdtree.destroy();
+        lights.destroy();
+        aggregate_bbox.reset();
+        texture_atlas.destroy();
+
+        m_initialized = false;
+        m_aggregate_mesh_built = false;
+        m_aggregate_bvh_built = false;
+        m_aggregate_kdt_built = false;
+        m_bvhs_built = false;
+        m_aggregate_bvh_transfered = false;
+        m_aggregate_kdt_transfered = false;
+        m_bvhs_transfered = false;
+        m_accelerator_type = BVH_ACCELERATOR;
+
+        if (!device.good())
+                return -1;
+
+        if (vertex_mem().valid())
+                if (vertex_mem().release())
+                        return -1;
+
+        if (index_mem().valid())
+                if (index_mem().release())
+                        return -1;
+
+        if (material_list_mem().valid())
+                if (material_list_mem().release())
+                        return -1;
+
+        if (material_map_mem().valid())
+                if (material_map_mem().release())
+                        return -1;
+
+        if (bvh_nodes_mem().valid())
+                if (bvh_nodes_mem().release())
+                        return -1;
+
+        if (bvh_roots_mem().valid())
+                if (bvh_roots_mem().release())
+                        return -1;
+
+        if (kdtree_nodes_mem().valid())
+                if (kdtree_nodes_mem().release())
+                        return -1;
+
+        if (kdtree_leaf_tris_mem().valid())
+                if (kdtree_leaf_tris_mem().release())
+                        return -1;
+
+        if (lights_mem().valid())
+                if (lights_mem().release())
+                        return -1;
+        return 0;
 }
 
 /*---------------------------- Misc functions ---------------------------*/
