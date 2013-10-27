@@ -274,15 +274,12 @@ BVHBuilder::build_bvh(Scene& scene)
                 device.delete_memory(aux_bbox_mems[i]);
         }
         memory_id last_bbox_out_id = aux_bbox_mems[aux_bbox_mems.size()-1];
-
-        BBox global_bbox;
-        device.memory(last_bbox_out_id).read(sizeof(BBox) , &global_bbox);
-        device.delete_memory(last_bbox_out_id);
+        DeviceMemory& global_bbox_mem = device.memory(last_bbox_out_id);
 
         // static bool first_time = true;
         // BBox& global_bbox = scene.bbox(); /*!! This should be computed in gpu */
         // if (first_time) {
-        //         // first_time = !first_time;
+        //         first_time = !first_time;
         //         std::vector<BBox> bboxes(triangle_count);
         //         bboxes_mem.read(sizeof(BBox) * bboxes.size(), &(bboxes[0]));
         //         global_bbox = bboxes[0];
@@ -291,28 +288,16 @@ BVHBuilder::build_bvh(Scene& scene)
         //         }
         // }
 
-        // std::cout << "normal global_bbox: " 
-        //           << "\tM: " << float3_to_vec3(global_bbox.hi)
-        //           << "\t\tm: " << float3_to_vec3(global_bbox.lo)
-        //           << std::endl;
-        // std::cout << "gpu global_bbox: " 
-        //           << "\tM: " << float3_to_vec3(_global_bbox.hi)
-        //           << "\t\tm: " << float3_to_vec3(_global_bbox.lo)
-        //           << std::endl;
-
-        cl_float4 inv_global_bbox_size;
-        inv_global_bbox_size.s[0] = 1.f/(global_bbox.hi.s[0] - global_bbox.lo.s[0]);
-        inv_global_bbox_size.s[1] = 1.f/(global_bbox.hi.s[1] - global_bbox.lo.s[1]);
-        inv_global_bbox_size.s[2] = 1.f/(global_bbox.hi.s[2] - global_bbox.lo.s[2]);
         DeviceFunction& morton_encoder = device.function(morton_encoder_id);
         if (morton_encoder.set_arg(0,bboxes_mem) ||
-            morton_encoder.set_arg(1,sizeof(BBox),   &global_bbox) ||
-            morton_encoder.set_arg(2,sizeof(cl_float4), &inv_global_bbox_size) ||
-            morton_encoder.set_arg(3,morton_mem))
+            morton_encoder.set_arg(1,global_bbox_mem) ||
+            morton_encoder.set_arg(2,morton_mem))
                 return -1;
         if (morton_encoder.enqueue_single_dim(triangle_count))
                 return -1;
         device.enqueue_barrier();
+        device.delete_memory(last_bbox_out_id);
+        std::cout << "Hello 2" << std::endl;
         if (m_logging && m_log != NULL) {
                 device.finish_commands();
                 partial_time_ms = partial_timer.msec_since_snap();

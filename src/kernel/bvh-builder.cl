@@ -149,17 +149,18 @@ build_primitive_bbox(global Vertex* vertex_buffer,
 
 kernel void
 morton_encode(global BBox* bboxes,
-              BBox global_bbox,
-              const float4 inv_global_bbox_size,
+              global BBox* global_bbox,
+              /* const float4 inv_global_bbox_size, */
               global morton_code_t* morton_codes) 
 {
         int index = get_global_id(0);
         BBox bbox = bboxes[index];
-
-        float3 g_lo = global_bbox.lo;
-
         float3 center = (bbox.hi + bbox.lo) * 0.5f;
 
+        float3 g_lo = global_bbox->lo;
+        float3 g_hi = global_bbox->hi;
+
+        float3 inv_global_bbox_size = 1.f/(g_hi-g_lo);
         float3 slice  = (center - g_lo) * inv_global_bbox_size.xyz;
         const float3 zeros = (float3)(0.f,0.f,0.f);
         const float3 ones = (float3)(1.f,1.f,1.f);
@@ -739,7 +740,7 @@ max_local_bbox(global BBox*   in_bboxes,
         in_bboxes  += in_start_idx;
 
         // Have to check range
-        if (group_id == get_num_groups(0) - 1 ) {
+        if (group_id == get_num_groups(0) - 1) {
 
                 BBox empty;
                 empty.hi_4 = (float4)(-1e37f,-1e37f,-1e37f,-1e37f);
