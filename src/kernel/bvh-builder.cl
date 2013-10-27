@@ -1,5 +1,4 @@
 //#pragma OPENCL EXTENSION cl_amd_printf:enable
-
 #define UINT_MAX_INV 2.3283064370807974e-10f
 #define UINT_MAX_F 4294967295.f
 
@@ -50,14 +49,14 @@ typedef struct { //Temporary fix because of cl / cl size api inconsistency
 typedef struct {
 
 	BBox bbox;
-    union {
-            unsigned int l_child;
-            unsigned int start_index;
-    };
-    union {
-            unsigned int r_child;
-            unsigned int end_index;
-    };
+        union {
+                unsigned int l_child;
+                unsigned int start_index;
+        };
+        union {
+                unsigned int r_child;
+                unsigned int end_index;
+        };
 	unsigned int parent;
 	char split_axis;
 	char leaf;
@@ -347,8 +346,8 @@ build_treelet(global int*            node_map,
 
         ///////// Descend on the treelet to the correct node
         for (int lev = 0; lev < pass; ++lev) {
-                 //if (treelet[current_node] == T_NULL) 
-                 //        break; 
+                //if (treelet[current_node] == T_NULL) 
+                //        break; 
 
                 if (treelet[current_node] == T_ALL_0){
                         current_node = l_child(current_node);
@@ -419,20 +418,6 @@ void link_children(global BVHNode* nodes,
         lchild->split_axis = (parent->split_axis + 1)%3;
         rchild->split_axis = lchild->split_axis;
 
-        //printf("%u\n", parent_id);
-        //printf("%u\n", (unsigned int)nodes);
-        //printf("%u\n\n", (unsigned int)parent);
-        
-        //if (parent < nodes) {
-        //        return;
-        //}
-        //if (parent_id < 40000) {
-        //        parent->bbox.lo.x = BBOX_NOT_COMPUTED;
-        //        parent->bbox.lo.y = BBOX_NOT_COMPUTED;
-        //}
-        //else {
-        //        //printf("%u\n", parent_id);
-        //}
 }
 
 unsigned int process_node_split_2(global BVHNode* nodes,
@@ -732,3 +717,83 @@ build_node_bbox(global BVHNode* nodes)
 
 }
 
+
+/* #define NUM_BANKS 16   */
+/* #define LOG_NUM_BANKS 4   */
+/* /\* #define CONFLICT_FREE_OFFSET(n) (((n) >> LOG_NUM_BANKS) + ((n) >> (2 * LOG_NUM_BANKS))) *\/ */
+/* #define CONFLICT_FREE_OFFSET(n) (0) */
+
+kernel void 
+max_local_bbox(global BBox*   in_bboxes,
+               local  BBox*   aux,
+               unsigned int   size,
+               global BBox*   out_bboxes)
+{
+        size_t global_size = get_global_size(0);
+        size_t local_size = get_local_size(0);
+        size_t group_id   = get_group_id(0);
+        size_t g_idx = get_global_id(0);
+        size_t l_idx = get_local_id(0);
+
+        int in_start_idx = group_id * local_size * 2;
+        in_bboxes  += in_start_idx;
+
+        // Have to check range
+        if (group_id == get_num_groups(0) - 1 ) {
+
+                BBox empty;
+                empty.hi_4 = (float4)(-1e37f,-1e37f,-1e37f,-1e37f);
+                empty.lo_4 = (float4)(1e37f,1e37f,1e37f,1e37f);
+
+                size_t a = l_idx;
+                size_t b = l_idx + local_size;
+
+                if (in_start_idx + a < size)
+                        aux[a] = in_bboxes[a];
+                else
+                        aux[a] = empty;
+
+                if (in_start_idx + b < size)
+                        aux[b] = in_bboxes[b];
+                else
+                        aux[b] = empty;
+
+                for (size_t d = local_size; d > 0; d >>= 1) {
+                        barrier(CLK_LOCAL_MEM_FENCE|CLK_GLOBAL_MEM_FENCE);
+
+                        if (d > a) {
+                                aux[a].lo_4 = fmin(aux[a].lo_4, aux[a+d].lo_4);
+                                aux[a].hi_4 = fmax(aux[a].hi_4, aux[a+d].hi_4);
+                        }
+                }
+                barrier(CLK_LOCAL_MEM_FENCE|CLK_GLOBAL_MEM_FENCE);
+                /* barrier(CLK_LOCAL_MEM_FENCE); */
+
+                if (l_idx == 0) {
+                        out_bboxes[group_id] = aux[0];
+                }
+        
+                // Don't have to check range
+        } else {
+
+                size_t a = l_idx;
+                size_t b = l_idx + local_size;
+
+                aux[a] = in_bboxes[a];
+                aux[b] = in_bboxes[b];
+
+                for (size_t d = local_size; d > 0; d >>= 1) {
+                        barrier(CLK_LOCAL_MEM_FENCE);
+
+                        if (d > a) {
+                                aux[a].lo_4 = fmin(aux[a].lo_4, aux[a+d].lo_4);
+                                aux[a].hi_4 = fmax(aux[a].hi_4, aux[a+d].hi_4);
+                        }
+                }
+                barrier(CLK_LOCAL_MEM_FENCE);
+
+                if (l_idx == 0) {
+                        out_bboxes[group_id] = aux[0];
+                }
+        }
+}

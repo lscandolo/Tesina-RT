@@ -95,6 +95,7 @@ BVHBuilder::initialize(CLInfo& clinfo)
         builder_names.push_back("count_nodes");
         builder_names.push_back("build_node_bbox");
         builder_names.push_back("build_leaf_bbox");
+        builder_names.push_back("max_local_bbox");
         
         std::vector<function_id> builder_ids = 
                 device.build_functions("src/kernel/bvh-builder.cl", builder_names);
@@ -116,6 +117,7 @@ BVHBuilder::initialize(CLInfo& clinfo)
         node_counter_id           = builder_ids[id++];
         node_bbox_builder_id      = builder_ids[id++];
         leaf_bbox_builder_id      = builder_ids[id++];
+        max_local_bbox_id        = builder_ids[id++];
 
         std::vector<std::string> sorter_names;
         sorter_names.push_back("morton_sort_g2");
@@ -227,13 +229,76 @@ BVHBuilder::build_bvh(Scene& scene)
                 if (morton_mem.resize(morton_size))
                         return -1;
                     
-        std::vector<BBox> bboxes(triangle_count);
-        bboxes_mem.read(sizeof(BBox) * bboxes.size(), &(bboxes[0]));
-        BBox& global_bbox = scene.bbox(); /*!! This should be computed in gpu */
-        global_bbox = bboxes[0];
-        for (size_t i = 1; i < bboxes.size(); ++ i) {
-                global_bbox.merge(bboxes[i]);
+        /////////////// Computing global bbox
+        DeviceFunction& max_local_bbox = device.function(max_local_bbox_id);
+        size_t group_size  = max_local_bbox.max_group_size();
+        size_t bbox_count = triangle_count;
+        size_t out_bbox_count = ceil(bbox_count/(2.*group_size));
+        std::vector<memory_id> aux_bbox_mems;
+        memory_id bbox_in_mem_id  = bboxes_mem_id;
+        memory_id bbox_out_mem_id;
+        size_t real_size = ceil(bbox_count/2.);
+        size_t global_size = ceil(real_size/(double)group_size) * group_size;
+        while (true) {
+                bbox_out_mem_id  = device.new_memory();
+                DeviceMemory& bbox_in_mem = device.memory(bbox_in_mem_id);
+                DeviceMemory& bbox_out_mem = device.memory(bbox_out_mem_id);
+                if (bbox_out_mem.initialize(out_bbox_count * sizeof(BBox))) {
+                        return -1;
+                }
+                // std::cout << "global size: "  << global_size << std::endl;
+                // std::cout << "group size: "  << group_size << std::endl;
+                if (max_local_bbox.set_arg(0,bbox_in_mem) ||
+                    max_local_bbox.set_arg(1,2 * group_size * sizeof(BBox), NULL) ||
+                    max_local_bbox.set_arg(2, sizeof(cl_uint), &bbox_count) ||
+                    max_local_bbox.set_arg(3,bbox_out_mem))
+                        return -1;
+
+                if (max_local_bbox.enqueue_single_dim(global_size,group_size))
+                        return -1;
+                device.enqueue_barrier();
+                    
+                bbox_count = out_bbox_count;
+                out_bbox_count = ceil(bbox_count/(2.*group_size));
+                aux_bbox_mems.push_back(bbox_out_mem_id);
+                bbox_in_mem_id = bbox_out_mem_id;
+
+                if (global_size <= group_size)
+                        break;
+
+                real_size = ceil(bbox_count/2.);
+                global_size = ceil(real_size/(double)group_size) * group_size;
         }
+
+        for (size_t i = 0; i < aux_bbox_mems.size()-1; ++i) {
+                device.delete_memory(aux_bbox_mems[i]);
+        }
+        memory_id last_bbox_out_id = aux_bbox_mems[aux_bbox_mems.size()-1];
+
+        BBox global_bbox;
+        device.memory(last_bbox_out_id).read(sizeof(BBox) , &global_bbox);
+        device.delete_memory(last_bbox_out_id);
+
+        // static bool first_time = true;
+        // BBox& global_bbox = scene.bbox(); /*!! This should be computed in gpu */
+        // if (first_time) {
+        //         // first_time = !first_time;
+        //         std::vector<BBox> bboxes(triangle_count);
+        //         bboxes_mem.read(sizeof(BBox) * bboxes.size(), &(bboxes[0]));
+        //         global_bbox = bboxes[0];
+        //         for (size_t i = 1; i < bboxes.size(); ++ i) {
+        //                 global_bbox.merge(bboxes[i]);
+        //         }
+        // }
+
+        // std::cout << "normal global_bbox: " 
+        //           << "\tM: " << float3_to_vec3(global_bbox.hi)
+        //           << "\t\tm: " << float3_to_vec3(global_bbox.lo)
+        //           << std::endl;
+        // std::cout << "gpu global_bbox: " 
+        //           << "\tM: " << float3_to_vec3(_global_bbox.hi)
+        //           << "\t\tm: " << float3_to_vec3(_global_bbox.lo)
+        //           << std::endl;
 
         cl_float4 inv_global_bbox_size;
         inv_global_bbox_size.s[0] = 1.f/(global_bbox.hi.s[0] - global_bbox.lo.s[0]);
@@ -802,3 +867,20 @@ void BVHBuilder::logging(bool l)
 {
         m_logging = l;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

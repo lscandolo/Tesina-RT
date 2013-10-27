@@ -163,7 +163,7 @@ DeviceMemory::resize(size_t new_size)
         if (!new_size)
                 return -1;
 
-        if (release())
+        if (!valid || (valid && release()))
                 return -1;
 
         cl_int err;

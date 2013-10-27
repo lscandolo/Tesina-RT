@@ -50,6 +50,7 @@ private:
         function_id  node_build_id;
         function_id  node_bbox_builder_id;
         function_id  leaf_bbox_builder_id;
+        function_id  max_local_bbox_id;
 
         function_id index_rearranger_id;
         function_id map_rearranger_id;
