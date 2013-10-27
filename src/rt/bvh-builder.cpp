@@ -32,10 +32,10 @@ static int test_node_2(std::vector<BVHNode>& nodes,
                         if (node.m_start_index > 12800 ||
                             node.m_end_index   > 12800 ||
                             node.m_start_index > node.m_end_index) {
-                                std::cerr << "Error at " << i << std::endl;
+                                std::cerr << "Error at " << i << "\n";
                                 std::cerr << "\tstart_index: " << node.m_start_index  
                                           << "\tend_index: " << node.m_end_index 
-                                          << std::endl;
+                                          << "\n";
                                 continue;
                         }
                         for (uint32_t j = node.m_start_index; j < node.m_end_index; j++)
@@ -56,10 +56,10 @@ static int test_node (std::vector<BVHNode>& nodes,
         if (node.m_leaf) {
                 if (node.m_start_index > 12800 || node.m_end_index > 12800 ||
                     node.m_start_index > node.m_end_index) {
-                        std::cerr << "Error at " << id << std::endl;
+                        std::cerr << "Error at " << id << "\n";
                         std::cerr << "\tstart_index: " << node.m_start_index  
                                   << "\tend_index: " << node.m_end_index 
-                                  << std::endl;
+                                  << "\n";
                 }
                 for (uint32_t i = node.m_start_index; i < node.m_end_index; i++)
                         prim_checked[i]++;
@@ -168,6 +168,7 @@ BVHBuilder::build_bvh(Scene& scene)
         double    partial_time_ms;
         rt_time_t partial_timer;
         size_t triangle_count = scene.triangle_count();
+        std::vector<size_t> node_counts;
 
         //////////////////////////////////////////////////////////////////////////
         //////////   1. Compute BBox for each primitive //////////////////////////
@@ -207,7 +208,7 @@ BVHBuilder::build_bvh(Scene& scene)
         if (m_logging && m_log != NULL) { 
                 device.finish_commands();
                 partial_time_ms = partial_timer.msec_since_snap();
-                (*m_log) << "-----BVH construction times: " << std::endl;
+                (*m_log) << "-----BVH construction times: " << "\n";
                 (*m_log) << "\tBBox builder time: " << partial_time_ms << " ms\n";
         }
         
@@ -343,7 +344,7 @@ BVHBuilder::build_bvh(Scene& scene)
         if (m_logging && m_log != NULL) {
                 device.finish_commands();
                 partial_time_ms = partial_timer.msec_since_snap();
-                (*m_log) << "\tMorton sorter: " << partial_time_ms << " ms" << std::endl;
+                (*m_log) << "\tMorton sorter: " << partial_time_ms << " ms" << "\n";
         }
 
 
@@ -363,7 +364,7 @@ BVHBuilder::build_bvh(Scene& scene)
         if (aux_mem.initialize(aux_mem_size))
                 return -1;
         if (scene.index_mem().copy_to(aux_mem)) {
-                std::cout << "Error copying " << std::endl;
+                std::cout << "Error copying " << "\n";
                 return -1;
         }
         if (index_rearranger.set_arg(0,aux_mem) || 
@@ -426,19 +427,19 @@ BVHBuilder::build_bvh(Scene& scene)
 
         size_t splits_size = sizeof(morton_code_t) * triangle_count;
         if (splits_mem.initialize(splits_size)) {
-                // std::cout << "Error initializing node map" << std::endl;
+                // std::cout << "Error initializing node map" << "\n";
                 return -1;
         }
 
         size_t node_map_size = sizeof(cl_int) * triangle_count;
         if (node_map_mem.initialize(node_map_size)) {
-                // std::cout << "Error initializing node map" << std::endl;
+                // std::cout << "Error initializing node map" << "\n";
                 return -1;
         }
 
         size_t segment_map_size = sizeof(cl_int) * triangle_count;
         if (segment_map_mem.initialize(segment_map_size)) {
-                // std::cout << "Error initializing segment map" << std::endl;
+                // std::cout << "Error initializing segment map" << "\n";
                 return -1;
         }
 
@@ -500,7 +501,7 @@ BVHBuilder::build_bvh(Scene& scene)
         partial_timer.snap_time();
         uint32_t node_count = 1;
         for (uint32_t level = 0; level < 3*M_AXIS_BITS; level += treelet_levels) {
-                // std::cout << std::endl << "Starting with level " << level << std::endl;
+                // std::cout << "\n" << "Starting with level " << level << "\n";
                 if (level) {
                         
                         node_time.snap_time();
@@ -519,7 +520,7 @@ BVHBuilder::build_bvh(Scene& scene)
                         }
 
                         segment_offset_scan_time += node_time.msec_since_snap();
-                        // std::cout << "Segment map initialized" << std::endl;
+                        // std::cout << "Segment map initialized" << "\n";
                 } 
 
                 node_time.snap_time();
@@ -530,7 +531,7 @@ BVHBuilder::build_bvh(Scene& scene)
                     return -1;
                 }
                 segment_count++; /* We add one because it starts at 0*/
-                // std::cout << "Segment count read: " << segment_count << std::endl;
+                // std::cout << "Segment count read: " << segment_count << "\n";
 
                 /*Reserve memory for segment heads*/
                 size_t segment_heads_size = sizeof(cl_uint)*(segment_count+1);
@@ -538,7 +539,7 @@ BVHBuilder::build_bvh(Scene& scene)
                         return -1;
                 }
                 // std::cout << "Segment heads memory reserved (" 
-                //           << segment_heads_size << ")" << std::endl;
+                //           << segment_heads_size << ")" << "\n";
                 
                 /*Compute segment heads*/
                 uint32_t last_head = triangle_count;
@@ -552,7 +553,7 @@ BVHBuilder::build_bvh(Scene& scene)
                         return -1;
                 }
                 device.enqueue_barrier();
-                // std::cout << "Segment heads mem initialized" << std::endl;
+                // std::cout << "Segment heads mem initialized" << "\n";
 
                 /*Reserve memory for treelets*/
                 size_t treelets_mem_size = sizeof(cl_uint) * treelet_size * segment_count;
@@ -561,7 +562,7 @@ BVHBuilder::build_bvh(Scene& scene)
                 }
                 // std::cout << "Treelet memory reserved (" 
                 //           << treelets_mem_size << ")"
-                //           << std::endl;
+                //           << "\n";
 
                 /*Reserve memory for node offsets and sums*/
                 size_t node_offsets_count = segment_count+1;
@@ -571,7 +572,7 @@ BVHBuilder::build_bvh(Scene& scene)
                 if (node_count_mem.initialize(sizeof(cl_uint)*(node_offsets_count))) {
                         return -1;
                 }
-                // std::cout << "Node offsets and count reserved" << std::endl;
+                // std::cout << "Node offsets and count reserved" << "\n";
 
                 /*Initialize treelets*/
                 if (treelet_init.set_arg(0,treelets_mem)) {
@@ -581,7 +582,7 @@ BVHBuilder::build_bvh(Scene& scene)
                         return -1;
                 }
                 device.enqueue_barrier();
-                // std::cout << "Treelets initialized" << std::endl;
+                // std::cout << "Treelets initialized" << "\n";
                 maps_init_time += node_time.msec_since_snap();
 
                 
@@ -626,7 +627,7 @@ BVHBuilder::build_bvh(Scene& scene)
                 device.enqueue_barrier();
 
                 node_count_time += node_time.msec_since_snap();
-                // std::cout << "Node counts set" << std::endl;
+                // std::cout << "Node counts set" << "\n";
 
                 node_time.snap_time();
 
@@ -644,8 +645,8 @@ BVHBuilder::build_bvh(Scene& scene)
                 }
                 device.enqueue_barrier();
                 node_offset_scan_time += node_time.msec_since_snap();
-                // std::cout << "Node offsets computed" << std::endl;
-                // std::cout << "New node count: " << new_node_count << std::endl;
+                // std::cout << "Node offsets computed" << "\n";
+                // std::cout << "New node count: " << new_node_count << "\n";
                 
 
                 node_time.snap_time();
@@ -667,7 +668,7 @@ BVHBuilder::build_bvh(Scene& scene)
                         return -1;
                 }
                 device.enqueue_barrier();
-                // std::cout << "Nodes built" << std::endl;
+                // std::cout << "Nodes built" << "\n";
                 
                 node_build_time += node_time.msec_since_snap();
 
@@ -682,7 +683,8 @@ BVHBuilder::build_bvh(Scene& scene)
                 buffer_release_time += node_time.msec_since_snap();
 
                 node_count += new_node_count;
-                // std::cout <<  "Finished level " << level << std::endl;
+                node_counts.push_back(node_count);
+                // std::cout <<  "Finished level " << level << "\n";
         }
 
         node_time.snap_time();
@@ -695,24 +697,17 @@ BVHBuilder::build_bvh(Scene& scene)
         if (m_logging && m_log != NULL) {
                 device.finish_commands();
                 partial_time_ms = partial_timer.msec_since_snap();
-                (*m_log) << "\tbvh emmission time: " << partial_time_ms << " ms" <<std::endl;
+                (*m_log) << "\tbvh emmission time: " << partial_time_ms << " ms" <<"\n";
         }
 
         if (m_logging  && m_log != NULL) {
-                (*m_log) << "\t\tsegment offset scan time: " << segment_offset_scan_time 
-                          << std::endl;
-                (*m_log) << "\t\tmaps init time: " << maps_init_time 
-                          << std::endl;
-                (*m_log) << "\t\ttreelet build time: " << treelet_build_time 
-                          << std::endl;
-                (*m_log) << "\t\tnode count time: " << node_count_time 
-                          << std::endl;
-                (*m_log) << "\t\tnode offset scan time: " << node_offset_scan_time 
-                          << std::endl;
-                (*m_log) << "\t\tnode build time: " << node_build_time 
-                          << std::endl;
-                (*m_log) << "\t\tbuffer release time: " << buffer_release_time 
-                          << std::endl;
+                (*m_log) << "\t\tsegment offset scan time: " << segment_offset_scan_time << "\n";
+                (*m_log) << "\t\tmaps init time: " << maps_init_time << "\n";
+                (*m_log) << "\t\ttreelet build time: " << treelet_build_time << "\n";
+                (*m_log) << "\t\tnode count time: " << node_count_time << "\n";
+                (*m_log) << "\t\tnode offset scan time: " << node_offset_scan_time << "\n";
+                (*m_log) << "\t\tnode build time: " << node_build_time << "\n";
+                (*m_log) << "\t\tbuffer release time: " << buffer_release_time << "\n";
         }
 
         //////////////////////////////////////////////////////////////////////////
@@ -733,21 +728,27 @@ BVHBuilder::build_bvh(Scene& scene)
         }
         device.enqueue_barrier();
 
-        for (int i = 0; i < 3*M_AXIS_BITS ; ++i) {
-                if (node_bbox_builder.set_arg(0,nodes_mem)) {
-                        return -1;
+        if (node_bbox_builder.set_arg(0,nodes_mem)) {
+                return -1;
+        }
+
+        for (int32_t i = (int32_t)node_counts.size()-1; i >= 0; --i) {
+                size_t start_node = i > 0 ? node_counts[i-1] : 0;
+                size_t count = node_counts[i] - start_node;
+                for (uint8_t k = 0; k < 3; ++k) {
+                        if (node_bbox_builder.enqueue_single_dim(count, 0, start_node)) {
+                                return -1;
+                        }
+                        device.enqueue_barrier();
                 }
-                if (node_bbox_builder.enqueue_single_dim(node_count)) {
-                        return -1;
-                }
-                device.enqueue_barrier();
-        } 
-        
+        }
+
+
         if (m_logging && m_log != NULL) {
                 device.finish_commands();
                 partial_time_ms = partial_timer.msec_since_snap();
                 (*m_log) << "\tNode bbox compute time: " 
-                          << partial_time_ms << " ms" << std::endl << std::endl;
+                          << partial_time_ms << " ms\n" ;
         }
         //////////////////////////////////
 
@@ -760,12 +761,12 @@ BVHBuilder::build_bvh(Scene& scene)
             device.delete_memory(node_offsets_id) || 
             device.delete_memory(segment_heads_id) || 
             device.delete_memory(morton_mem_id)) {
-                std::cerr << "Error deleting memory" << std::endl;
+                std::cerr << "Error deleting memory\n";
                 return -1;
         }
         ///////////////////////////////
 
-        // std::cout << "Nodes created: " << node_count << std::endl;
+        // std::cout << "Nodes created: " << node_count << "\n";
         // exit(0);
         if (m_timing) {
                 device.finish_commands();

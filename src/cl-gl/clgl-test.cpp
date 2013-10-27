@@ -9,6 +9,9 @@
 #include <cl-gl/opencl-init.hpp>
 #include <misc/log.hpp>
 
+#include <FreeImage.h>
+#include <FreeImagePlus.h>
+
 #include <stdint.h>
 
 #include <iostream>

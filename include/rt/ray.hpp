@@ -46,7 +46,8 @@ public:
 };
 
 RT_ALIGN(16)
-class sample_trace_info_cl {
+struct sample_trace_info_cl {
+
 
 	cl_bool hit;
 	cl_bool shadow_hit;
@@ -56,7 +57,7 @@ class sample_trace_info_cl {
 	cl_int id;
 	cl_float2 uv;
 	cl_float3 n;
-        cl_float3 hit_info;
+        cl_float3 hit_point;
 };
 
 class RayBundle {

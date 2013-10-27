@@ -691,11 +691,13 @@ build_leaf_bbox(global unsigned int* triangles,
 kernel void
 build_node_bbox(global BVHNode* nodes)
 {
+
         size_t gid = get_global_id(0);
         global BVHNode* node = nodes+gid;
 
 #define lchild(n) nodes[n->l_child]
 #define rchild(n) nodes[n->r_child]
+#define parent(n) nodes[n->parent]
 
         if (node->leaf)
                 return;

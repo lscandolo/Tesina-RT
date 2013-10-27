@@ -5,6 +5,8 @@
 
 #include <iostream>
 
+#include <GL/glew.h>
+
 GLint init_gl(int argc, char** argv, GLInfo* glinfo, 
 	      const size_t* window_size, const std::string title)
 {
@@ -18,6 +20,7 @@ GLint init_gl(int argc, char** argv, GLInfo* glinfo,
 	glutInitWindowSize(window_size[0], window_size[1]);
 	if ((glinfo->window_id = glutCreateWindow(title.c_str()) == 0))
 		return 1;
+
 	if (glewInit() != GLEW_OK)
 		return 1;
 
@@ -53,7 +56,7 @@ GLuint create_tex_gl(uint32_t width, uint32_t height)
 	glBindTexture(GL_TEXTURE_2D, tex);
 
 	// select modulate to mix texture with color for shading
-	glTexEnvf( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_DECAL );
+	// glTexEnvf( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_DECAL );
 
 	// when texture area is small, get closest pixel val
 	glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
@@ -72,7 +75,7 @@ GLuint create_tex_gl(uint32_t width, uint32_t height)
 	// This resizes the texture to be the required height/width
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 
 		     width, height, 0, GL_RGBA, 
-		     GL_UNSIGNED_BYTE, tex_data);	
+		     GL_UNSIGNED_BYTE, NULL);	
 
 	// (NO MIPMAPS)
 

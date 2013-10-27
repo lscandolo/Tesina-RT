@@ -2,7 +2,7 @@
 #include <algorithm>
 
 #include <stdio.h>
-#include <conio.h>
+//#include <conio.h>
 
 uint32_t Renderer::set_up_frame(const memory_id tex_id, Scene& scene)
 {

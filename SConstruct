@@ -14,16 +14,18 @@ env.AppendENVPath('PATH', extra_path)
 env.Append(CCFLAGS = '-g -Wall ')
 
 env.Replace(CXX = 'llvm-clang')
+# env.Replace(CXX = 'gcc')
 
 cl_root = env['ENV']['CL_ROOT']
 
 base_libs = ['GL' , 'glut' , 'GLEW' , 'OpenCL', 'rt', 'm', 'freeimageplus']
 libpath = [cl_root + '/lib/x86_64' , '/usr/lib/fglrx' ]
-cpppath = [cl_root + '/include' , 'include' ]
+cpppath = [cl_root + '/include' , 'include'  ]
 
 env['LIBS'] = base_libs
 env['CPPPATH'] = cpppath
 env['LIBPATH'] = libpath
+env.Append(CPPDEFINES=['GLEW_STATIC'])
 
 misc_lib = env.StaticLibrary('lib/misc' ,
                              ['build/misc/ini.cpp'
@@ -55,6 +57,7 @@ rt_primitives_lib = env.StaticLibrary('lib/rt-primitives' ,
                                        'build/rt/material.cpp',
                                        'build/rt/obj-loader.cpp',
                                        'build/rt/camera.cpp',
+                                       'build/rt/camera-trajectory.cpp',
                                        'build/rt/obj-loader.cpp',
                                        'build/rt/bbox.cpp',
                                        'build/rt/bvh.cpp',
@@ -66,7 +69,8 @@ rt_primitives_lib = env.StaticLibrary('lib/rt-primitives' ,
                                        'build/rt/framebuffer.cpp',
                                        'build/rt/bvh-builder.cpp',
                                        'build/rt/ray-shader.cpp',
-                                       'build/rt/tracer.cpp'
+                                       'build/rt/tracer.cpp',
+                                       'build/rt/renderer.cpp'
                                        ])
 
 clgl_test = env.Program('bin/cl-gl-test' ,

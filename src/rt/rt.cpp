@@ -6,7 +6,7 @@
 #include <cl-gl/opencl-init.hpp>
 #include <rt/rt.hpp>
 
-#include <rt/test-params-hand.hpp>
+#include <rt/test-params-buddha.hpp>
 #include <rt/test-params.hpp>
 
 #define TOTAL_STATS_TO_LOG 12
@@ -23,7 +23,7 @@ FrameStats debug_stats;
  *
  */
 
-size_t frame = 0;
+size_t frame = 1000;
 Renderer renderer;
 
 CLInfo clinfo;
@@ -133,6 +133,9 @@ void gl_key(unsigned char key, int x, int y)
         case 'f':
                 print_fps = !print_fps;
                 break;
+        case 'x':
+                renderer.set_static_bvh(!renderer.is_static_bvh());
+                break;
         case 'e':
                 clinfo.set_sync(!clinfo.sync());
                 break;
@@ -152,8 +155,9 @@ void gl_key(unsigned char key, int x, int y)
                 }
                 break;
         case 'q':
-                std::cout << std::endl << "pause_and_exiting..." << std::endl;
-                pause_and_exit(1);
+                // std::cout << std::endl << "pause_and_exiting..." << std::endl;
+                // pause_and_exit(1);
+                exit(1);
                 break;
         case 't':
                 tilt -= 0.01f;
@@ -186,7 +190,7 @@ void gl_loop()
 
         //Set camera parameters (if needed)
         CameraTrajectory* cam_traj;
-        cam_traj = &hand_cam_traj;
+        cam_traj = &buddha_cam_traj;
 
         debug_stats.stage_acc_times[0] += debug_timer.msec_since_snap();//!!
 
@@ -273,7 +277,7 @@ void gl_loop()
                 renderer.log.enabled = true;
                 renderer.log << "========================================================\n";
                 renderer.log << "========================================================\n";
-                renderer.log << "                      HAND SCENE\n";
+                renderer.log << "                      BUDDHA SCENE\n";
                 renderer.log << "========================================================\n";
                 renderer.log << "========================================================\n";
 
@@ -329,13 +333,13 @@ void gl_loop()
                 scene.initialize();
 
                 if (frame == 100)
-                        hand_set_scene(scene);
+                        buddha_set_scene(scene);
                 if (frame == 200)
-                        hand_set_scene(scene);
+                        buddha_set_scene(scene);
                 if (frame == 300)
-                        hand_set_scene(scene);
+                        buddha_set_scene(scene);
                 if (frame == 400)
-                        hand_set_scene(scene);
+                        buddha_set_scene(scene);
 
                 if (scene.create_aggregate_mesh() || scene.create_aggregate_bvh()) { 
                         std::cerr << "Failed to create aggregate mesh" << std::endl;
@@ -435,8 +439,8 @@ int main (int argc, char** argv)
         }
         
         /*---------------------- Scene definition -----------------------*/
-        hand_set_cam_traj();
-        hand_set_scene(scene);
+        buddha_set_cam_traj();
+        dragon_set_scene(scene);
 
         /*---------------------- Move scene data to gpu -----------------------*/
          if (scene.create_aggregate_mesh()) { 
@@ -463,7 +467,11 @@ int main (int argc, char** argv)
 
 
          /*---------------------- Set initial scene.camera paramaters -----------------------*/
-        scene.camera.set(makeVector(0,3,-30), makeVector(0,0,1), makeVector(0,1,0), M_PI/4.,
+        // scene.camera.set(makeVector(0,3,-30), makeVector(0,0,1), makeVector(0,1,0), M_PI/4.,
+        //         window_size[0] / (float)window_size[1]);
+        scene.camera.set(makeVector(0.741773, -1.754, 4.95699), 
+                         makeVector(0.327574, 0, 0.995292) ,
+                         makeVector(0,1,0), M_PI/4.,
                 window_size[0] / (float)window_size[1]);
 
         /*----------------------- Initialize cubemap ---------------------------*/
@@ -478,11 +486,20 @@ int main (int argc, char** argv)
                         std::cerr << "Failed to initialize cubemap." << std::endl;
                         pause_and_exit(1);
         }
+        scene.cubemap.enabled = false;
+        directional_light_cl dl;
+        dl.set_dir(0,-0.8,-0.3);
+        dl.set_color(0.8,0.8,0.8);
+        scene.set_dir_light(dl);
+
+        Mesh& agg = scene.get_aggregate_mesh();
+        std::cout << "Triangles: " << agg.triangleCount() << std::endl;
+        std::cout << "Vertices : " << agg.vertexCount() << std::endl;
 
         /* Initialize renderer */
-        log_filename = "rt-hand-mod-log"; 
+        log_filename = "rt-buddha-mod-log"; 
         renderer.initialize(clinfo, log_filename);
-        renderer.set_max_bounces(5);
+        renderer.set_max_bounces(9);
         renderer.log.silent = true;
 
         /* Set callbacks */
