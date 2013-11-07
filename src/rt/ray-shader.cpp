@@ -74,7 +74,7 @@ RayShader::shade(RayBundle& rays, HitBundle& hb, Scene& scene,
         if (shade_function.set_arg(10,cm.negative_z_mem()))
                 return -1;
 
-        /*Texture_0 to Texture_19*/
+        /*Texture_0 to Texture_25*/
         if (shade_function.set_arg(11,scene.texture_atlas.texture_mem(0)))
                 return -1;
         if (shade_function.set_arg(12,scene.texture_atlas.texture_mem(1)))

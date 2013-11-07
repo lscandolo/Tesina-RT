@@ -26,10 +26,6 @@ FrameStats debug_stats;
 size_t frame = 1000;
 Renderer renderer;
 
-CLInfo clinfo;
-GLInfo glinfo;
-
-DeviceInterface& device = *DeviceInterface::instance();
 memory_id tex_id;
 
 int model_count = 44; 
@@ -128,6 +124,7 @@ void gl_key(unsigned char key, int x, int y)
         
                 break;
         case 'b':
+                renderer.log.enabled = true;
                 renderer.log.silent = !renderer.log.silent;
                 break;
         case 'f':
@@ -137,7 +134,7 @@ void gl_key(unsigned char key, int x, int y)
                 renderer.set_static_bvh(!renderer.is_static_bvh());
                 break;
         case 'e':
-                clinfo.set_sync(!clinfo.sync());
+                CLInfo::instance()->set_sync(!CLInfo::instance()->sync());
                 break;
         case 'c':
                 scene.cubemap.enabled = !scene.cubemap.enabled;
@@ -273,7 +270,7 @@ void gl_loop()
         }
 
         debug_stats.acc_frames++;//!!
-        if (frame == 100) {
+        if (frame == 100 && false) {
                 renderer.log.enabled = true;
                 renderer.log << "========================================================\n";
                 renderer.log << "========================================================\n";
@@ -376,7 +373,8 @@ void gl_loop()
                 << (1000.f / stats.get_frame_time())
                 << " FPS"
                 << "                \r";
-        //std::flush(renderer.log.o());
+        std::flush(renderer.log.o());
+        std::cout << std::flush;
         renderer.log << "\nBVH Build time:\t" << stats.get_stage_time(BVH_BUILD) << std::endl;
         renderer.log << "Prim Gen time: \t" << stats.get_stage_time(PRIM_RAY_GEN)<< std::endl;
         renderer.log << "Sec Gen time: \t" << stats.get_stage_time(SEC_RAY_GEN)  << std::endl;
@@ -398,33 +396,50 @@ int main (int argc, char** argv)
 {
         // Initialize renderer
         renderer.initialize_from_ini_file("rt.ini");
+        int32_t ini_err;
+        INIReader ini;
+        ini_err = ini.load_file("rt.ini");
+        if (ini_err < 0)
+                std::cout << "Error at ini file line: " << -ini_err << std::endl;
+        else if (ini_err > 0)
+                std::cout << "Unable to open ini file" << std::endl;
 
         // Initialize OpenGL and OpenCL
         size_t window_size[] = {renderer.get_framebuffer_w(), renderer.get_framebuffer_h()};
-        if (init_gl(argc,argv,&glinfo, window_size, "RT") != 0){
+        GLInfo* glinfo = GLInfo::instance();
+
+        if (glinfo->initialize(argc,argv, window_size, "RT") != 0){
                 std::cerr << "Failed to initialize GL" << std::endl;
                 pause_and_exit(1);
         } else { 
                 std::cout << "Initialized GL succesfully" << std::endl;
         }
 
-        if (init_cl(glinfo,&clinfo) != CL_SUCCESS){
+        CLInfo* clinfo = CLInfo::instance();
+
+        if (clinfo->initialize(2) != CL_SUCCESS){
                 std::cerr << "Failed to initialize CL" << std::endl;
                 pause_and_exit(1);
         } else { 
                 std::cout << "Initialized CL succesfully" << std::endl;
         }
-        print_cl_info(clinfo);
+        clinfo->print_info();
 
         // Initialize device interface and generic gpu library
-        if (device.initialize(clinfo)) {
+        DeviceInterface* device = DeviceInterface::instance();
+        if (device->initialize()) {
                 std::cerr << "Failed to initialize device interface" << std::endl;
                 pause_and_exit(1);
         }
-        DeviceFunctionLibrary::initialize(clinfo);
+
+        if (DeviceFunctionLibrary::instance()->initialize()) {
+                std::cerr << "Failed to initialize function library" << std::endl;
+                pause_and_exit(1);
+        }
+
         gl_tex = create_tex_gl(window_size[0],window_size[1]);
-        tex_id = device.new_memory();
-        DeviceMemory& tex_mem = device.memory(tex_id);
+        tex_id = device->new_memory();
+        DeviceMemory& tex_mem = device->memory(tex_id);
         if (tex_mem.initialize_from_gl_texture(gl_tex)) {
                 std::cerr << "Failed to create memory object from gl texture" << std::endl;
                 pause_and_exit(1);
@@ -449,28 +464,44 @@ int main (int argc, char** argv)
          } else {
                  std::cout << "Created aggregate mesh succesfully" << std::endl;
          }
-         if (scene.create_aggregate_bvh()) { 
-                std::cerr << "Failed to create aggregate bvh" << std::endl;
-                pause_and_exit(1);
+
+         int32_t gpu_bvh = true;
+         ini.get_int_value("RT", "gpu_bvh", gpu_bvh);
+
+         if (!gpu_bvh) {
+                 if (scene.create_aggregate_bvh()) { 
+                         std::cerr << "Failed to create aggregate bvh" << std::endl;
+                         pause_and_exit(1);
+                 } else {
+                         std::cout << "Created aggregate bvh succesfully" << std::endl;
+                 }
+                 if (scene.transfer_aggregate_bvh_to_device()) {
+                         std::cerr << "Failed to transfer aggregate mesh and bvh "
+                                   << "to device memory"
+                                   << std::endl;
+                         pause_and_exit(1);
+                 } else {
+                         std::cout << "Transfered aggregate mesh and bvh " 
+                                   << "to device succesfully" << std::endl;
+                 }
          } else {
-                 std::cout << "Created aggregate bvh succesfully" << std::endl;
-         }
-         if (scene.transfer_aggregate_mesh_to_device() ||
-             scene.transfer_aggregate_bvh_to_device()) {
-                     std::cerr << "Failed to transfer aggregate mesh and bvh to device memory"
-                         << std::endl;
-                 pause_and_exit(1);
-         } else {
-                 std::cout << "Transfered aggregate mesh and bvh to device succesfully"
-                         << std::endl;
+                 if (scene.transfer_aggregate_mesh_to_device()) {
+                         std::cerr << "Failed to transfer aggregate mesh to device memory"
+                                   << std::endl;
+                         pause_and_exit(1);
+                 } else {
+                         std::cout << "Transfered aggregate mesh to device succesfully"
+                                   << std::endl;
+                 }
+
          }
 
 
          /*---------------------- Set initial scene.camera paramaters -----------------------*/
         // scene.camera.set(makeVector(0,3,-30), makeVector(0,0,1), makeVector(0,1,0), M_PI/4.,
         //         window_size[0] / (float)window_size[1]);
-        scene.camera.set(makeVector(0.741773, -1.754, 4.95699), 
-                         makeVector(0.327574, 0, 0.995292) ,
+        scene.camera.set(makeVector(1, -1, -50), 
+                         makeVector(0,0,1), 
                          makeVector(0,1,0), M_PI/4.,
                 window_size[0] / (float)window_size[1]);
 
@@ -486,7 +517,7 @@ int main (int argc, char** argv)
                         std::cerr << "Failed to initialize cubemap." << std::endl;
                         pause_and_exit(1);
         }
-        scene.cubemap.enabled = false;
+        scene.cubemap.enabled = true;
         directional_light_cl dl;
         dl.set_dir(0,-0.8,-0.3);
         dl.set_color(0.8,0.8,0.8);
@@ -498,9 +529,9 @@ int main (int argc, char** argv)
 
         /* Initialize renderer */
         log_filename = "rt-buddha-mod-log"; 
-        renderer.initialize(clinfo, log_filename);
+        renderer.initialize(log_filename);
         renderer.set_max_bounces(9);
-        renderer.log.silent = true;
+        renderer.log.silent = false;
 
         /* Set callbacks */
         glutKeyboardFunc(gl_key);
@@ -509,7 +540,7 @@ int main (int argc, char** argv)
         glutIdleFunc(gl_loop);
         glutMainLoop(); 
 
-        clinfo.release_resources();
+        CLInfo::instance()->release_resources();
 
         return 0;
 }

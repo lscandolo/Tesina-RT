@@ -20,8 +20,23 @@
 #include <string>
 #include <stdint.h>
 
-struct GLInfo
+class GLInfo
 {
+private:
+
+        static GLInfo* pinstance;
+
+        bool m_initialized;
+        
+
+public:        
+
+        static GLInfo* instance();
+        GLInfo ();
+        GLint  initialize(int argc, char** argv, const size_t* window_size, 
+                         const std::string& title);
+        bool   initialized();
+
 	GLint window_id;
 	GLint window_width;
 	GLint window_height;
@@ -41,8 +56,6 @@ struct GLInfo
 	GLuint tbuf;
 };
 
-GLint init_gl(int argc, char** argv, GLInfo* glinfo, 
-	      const size_t* window_size, const std::string title = std::string());
 GLuint create_tex_gl(uint32_t width, uint32_t height);
 int32_t create_tex_gl_from_file(uint32_t& width, uint32_t& height, 
                                 const char* file, GLuint* tex_id);

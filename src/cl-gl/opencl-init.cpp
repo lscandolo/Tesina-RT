@@ -4,166 +4,312 @@
 #include <iostream>
 #include <cstring>
 
-int32_t
-init_cl(const GLInfo& glinfo, CLInfo* clinfo)
+CLInfo* CLInfo::pinstance = 0;
+
+CLInfo::CLInfo () :
+  m_initialized(false)
+, m_sync(false)
 {
+}
+
+CLInfo* CLInfo::instance() 
+{
+        if (!pinstance)
+                pinstance = new CLInfo();
+        return pinstance;
+}
+
+void CLInfo::release_resources()
+{
+        if (!initialized) return;
+        for (int i = 0; i < command_queues.size(); ++i) {
+                clReleaseCommandQueue(command_queues[i]);
+        }
+        command_queues.clear();
+        clReleaseContext(context);
+}
+
+
+void CLInfo::set_sync(bool s) 
+{
+        m_sync = s;
+}
+
+bool CLInfo::sync() 
+{
+        return m_sync;
+}
+
+bool CLInfo::has_command_queue(size_t i)
+{
+        return i < command_queues.size();
+}
+
+cl_command_queue CLInfo::get_command_queue(size_t i)
+{
+        if (i < command_queues.size())
+                return command_queues[i];
+
+        return cl_command_queue();
+}
+
+bool CLInfo::initialized()
+{
+        return m_initialized;
+}
+
+cl_int CLInfo::initialize(size_t requested_command_queues)
+{
+        if (m_initialized || 
+            requested_command_queues < 1 || 
+            requested_command_queues > 1024)
+                return CL_DEVICE_NOT_FOUND;
+
+        GLInfo* glinfo = GLInfo::instance();
+        if (!glinfo->initialized())
+                return CL_DEVICE_NOT_FOUND;
+        
 	cl_int err;
 	size_t bytes_returned;
 	
 	//retrieve the list of platforms available
 	std::cout << "Retrieving the list of platforms available" << std::endl;
-	err = clGetPlatformIDs(1, &clinfo->platform_id, &clinfo->num_of_platforms);
+	err = clGetPlatformIDs(1, &platform_id, &num_of_platforms);
 
 	if (error_cl(err, "glGetPlatformIDs"))
 		return err;
 
 	//try to get a supported gpu device
 	std::cout << "Trying to get a supported gpu device" << std::endl;
-	err = clGetDeviceIDs(clinfo->platform_id, CL_DEVICE_TYPE_GPU, 
-			     1, &clinfo->device_id,
-			     &clinfo->num_of_devices);
+	err = clGetDeviceIDs(platform_id, CL_DEVICE_TYPE_GPU, 
+			     1, &device_id,
+			     &num_of_devices);
 	if (error_cl(err, "clGetDeviceIDs"))
 		return err;
 
 	cl_int prop_count = 0;
 #ifdef _WIN32
-	clinfo->properties[prop_count++] = CL_CONTEXT_PLATFORM;
-	clinfo->properties[prop_count++] = 
-		(cl_context_properties) clinfo->platform_id;
-	clinfo->properties[prop_count++] = 
+	properties[prop_count++] = CL_CONTEXT_PLATFORM;
+	properties[prop_count++] = 
+		(cl_context_properties) platform_id;
+	properties[prop_count++] = 
 		CL_GL_CONTEXT_KHR;
-	clinfo->properties[prop_count++] = 
-		(cl_context_properties)glinfo.renderingContext;
-	clinfo->properties[prop_count++] = CL_WGL_HDC_KHR;
-	clinfo->properties[prop_count++] = 
-		(cl_context_properties)glinfo.deviceContext;
-	clinfo->properties[prop_count++] = 0;
+	properties[prop_count++] = 
+		(cl_context_properties)glinfo->renderingContext;
+	properties[prop_count++] = CL_WGL_HDC_KHR;
+	properties[prop_count++] = 
+		(cl_context_properties)glinfo->deviceContext;
+	properties[prop_count++] = 0;
 #elif defined __linux__
-	clinfo->properties[prop_count++] = CL_CONTEXT_PLATFORM;
-	clinfo->properties[prop_count++] = 
-		(cl_context_properties)clinfo->platform_id;
-	clinfo->properties[prop_count++] = 
+	properties[prop_count++] = CL_CONTEXT_PLATFORM;
+	properties[prop_count++] = 
+		(cl_context_properties)platform_id;
+	properties[prop_count++] = 
 		CL_GL_CONTEXT_KHR;
-	clinfo->properties[prop_count++] = 
-		(cl_context_properties)glinfo.renderingContext;
-	clinfo->properties[prop_count++] = CL_GLX_DISPLAY_KHR;
-	clinfo->properties[prop_count++] = 
-		(cl_context_properties)glinfo.renderingDisplay;
-	clinfo->properties[prop_count++] = 0;
+	properties[prop_count++] = 
+		(cl_context_properties)glinfo->renderingContext;
+	properties[prop_count++] = CL_GLX_DISPLAY_KHR;
+	properties[prop_count++] = 
+		(cl_context_properties)glinfo->renderingDisplay;
+	properties[prop_count++] = 0;
 #else
 #error "UNKNOWN PLATFORM"
 #endif
 
-	//clinfo->properties[0] = CL_CONTEXT_PLATFORM;
-	//clinfo->properties[1] = (cl_context_properties) clinfo->platform_id;
-	//clinfo->properties[2] = 0;
+	//properties[0] = CL_CONTEXT_PLATFORM;
+	//properties[1] = (cl_context_properties) platform_id;
+	//properties[2] = 0;
 
 	//create a context with the GPU device
 	std::cerr << "Creating a context with the GPU device" << std::endl;
-	clinfo->context = 
-		clCreateContext (clinfo->properties,1,&clinfo->device_id,NULL,NULL,&err);
+	context = 
+		clCreateContext (properties,1,&device_id,NULL,NULL,&err);
 	if (error_cl(err, "clCreateContext"))
 		return err;
 
-	//create command queue using the context and device
-	std::cerr << "Creating command queue using the context and device" << std::endl;
-	clinfo->command_queue = 
-		clCreateCommandQueue(clinfo->context,clinfo->device_id,0,&err);
-	if (error_cl(err, "clCreateCommandQueue"))
-		return err;
+	//create command queues using the context and device
+	std::cerr << "Creating command queues using the context and device" << std::endl;
+        for (int i = 0; i < requested_command_queues; ++i) {
+                cl_command_queue cq = 
+                        clCreateCommandQueue(context,
+                                             device_id,
+                                             CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE,
+                                             &err);
+                if (error_cl(err, "clCreateCommandQueue"))
+                        return err;
+                command_queues.push_back(cq);
+        }
+
 
 	// Get size of global memory in the device
-	err = clGetDeviceInfo (clinfo->device_id,
+	err = clGetDeviceInfo (device_id,
 			       CL_DEVICE_GLOBAL_MEM_SIZE, 
 			       sizeof(cl_ulong),
-			       &clinfo->global_mem_size, 
+			       &global_mem_size, 
 			       &bytes_returned);
 	if (error_cl(err, "clGetDeviceInfo CL_DEVICE_GLOBAL_MEM_SIZE"))
 	    return err;
 
 	// Get size of local memory in the device
-	err = clGetDeviceInfo (clinfo->device_id,
+	err = clGetDeviceInfo (device_id,
 			       CL_DEVICE_LOCAL_MEM_SIZE, 
 			       sizeof(cl_ulong),
-			       &clinfo->local_mem_size, 
+			       &local_mem_size, 
 			       &bytes_returned);
 	if (error_cl(err, "clGetDeviceInfo CL_DEVICE_LOCAL_MEM_SIZE"))
 	    return err;
 
 	// Get bool stating if cl device supports images
-	err = clGetDeviceInfo (clinfo->device_id,
+	err = clGetDeviceInfo (device_id,
 			       CL_DEVICE_IMAGE_SUPPORT, 
 			       sizeof(cl_bool),
-			       &clinfo->image_support, 
+			       &image_support, 
 			       &bytes_returned);
 	if (error_cl(err, "clGetDeviceInfo CL_DEVICE_IMAGE_SUPPORT"))
 	    return err;
 	
 	// Get max image2d height
-	err = clGetDeviceInfo (clinfo->device_id,
+	err = clGetDeviceInfo (device_id,
 			       CL_DEVICE_IMAGE2D_MAX_HEIGHT, 
 			       sizeof(size_t),
-			       &clinfo->image2d_max_height, 
+			       &image2d_max_height, 
 			       &bytes_returned);
 	if (error_cl(err, "clGetDeviceInfo CL_DEVICE_IMAGE2D_MAX_HEIGHT"))
 	    return err;
 	
 	// Get max image2d width
-	err = clGetDeviceInfo (clinfo->device_id,
+	err = clGetDeviceInfo (device_id,
 			       CL_DEVICE_IMAGE2D_MAX_WIDTH, 
 			       sizeof(size_t),
-			       &clinfo->image2d_max_width, 
+			       &image2d_max_width, 
 			       &bytes_returned);
 	if (error_cl(err, "clGetDeviceInfo CL_DEVICE_IMAGE2D_MAX_WIDTH"))
 	    return err;
 
 	// Get amount of compute units in the device
-	err = clGetDeviceInfo (clinfo->device_id,
+	err = clGetDeviceInfo (device_id,
 			       CL_DEVICE_MAX_COMPUTE_UNITS, 
 			       sizeof(cl_uint),
-			       &clinfo->max_compute_units, 
+			       &max_compute_units, 
 			       &bytes_returned);
 	if (error_cl(err, "clGetDeviceInfo CL_DEVICE_MAX_COMPUTE_UNITS"))
 	    return err;
 
 	// Get maximum size of global mem objects for the device
-	err = clGetDeviceInfo (clinfo->device_id,
+	err = clGetDeviceInfo (device_id,
 			       CL_DEVICE_MAX_MEM_ALLOC_SIZE, 
 			       sizeof(cl_ulong),
-			       &clinfo->max_mem_alloc_size, 
+			       &max_mem_alloc_size, 
 			       &bytes_returned);
 	if (error_cl(err, "clGetDeviceInfo CL_DEVICE_MAX_MEM_ALLOC_SIZE"))
 	    return err;
 
 	// Get maximum size of a work group
-	err = clGetDeviceInfo (clinfo->device_id,
+	err = clGetDeviceInfo (device_id,
 			       CL_DEVICE_MAX_WORK_GROUP_SIZE, 
 			       sizeof(size_t),
-			       &clinfo->max_work_group_size, 
+			       &max_work_group_size, 
 			       &bytes_returned);
 	if (error_cl(err, "clGetDeviceInfo CL_DEVICE_MAX_WORK_GROUP_SIZE"))
 	    return err;
 
 	// Get maximum number of items that can be specified in each dimension
-	err = clGetDeviceInfo (clinfo->device_id,
+	err = clGetDeviceInfo (device_id,
 			       CL_DEVICE_MAX_WORK_ITEM_SIZES, 
-			       sizeof(clinfo->max_work_item_sizes),
-			       clinfo->max_work_item_sizes, 
+			       sizeof(max_work_item_sizes),
+			       &max_work_item_sizes, 
 			       &bytes_returned);
 	if (error_cl(err, "clGetDeviceInfo CL_DEVICE_MAX_WORK_ITEM_SIZES"))
 	    return err;
 
-	clinfo->initialized = true;
+	m_initialized = true;
 	return CL_SUCCESS;
 }
 
 
+void CLInfo::print_info()
+{
+        if (!m_initialized)
+                return;
+
+	cl_int err;
+	cl_uint max_samplers;
+	char device_vendor[128], device_name[128], device_cl_version[128], c_version[128];
+	size_t bytes_returned;
+	err = clGetDeviceInfo (device_id,
+			       CL_DEVICE_VENDOR, sizeof(device_vendor),
+			       device_vendor, &bytes_returned);
+	if (error_cl(err, "clGetDeviceInfo CL_DEVICE_VENDOR"))
+	    return;
+
+	err = clGetDeviceInfo (device_id,
+			       CL_DEVICE_VERSION, sizeof(device_cl_version),
+			       device_cl_version, &bytes_returned);
+
+	if (error_cl(err, "clGetDeviceInfo CL_DEVICE_VERSION"))
+	    return;
+
+	err = clGetDeviceInfo (device_id,
+			       CL_DEVICE_NAME, sizeof(device_name),
+			       device_name, &bytes_returned);
+
+	if (error_cl(err, "clGetDeviceInfo CL_DEVICE_NAME"))
+	    return;
+
+	err = clGetDeviceInfo (device_id,
+			       CL_DEVICE_OPENCL_C_VERSION, sizeof(c_version),
+			       c_version, &bytes_returned);
+
+	if (error_cl(err, "clGetDeviceInfo CL_DEVICE_OPENCL_C_VERSION"))
+	    return;
+
+	err = clGetDeviceInfo (device_id,
+			       CL_DEVICE_MAX_SAMPLERS, sizeof(max_samplers),
+			       &max_samplers, &bytes_returned);
+
+	if (error_cl(err, "clGetDeviceInfo CL_DEVICE_MAX_SAMPLERS"))
+	    return;
+
+	std::cout << "OpenCL Info:" << std::endl;
+
+	std::cout << "\tOpenCL device vendor: " << device_vendor << std::endl;
+	std::cout << "\tOpenCL device name: " << device_name << std::endl;
+	std::cout << "\tOpenCL device OpenCL version: " << device_cl_version << std::endl;
+	std::cout << "\tOpenCL device OpenCL C version: " << c_version << std::endl;
+	std::cout << "\tOpenCL device maximum sampler support: " 
+		  << max_samplers << std::endl;
+	std::cout << "\tOpenCL device global mem size: " 
+		  << global_mem_size << std::endl;
+	std::cout << "\tOpenCL device local mem size: " 
+		  << local_mem_size << std::endl;
+	std::cout << "\tOpenCL device maximum mem alloc size: " 
+		  << max_mem_alloc_size << std::endl;
+	std::cout << "\tOpenCL device image2d max size: " 
+		  << image2d_max_width << " x "
+		  << image2d_max_width << std::endl;
+	std::cout << "\tOpenCL device compute units: " 
+		  << max_compute_units << std::endl;
+	std::cout << "\tOpenCL device max work group size: " 
+		  << max_work_group_size << std::endl;
+	std::cout << "\tOpenCL device max work item sizes per dimension: " 
+		  << max_work_item_sizes[0] << " "
+		  << max_work_item_sizes[1] << " "
+		  << max_work_item_sizes[2] << std::endl;
+	
+
+	std::cout << std::endl;
+}
+
 int32_t
-init_cl_kernel(CLInfo* clinfo, const char* kernel_file, 
+init_cl_kernel(const char* kernel_file, 
 	       std::string kernel_name,
 	       CLKernelInfo* clkernelinfo)
 {
 	cl_int err;
+
+        CLInfo* clinfo = CLInfo::instance();
+        if (!clinfo->initialized())
+                return -1;
 
 	clkernelinfo->clinfo = clinfo;
 
@@ -229,11 +375,13 @@ init_cl_kernel(CLInfo* clinfo, const char* kernel_file,
 
 }
 
-int32_t execute_cl(const CLKernelInfo& clkernelinfo){
+int32_t execute_cl(const CLKernelInfo& clkernelinfo, size_t cq_i){
 
 	cl_int err;
 	
-	CLInfo& clinfo = *(clkernelinfo.clinfo);
+        CLInfo* clinfo = CLInfo::instance();
+        if (!clinfo->initialized() || !clinfo->has_command_queue(cq_i))
+                return -1;
 
 	//enqueue the kernel command for execution
 
@@ -261,7 +409,7 @@ int32_t execute_cl(const CLKernelInfo& clkernelinfo){
 
 	// std::cerr << "Enqueueing the kernel command for execution" << std::endl;
 	if (local_size_set)
-		err = clEnqueueNDRangeKernel(clinfo.command_queue,
+		err = clEnqueueNDRangeKernel(clinfo->get_command_queue(cq_i),
 					     clkernelinfo.kernel,
 					     clkernelinfo.work_dim,
 					     clkernelinfo.global_work_offset,
@@ -269,7 +417,7 @@ int32_t execute_cl(const CLKernelInfo& clkernelinfo){
 					     clkernelinfo.local_work_size,
 					     0,NULL,NULL);
 	else
-		err = clEnqueueNDRangeKernel(clinfo.command_queue,
+		err = clEnqueueNDRangeKernel(clinfo->get_command_queue(cq_i),
 					     clkernelinfo.kernel,
 					     clkernelinfo.work_dim,
 					     clkernelinfo.global_work_offset,
@@ -281,7 +429,7 @@ int32_t execute_cl(const CLKernelInfo& clkernelinfo){
 		return 1;
 
 	/* finish command queue */
-	err = clFinish(clinfo.command_queue);
+	err = clFinish(clinfo->get_command_queue(cq_i));
 	if (error_cl(err, "clFinish"))
 		return 1;
 
@@ -289,11 +437,15 @@ int32_t execute_cl(const CLKernelInfo& clkernelinfo){
 }
 
 
-int32_t create_empty_cl_mem(const CLInfo& clinfo, cl_mem_flags flags, 
-			uint32_t size, cl_mem* mem)
+int32_t create_empty_cl_mem(cl_mem_flags flags, 
+                            uint32_t size, cl_mem* mem)
 {
+        CLInfo* clinfo = CLInfo::instance();
+        if (!clinfo->initialized())
+                return -1;
+
 	cl_int err;
-	*mem = clCreateBuffer(clinfo.context,
+	*mem = clCreateBuffer(clinfo->context,
 			     flags,
 			     size,
 			     NULL,
@@ -303,11 +455,15 @@ int32_t create_empty_cl_mem(const CLInfo& clinfo, cl_mem_flags flags,
 	return 0;
 }
 
-int32_t create_filled_cl_mem(const CLInfo& clinfo, cl_mem_flags flags, uint32_t size, 
+int32_t create_filled_cl_mem(cl_mem_flags flags, uint32_t size, 
 			 const void* values, cl_mem* mem)
 {
+        CLInfo* clinfo = CLInfo::instance();
+        if (!clinfo->initialized())
+                return -1;
+
 	cl_int err;
-	*mem = clCreateBuffer(clinfo.context,
+	*mem = clCreateBuffer(clinfo->context,
 			     flags | CL_MEM_COPY_HOST_PTR,
 			     size,
 			     const_cast<void*>(values), //This is ugly but necessary
@@ -319,11 +475,15 @@ int32_t create_filled_cl_mem(const CLInfo& clinfo, cl_mem_flags flags, uint32_t 
 
 }
 
-int32_t create_host_cl_mem(const CLInfo& clinfo, cl_mem_flags flags, uint32_t size, 
+int32_t create_host_cl_mem(cl_mem_flags flags, uint32_t size, 
 			   void* ptr, cl_mem* mem)
 {
+        CLInfo* clinfo = CLInfo::instance();
+        if (!clinfo->initialized())
+                return -1;
+
 	cl_int err;
-	*mem = clCreateBuffer(clinfo.context,
+	*mem = clCreateBuffer(clinfo->context,
 			      flags | CL_MEM_USE_HOST_PTR,
 			      size,
 			      ptr, //This is ugly but necessary
@@ -335,10 +495,15 @@ int32_t create_host_cl_mem(const CLInfo& clinfo, cl_mem_flags flags, uint32_t si
 
 }
 
-int32_t copy_to_cl_mem(const CLInfo& clinfo, uint32_t size,
-		       const void* values, cl_mem& mem, uint32_t offset){
+int32_t copy_to_cl_mem(uint32_t size, const void* values, cl_mem& mem, 
+                       uint32_t offset, size_t cq_i){
+
+        CLInfo* clinfo = CLInfo::instance();
+        if (!clinfo->initialized() || !clinfo->has_command_queue(cq_i))
+                return -1;
+
 	cl_int err;
-	err = clEnqueueWriteBuffer(clinfo.command_queue,
+	err = clEnqueueWriteBuffer(clinfo->get_command_queue(cq_i),
 				   mem,
 				   true,  /* Blocking write */
 				   offset,
@@ -351,17 +516,23 @@ int32_t copy_to_cl_mem(const CLInfo& clinfo, uint32_t size,
 	    return 1;
 
 
-	err = clFinish(clinfo.command_queue);
+	err = clFinish(clinfo->get_command_queue(cq_i));
 	if (error_cl(err, "clFinsish"))
 		return 1;
 
 	return 0;
 }
 
-int32_t copy_from_cl_mem(const CLInfo& clinfo, uint32_t size,
-			 void* values, cl_mem& mem, uint32_t offset){
+int32_t copy_from_cl_mem(uint32_t size, void* values, cl_mem& mem, 
+                         uint32_t offset, size_t cq_i)
+{
+
+        CLInfo* clinfo = CLInfo::instance();
+        if (!clinfo->initialized() || !clinfo->has_command_queue(cq_i))
+                return -1;
+
 	cl_int err;
-	err = clEnqueueReadBuffer(clinfo.command_queue,
+	err = clEnqueueReadBuffer(clinfo->get_command_queue(cq_i),
 				  mem,
 				  true,  /* Blocking write */
 				  offset, /* Offset */
@@ -373,85 +544,19 @@ int32_t copy_from_cl_mem(const CLInfo& clinfo, uint32_t size,
 	if (error_cl(err, "clEnqueueReadBuffer"))
 	    return 1;
 
-	err = clFinish(clinfo.command_queue);
+	err = clFinish(clinfo->get_command_queue(cq_i));
 	if (error_cl(err, "clFinsish"))
 		return 1;
 
 	return 0;
 }
 
-void print_cl_info(const CLInfo& clinfo)
-{
-
-	cl_int err;
-	cl_uint max_samplers;
-	char device_vendor[128], device_name[128], device_cl_version[128], c_version[128];
-	size_t bytes_returned;
-	err = clGetDeviceInfo (clinfo.device_id,
-			       CL_DEVICE_VENDOR, sizeof(device_vendor),
-			       device_vendor, &bytes_returned);
-	if (error_cl(err, "clGetDeviceInfo CL_DEVICE_VENDOR"))
-	    return;
-
-	err = clGetDeviceInfo (clinfo.device_id,
-			       CL_DEVICE_VERSION, sizeof(device_cl_version),
-			       device_cl_version, &bytes_returned);
-
-	if (error_cl(err, "clGetDeviceInfo CL_DEVICE_VERSION"))
-	    return;
-
-	err = clGetDeviceInfo (clinfo.device_id,
-			       CL_DEVICE_NAME, sizeof(device_name),
-			       device_name, &bytes_returned);
-
-	if (error_cl(err, "clGetDeviceInfo CL_DEVICE_NAME"))
-	    return;
-
-	err = clGetDeviceInfo (clinfo.device_id,
-			       CL_DEVICE_OPENCL_C_VERSION, sizeof(c_version),
-			       c_version, &bytes_returned);
-
-	if (error_cl(err, "clGetDeviceInfo CL_DEVICE_OPENCL_C_VERSION"))
-	    return;
-
-	err = clGetDeviceInfo (clinfo.device_id,
-			       CL_DEVICE_MAX_SAMPLERS, sizeof(max_samplers),
-			       &max_samplers, &bytes_returned);
-
-	if (error_cl(err, "clGetDeviceInfo CL_DEVICE_MAX_SAMPLERS"))
-	    return;
-
-	std::cout << "OpenCL Info:" << std::endl;
-
-	std::cout << "\tOpenCL device vendor: " << device_vendor << std::endl;
-	std::cout << "\tOpenCL device name: " << device_name << std::endl;
-	std::cout << "\tOpenCL device OpenCL version: " << device_cl_version << std::endl;
-	std::cout << "\tOpenCL device OpenCL C version: " << c_version << std::endl;
-	std::cout << "\tOpenCL device maximum sampler support: " 
-		  << max_samplers << std::endl;
-	std::cout << "\tOpenCL device global mem size: " 
-		  << clinfo.global_mem_size << std::endl;
-	std::cout << "\tOpenCL device local mem size: " 
-		  << clinfo.local_mem_size << std::endl;
-	std::cout << "\tOpenCL device maximum mem alloc size: " 
-		  << clinfo.max_mem_alloc_size << std::endl;
-	std::cout << "\tOpenCL device image2d max size: " 
-		  << clinfo.image2d_max_width << " x "
-		  << clinfo.image2d_max_width << std::endl;
-	std::cout << "\tOpenCL device compute units: " 
-		  << clinfo.max_compute_units << std::endl;
-	std::cout << "\tOpenCL device max work group size: " 
-		  << clinfo.max_work_group_size << std::endl;
-	std::cout << "\tOpenCL device max work item sizes per dimension: " 
-		  << clinfo.max_work_item_sizes[0] << " "
-		  << clinfo.max_work_item_sizes[1] << " "
-		  << clinfo.max_work_item_sizes[2] << std::endl;
-	
-
-	std::cout << std::endl;
-}
 
 void print_cl_mem_info(const cl_mem& mem){
+
+        CLInfo* clinfo = CLInfo::instance();
+        if (!clinfo->initialized())
+                return;
 
 	size_t mem_size, bytes_written;
 	cl_mem_object_type mem_type;
@@ -499,6 +604,10 @@ void print_cl_mem_info(const cl_mem& mem){
 void print_cl_image_2d_info(const cl_mem& mem)
 {
 	// Query image created from texture
+        CLInfo* clinfo = CLInfo::instance();
+        if (!clinfo->initialized())
+                return;
+
 	cl_int err;
 	size_t img_width, img_height, img_depth;
 	cl_image_format img_format;
@@ -551,11 +660,15 @@ void print_cl_image_2d_info(const cl_mem& mem)
 
 }
 
-int create_cl_mem_from_gl_tex(const CLInfo& clinfo, const GLuint gl_tex, cl_mem* mem)
+int create_cl_mem_from_gl_tex(const GLuint gl_tex, cl_mem* mem, size_t cq_i)
 {
+        CLInfo* clinfo = CLInfo::instance();
+        if (!clinfo->initialized() || !clinfo->has_command_queue(cq_i))
+                return;
+
 	cl_int err;
 
-	*mem = clCreateFromGLTexture2D(clinfo.context,
+	*mem = clCreateFromGLTexture2D(clinfo->context,
 				       CL_MEM_READ_WRITE,
 				       GL_TEXTURE_2D,0,
 				       gl_tex,&err);
@@ -563,7 +676,7 @@ int create_cl_mem_from_gl_tex(const CLInfo& clinfo, const GLuint gl_tex, cl_mem*
 	if (error_cl(err, "clCreateFromGLTexture2D"))
 		return 1;
 
-	err = clEnqueueAcquireGLObjects(clinfo.command_queue,
+	err = clEnqueueAcquireGLObjects(clinfo->get_command_queue(cq_i),
 					1,
 					mem,
 					0,0,0);
@@ -571,7 +684,7 @@ int create_cl_mem_from_gl_tex(const CLInfo& clinfo, const GLuint gl_tex, cl_mem*
 	if (error_cl(err, "clEnqueueAcquireGLObjects"))
 		return 1;
 
-	err = clFinish(clinfo.command_queue);
+	err = clFinish(clinfo->get_command_queue(cq_i));
 
 	if (error_cl(err, "clFinish"))
 		return 1;
@@ -612,11 +725,15 @@ size_t cl_mem_size(const cl_mem& mem)
 	return mem_size;
 }
 
-int32_t acquire_gl_tex(cl_mem& tex_mem, const CLInfo& clinfo)
+int32_t acquire_gl_tex(cl_mem& tex_mem, size_t cq_i)
 {
+        CLInfo* clinfo = CLInfo::instance();
+        if (!clinfo->initialized() || !clinfo->has_command_queue(cq_i))
+                return;
+
         cl_int err;
 
-        err = clEnqueueAcquireGLObjects (clinfo.command_queue,
+        err = clEnqueueAcquireGLObjects (clinfo->get_command_queue(cq_i),
                                          1,
                                          &tex_mem,
                                          0,
@@ -625,18 +742,22 @@ int32_t acquire_gl_tex(cl_mem& tex_mem, const CLInfo& clinfo)
 	if (error_cl(err, "clEnqueueAcquireGLObjects "))
                 return -1;
 
-	err = clFinish(clinfo.command_queue);
+	err = clFinish(clinfo->get_command_queue(cq_i));
 
 	if (error_cl(err, "clEnqueueAcquireGLObjects -> clFinish"))
                 return -1;
         return 0;
 }
 
-int32_t release_gl_tex(cl_mem& tex_mem, const CLInfo& clinfo)
+int32_t release_gl_tex(cl_mem& tex_mem, size_t cq_i)
 {
+        CLInfo* clinfo = CLInfo::instance();
+        if (!clinfo->initialized() || !clinfo->has_command_queue(cq_i))
+                return;
+
         cl_int err;
 
-        err = clEnqueueReleaseGLObjects (clinfo.command_queue,
+        err = clEnqueueReleaseGLObjects (clinfo->get_command_queue(cq_i),
                                          1,
                                          &tex_mem,
                                          0,
@@ -645,21 +766,10 @@ int32_t release_gl_tex(cl_mem& tex_mem, const CLInfo& clinfo)
 	if (error_cl(err, "clEnqueueReleaseGLObjects "))
                 return -1;
 
-	err = clFinish(clinfo.command_queue);
+	err = clFinish(clinfo->get_command_queue(cq_i));
 
 	if (error_cl(err, "clEnqueueReleaseGLObjects -> clFinish"))
                 return -1;
         return 0;
 }
 
-static bool gpu_sync = false;
-
-void CLInfo::set_sync(bool s)
-{
-        gpu_sync = s;
-}
-
-bool CLInfo::sync()
-{
-        return gpu_sync;
-}

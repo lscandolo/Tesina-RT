@@ -80,7 +80,7 @@ void gl_loop()
 	cl_int err;
 	
 	//////////// CL STUFF
-        acquire_gl_tex(cl_tex_mem,*(clkernelinfo.clinfo));
+        acquire_gl_tex(cl_tex_mem);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	cl_int arg = i%STEPS;
@@ -90,7 +90,7 @@ void gl_loop()
 	execute_cl(clkernelinfo);
 	
 	////////////////// Immediate mode textured quad
-        release_gl_tex(cl_tex_mem,*(clkernelinfo.clinfo));
+        release_gl_tex(cl_tex_mem);
 	glBindTexture(GL_TEXTURE_2D, gl_tex);
 
 	glBegin(GL_TRIANGLE_STRIP);
@@ -136,33 +136,36 @@ void gl_loop()
 
 int main(int argc, char** argv)
 {
-	CLInfo clinfo;
-	GLInfo glinfo;
 	size_t window_size[] = {TEX_WIDTH, TEX_HEIGHT};
 	cl_int err;
 
-	if (init_gl(argc,argv,&glinfo, window_size, "OpenCL-OpenGL interop test") != 0){
+        GLInfo* glinfo = GLInfo::instance();
+
+	if (glinfo->initialize(argc,argv, window_size, 
+                               "OpenCL-OpenGL interop test") != 0){
 		std::cerr << "Failed to initialize GL" << std::endl;
 		exit(1);
 	} else { 
 		std::cout << "Initialized GL succesfully" << std::endl;
 	}
 
-	if (init_cl(glinfo,&clinfo) != CL_SUCCESS){
+        CLInfo* clinfo = CLInfo::instance();
+
+	if (clinfo->initialize() != CL_SUCCESS){
 		std::cerr << "Failed to initialize CL" << std::endl;
 		exit(1);
 	} else { 
 		std::cout << "Initialized CL succesfully" << std::endl;
 	}
 
-	print_cl_info(clinfo);
+	clinfo->print_info();
 
 	////////////// Create gl_tex and buf /////////////////
 	gl_tex = create_tex_gl(TEX_WIDTH,TEX_HEIGHT);
 	gl_buf = create_buf_gl(1024);
 	print_gl_tex_2d_info(gl_tex);
 	///////////// Create empty cl_mem
-	if (create_empty_cl_mem(clinfo, CL_MEM_READ_WRITE, 1024, &cl_buf_mem)) {
+	if (create_empty_cl_mem(CL_MEM_READ_WRITE, 1024, &cl_buf_mem)) {
 		std::cerr << "*** Error creating OpenCL buffer" << std::endl;
 	} else {
 		std::cerr << "Created OpenCl buffer succesfully" << std::endl;
@@ -171,11 +174,11 @@ int main(int argc, char** argv)
 	print_cl_mem_info(cl_buf_mem);
 
 	////////////// Create cl_mem from gl_tex
-	if (create_cl_mem_from_gl_tex(clinfo, gl_tex, &cl_tex_mem))
+	if (create_cl_mem_from_gl_tex(gl_tex, &cl_tex_mem))
 		exit(1);
 	print_cl_image_2d_info(cl_tex_mem);
 	
-	if (init_cl_kernel(&clinfo,"src/kernel/clgl-test.cl", "Grad", &clkernelinfo)){
+	if (init_cl_kernel("src/kernel/clgl-test.cl", "Grad", &clkernelinfo)){
 		std::cerr << "Failed to initialize CL kernel" << std::endl;
 		exit(1);
 	} else {

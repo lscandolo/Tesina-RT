@@ -25,10 +25,6 @@ function_id radix_hist_id;
 function_id radix_sums_id;
 function_id radix_rearrange_id;
 
-CLInfo clinfo;
-GLInfo glinfo;
-
-DeviceInterface& device = *DeviceInterface::instance();
 memory_id tex_id;
 rt_time_t rt_time;
 
@@ -42,27 +38,31 @@ int main (int argc, char** argv)
 
         /*---------------------- Initialize OpenGL and OpenCL ----------------------*/
 
-        if (init_gl(argc,argv,&glinfo, window_size, "RT") != 0){
+        GLInfo* glinfo = GLInfo::instance();
+
+        if (glinfo->initialize(argc,argv, window_size, "RT") != 0){
                 std::cerr << "Failed to initialize GL" << std::endl;
                 pause_and_exit(1);
         } else { 
                 std::cout << "Initialized GL succesfully" << std::endl;
         }
 
-        if (init_cl(glinfo,&clinfo) != CL_SUCCESS){
+        CLInfo* clinfo = CLInfo::instance();
+        if (clinfo->initialize(2) != CL_SUCCESS){
                 std::cerr << "Failed to initialize CL" << std::endl;
                 pause_and_exit(1);
         } else { 
                 std::cout << "Initialized CL succesfully" << std::endl;
         }
-        print_cl_info(clinfo);
+        clinfo->print_info();
 
-        /* Initialize device interface */
-        if (device.initialize(clinfo)) {
+        // Initialize device interface and generic gpu library
+        DeviceInterface* device = DeviceInterface::instance();
+        if (device->initialize()) {
                 std::cerr << "Failed to initialize device interface" << std::endl;
                 pause_and_exit(1);
         }
-        
+
 #if DO_BITONIC
 
         std::vector<std::string> bitonic_names;
@@ -78,7 +78,7 @@ int main (int argc, char** argv)
 
 
         std::vector<function_id> fids;
-        fids = device.build_functions("src/kernel/sort.cl",bitonic_names);
+        fids = device->build_functions("src/kernel/sort.cl",bitonic_names);
         if (!fids.size())
                 return -1;
 
@@ -111,7 +111,7 @@ int main (int argc, char** argv)
         rt_time.snap_time();
 
         std::vector<function_id> rids;
-        rids = device.build_functions("src/kernel/sort.cl", radix_names);
+        rids = device->build_functions("src/kernel/sort.cl", radix_names);
         if (!fids.size())
                 return -1;
 
@@ -140,24 +140,26 @@ void Bitonic(int N)
         // N = pow(2,7) - 23;
         // N = 8388608;
         // N *= 0.77856f;
+        DeviceInterface* device = DeviceInterface::instance();
+
         N  = std::max(1,N);
         int MIN_PRINT = 0;
         double msec;
 
-        memory_id in_mem_id = device.new_memory();
-        memory_id out_mem_id = device.new_memory();
+        memory_id in_mem_id = device->new_memory();
+        memory_id out_mem_id = device->new_memory();
 
-        DeviceMemory& in_mem = device.memory(in_mem_id);
-        DeviceMemory& out_mem = device.memory(out_mem_id);
+        DeviceMemory& in_mem = device->memory(in_mem_id);
+        DeviceMemory& out_mem = device->memory(out_mem_id);
 
-        DeviceFunction& bitonic_local = device.function(bitonic_local_id);
-        DeviceFunction& bitonic2 = device.function(bitonic2_id);
-        DeviceFunction& bitonic4 = device.function(bitonic4_id);
-        DeviceFunction& bitonic8 = device.function(bitonic8_id);
-        DeviceFunction& bitonic16 = device.function(bitonic16_id);
-        DeviceFunction& bitonic32 = device.function(bitonic32_id);
-        DeviceFunction& bitonicl2 = device.function(bitonicl2_id);
-        DeviceFunction& bitonicl4 = device.function(bitonicl4_id);
+        DeviceFunction& bitonic_local = device->function(bitonic_local_id);
+        DeviceFunction& bitonic2 = device->function(bitonic2_id);
+        DeviceFunction& bitonic4 = device->function(bitonic4_id);
+        DeviceFunction& bitonic8 = device->function(bitonic8_id);
+        DeviceFunction& bitonic16 = device->function(bitonic16_id);
+        DeviceFunction& bitonic32 = device->function(bitonic32_id);
+        DeviceFunction& bitonicl2 = device->function(bitonicl2_id);
+        DeviceFunction& bitonicl4 = device->function(bitonicl4_id);
 
         if (in_mem.initialize(sizeof(cl_float) * N) || 
             out_mem.initialize(sizeof(cl_float) * N))
@@ -217,7 +219,7 @@ void Bitonic(int N)
         bl2_work_items = std::max((size_t)1,bl2_work_items);
         bl4_work_items = std::max((size_t)1,bl4_work_items);
 
-        size_t max_wg_size = device.max_group_size(0);
+        size_t max_wg_size = device->max_group_size(0);
 
         // std::cout << "Start conf: " << std::endl;
         // for (int i = 0; i < vals.size(); ++i) {
@@ -351,7 +353,7 @@ void Bitonic(int N)
 
                                 kernels++;
                                 order = !order;
-                                device.enqueue_barrier();
+                                device->enqueue_barrier();
                                 // in_mem.read(sizeof(float)*N, &(vals[0]));
                                 // std::cout << "inc: "  << inc << std::endl;
                                 // for (int i = 0; i < vals.size(); ++i) {
@@ -363,7 +365,7 @@ void Bitonic(int N)
                         // std::cout << std::endl;
                 }
         }
-        device.finish_commands();
+        device->finish_commands();
         msec = rt_time.msec_since_snap();
 
         
@@ -418,7 +420,9 @@ void Radix(unsigned int N)
         int EPT = 2; //Elements to process per thread/work item
         int RBITS = 4; //Bits to order per pass
 
-        size_t group_size = device.max_group_size(0);
+        DeviceInterface* device = DeviceInterface::instance();
+
+        size_t group_size = device->max_group_size(0);
         size_t block_size = EPT*group_size;
         int N2 = 1;
         N2 = N;
@@ -426,16 +430,16 @@ void Radix(unsigned int N)
 
         double msec;
 
-        memory_id in_mem_id = device.new_memory();
-        memory_id out_mem_id = device.new_memory();
+        memory_id in_mem_id = device->new_memory();
+        memory_id out_mem_id = device->new_memory();
 
-        DeviceMemory& in_mem = device.memory(in_mem_id);
-        DeviceMemory& out_mem = device.memory(out_mem_id);
+        DeviceMemory& in_mem = device->memory(in_mem_id);
+        DeviceMemory& out_mem = device->memory(out_mem_id);
 
-        DeviceFunction& radix = device.function(radix_id);
-        DeviceFunction& radix_hist = device.function(radix_hist_id);
-        DeviceFunction& radix_sums = device.function(radix_sums_id);
-        DeviceFunction& radix_rearrange = device.function(radix_rearrange_id);
+        DeviceFunction& radix = device->function(radix_id);
+        DeviceFunction& radix_hist = device->function(radix_hist_id);
+        DeviceFunction& radix_sums = device->function(radix_sums_id);
+        DeviceFunction& radix_rearrange = device->function(radix_rearrange_id);
 
         if (in_mem.initialize(sizeof(cl_uint) * N) || 
             out_mem.initialize(sizeof(cl_uint) * N2))
@@ -477,13 +481,13 @@ void Radix(unsigned int N)
         rt_time.snap_time();
         size_t histogram_entries = (N2/block_size)*(1<<RBITS);
 
-        memory_id histogram_mem_id = device.new_memory();
-        DeviceMemory& histogram_mem = device.memory(histogram_mem_id);
+        memory_id histogram_mem_id = device->new_memory();
+        DeviceMemory& histogram_mem = device->memory(histogram_mem_id);
         if (histogram_mem.initialize(sizeof(unsigned int)*histogram_entries))
                 return;
 
-        memory_id histogram_sums_id = device.new_memory();
-        DeviceMemory& histogram_sums = device.memory(histogram_sums_id);
+        memory_id histogram_sums_id = device->new_memory();
+        DeviceMemory& histogram_sums = device->memory(histogram_sums_id);
         if (N2 > block_size) {
                 if (histogram_sums.initialize(histogram_mem.size()/(block_size)+1))
                         return;
@@ -522,7 +526,7 @@ void Radix(unsigned int N)
                 if (radix.enqueue_single_dim(N2/EPT,group_size)) {
                         std::cout << "Error executing radix\n";
                 }
-                device.enqueue_barrier();
+                device->enqueue_barrier();
 
                 if (N2 <= block_size) 
                         continue;
@@ -540,7 +544,7 @@ void Radix(unsigned int N)
                 if (radix_hist.enqueue_single_dim(histogram_work_size,group_size)) {
                         std::cout << "Error executing radix hist\n";
                 }
-                device.enqueue_barrier();
+                device->enqueue_barrier();
 
                 unsigned int sum_count = histogram_sums.size()/sizeof(unsigned int)+1;
                 radix_sums.set_arg(0,histogram_sums);
@@ -551,7 +555,7 @@ void Radix(unsigned int N)
                 if (radix_sums.enqueue_single_dim(histogram_entries)) {
                         std::cout << "Error executing sums\n";
                 }
-                device.enqueue_barrier();
+                device->enqueue_barrier();
 
 
                 unsigned int blocks = histogram_entries / (1<<RBITS);
@@ -565,10 +569,10 @@ void Radix(unsigned int N)
                 if (radix_rearrange.enqueue_single_dim(N2,group_size)) {
                         std::cout << "Error executing rearrange\n";
                 }
-                device.enqueue_barrier();
+                device->enqueue_barrier();
 
         }
-        device.finish_commands();
+        device->finish_commands();
         msec = rt_time.msec_since_snap();
         std::cout << "Local radix sort time: " << msec << " ms\n";
         /////////////////////////////////

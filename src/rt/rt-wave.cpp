@@ -18,10 +18,6 @@ function_id mangler_id;
 
 Renderer renderer;
 
-CLInfo clinfo;
-GLInfo glinfo;
-
-DeviceInterface& device = *DeviceInterface::instance();
 memory_id tex_id;
 
 int model_count = 44; 
@@ -102,7 +98,7 @@ void gl_key(unsigned char key, int x, int y)
                 print_fps = !print_fps;
                 break;
         case 'e':
-                clinfo.set_sync(!clinfo.sync());
+                CLInfo::instance()->set_sync(!CLInfo::instance()->sync());
                 break;
         case 'c':
                 scene.cubemap.enabled = !scene.cubemap.enabled;
@@ -153,7 +149,8 @@ void gl_loop()
 	mangler_arg += 1.f;
 	rt_time_t mangle_timer;
 
-        DeviceFunction& mangler_function = device.function(mangler_id);
+        DeviceInterface* device = DeviceInterface::instance();
+        DeviceFunction& mangler_function = device->function(mangler_id);
 
         std::cerr << "Using GPU..." << std::endl;
         mangle_timer.snap_time();
@@ -279,30 +276,40 @@ int main (int argc, char** argv)
 
         // Initialize OpenGL and OpenCL
         size_t window_size[] = {renderer.get_framebuffer_w(), renderer.get_framebuffer_h()};
-        if (init_gl(argc,argv,&glinfo, window_size, "RT") != 0){
+
+        GLInfo* glinfo = GLInfo::instance();
+
+        if (glinfo->initialize(argc,argv, window_size, "RT") != 0){
                 std::cerr << "Failed to initialize GL" << std::endl;
                 pause_and_exit(1);
         } else { 
                 std::cout << "Initialized GL succesfully" << std::endl;
         }
 
-        if (init_cl(glinfo,&clinfo) != CL_SUCCESS){
+        CLInfo* clinfo = CLInfo::instance();
+        if (clinfo->initialize(2) != CL_SUCCESS){
                 std::cerr << "Failed to initialize CL" << std::endl;
                 pause_and_exit(1);
         } else { 
                 std::cout << "Initialized CL succesfully" << std::endl;
         }
-        print_cl_info(clinfo);
+        clinfo->print_info();
 
         // Initialize device interface and generic gpu library
-        if (device.initialize(clinfo)) {
+        DeviceInterface* device = DeviceInterface::instance();
+        if (device->initialize()) {
                 std::cerr << "Failed to initialize device interface" << std::endl;
                 pause_and_exit(1);
         }
-        DeviceFunctionLibrary::initialize(clinfo);
+
+        if (DeviceFunctionLibrary::instance()->initialize()) {
+                std::cerr << "Failed to initialize function library" << std::endl;
+                pause_and_exit(1);
+        }
+
         gl_tex = create_tex_gl(window_size[0],window_size[1]);
-        tex_id = device.new_memory();
-        DeviceMemory& tex_mem = device.memory(tex_id);
+        tex_id = device->new_memory();
+        DeviceMemory& tex_mem = device->memory(tex_id);
         if (tex_mem.initialize_from_gl_texture(gl_tex)) {
                 std::cerr << "Failed to create memory object from gl texture" << std::endl;
                 pause_and_exit(1);
@@ -318,7 +325,7 @@ int main (int argc, char** argv)
         
         /*---------------------- Scene definition -----------------------*/
 
-	mesh_id floor_mesh_id = scene.load_obj_file_as_aggregate("models/obj/grid100.obj");
+	mesh_id floor_mesh_id = scene.load_obj_file_as_aggregate("models/obj/grid10.obj");
 	object_id floor_obj_id  = scene.add_object(floor_mesh_id);
 	Object& floor_obj = scene.object(floor_obj_id);
  	floor_obj.geom.setScale(10.f);
@@ -383,13 +390,13 @@ int main (int argc, char** argv)
 
         /* ----------------------- Initialize renderer --------------------------- */
         std::string log_filename = "rt-wave-log"; 
-        renderer.initialize(clinfo, log_filename);
+        renderer.initialize(log_filename);
         renderer.set_max_bounces(5);
         renderer.log.silent = true;
 
 	/* ------------------------- Create vertex mangler -----------------------*/
-        mangler_id = device.new_function();
-        DeviceFunction& mangler_function = device.function(mangler_id);
+        mangler_id = device->new_function();
+        DeviceFunction& mangler_function = device->function(mangler_id);
         if (mangler_function.initialize("src/kernel/mangler.cl", "mangle")) {
 		std::cerr << "Error initializing mangler kernel." << std::endl;
 		exit(1);
@@ -413,7 +420,7 @@ int main (int argc, char** argv)
         glutIdleFunc(gl_loop);
         glutMainLoop(); 
 
-        clinfo.release_resources();
+        clinfo->release_resources();
 
         return 0;
 }

@@ -75,11 +75,10 @@ generate_primary_rays(global Sample* samples,
 		y = right_i / slab_size;
 	} else { 
 		int start_y = y_blocks * BLOCK_SIDE;
-		int start_x = x_blocks * BLOCK_SIDE - 1;
 		int slab_size = height - start_y;
 		int top_i = i - (block_rays + right_rays);
-		x = start_x - top_i / slab_size;
-		y = start_y + top_i % slab_size;
+		x = top_i / slab_size;
+		y = start_y + (top_i % slab_size);
 	}
 
 	float xPosNDC = (0.5f + (float)x + psample.ox) / (float)width;

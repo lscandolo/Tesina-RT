@@ -3,7 +3,7 @@
 #define UINT_MAX_F 4294967295.f
 
 #define M_AXIS_BITS  10
-#define M_UINT_COUNT 1 //This value needs to be (1+ (M_AXIS_BITS*3-1)/32)
+#define M_UINT_COUNT 1 //This value needs to be ceil(1+ (M_AXIS_BITS*3-1)/32)
 
 #define MORTON_MAX_F 1024.f // 2^M_AXIS_BITS
 #define MORTON_MAX_INV_F 0.000976562.f //1/MORTON_MAX_F
@@ -20,7 +20,6 @@ typedef struct
         float3 bitangent;
         float2 texCoord;
 } Vertex;
-
 
 typedef struct {
 
@@ -150,7 +149,6 @@ build_primitive_bbox(global Vertex* vertex_buffer,
 kernel void
 morton_encode(global BBox* bboxes,
               global BBox* global_bbox,
-              /* const float4 inv_global_bbox_size, */
               global morton_code_t* morton_codes) 
 {
         int index = get_global_id(0);
@@ -448,10 +446,16 @@ unsigned int process_node_split_2(global BVHNode* nodes,
                 } else if (split == T_ALL_0) {
                         //save node start location
                         node_map[first_primitive] = parent_id;
+                        nodes[parent_id].leaf = true;
+                        nodes[parent_id].start_index = first_primitive;
+                        nodes[parent_id].end_index = end_primitive;
                         return 0;
                 } else { //split == T_ALL_1
                         //save node start location
                         node_map[first_primitive] = parent_id;
+                        nodes[parent_id].leaf = true;
+                        nodes[parent_id].start_index = first_primitive;
+                        nodes[parent_id].end_index = end_primitive;
                         return 0;
                 }
 

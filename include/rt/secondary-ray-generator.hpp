@@ -16,6 +16,8 @@ public:
 	int32_t initialize();
 	int32_t generate(Scene& scene, RayBundle& ray_in, size_t rays_in,
                          HitBundle& hits, RayBundle& ray_out, size_t* rays_out);
+	int32_t generate_disc(Scene& scene, RayBundle& ray_in, size_t rays_in,
+                              HitBundle& hits, RayBundle& ray_out, size_t* rays_out);
 	void set_max_rays(size_t max);
 
 	void timing(bool b);
@@ -26,6 +28,9 @@ private:
 
         function_id marker_id;
         function_id generator_id;
+
+        function_id marker_disc_id;
+        function_id generator_disc_id;
 
 	cl_int m_generated_rays;
 	cl_int m_max_rays;

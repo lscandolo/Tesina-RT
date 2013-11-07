@@ -16,7 +16,7 @@ class BVHBuilder {
 
 public:
 
-	int32_t initialize(CLInfo& clinfo);
+	int32_t initialize();
 	int32_t build_bvh(Scene& scene);
     void set_log(Log* log);
 

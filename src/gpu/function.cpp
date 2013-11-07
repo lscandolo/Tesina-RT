@@ -4,14 +4,13 @@
 #include <gpu/function.hpp>
 
 
-DeviceFunction::DeviceFunction(CLInfo clinfo) 
+DeviceFunction::DeviceFunction() 
 {
         for (int8_t i = 0; i < 3; ++i) {
                 m_local_size[i] = 0;
                 m_global_size[i] = 0;
                 m_global_offset[i] = 0;
         }
-        m_clinfo = clinfo;
         m_work_dim = 0;
         m_initialized = false;
 }
@@ -19,7 +18,7 @@ DeviceFunction::DeviceFunction(CLInfo clinfo)
 bool 
 DeviceFunction::valid()
 {
-        return m_clinfo.initialized && m_initialized;
+        return m_initialized;
 }
 
 int32_t 
@@ -27,7 +26,9 @@ DeviceFunction::initialize(std::string file, std::string name)
 {
 	cl_int err;
         
-        if (!m_clinfo.initialized)
+        CLInfo* clinfo = CLInfo::instance();
+
+        if (!clinfo->initialized())
                 return -1;
 
 	//Create a program from the kernel source code
@@ -51,7 +52,7 @@ DeviceFunction::initialize(std::string file, std::string name)
 	kernel_source_file.close();
 	kernel_source[file_size] = 0;
 	
-	m_program = clCreateProgramWithSource(m_clinfo.context,
+	m_program = clCreateProgramWithSource(clinfo->context,
                                               1,
                                               (const char**)&kernel_source,
                                               NULL,
@@ -71,7 +72,7 @@ DeviceFunction::initialize(std::string file, std::string name)
 		char build_log[8196];
 		size_t bytes_returned;
 		err = clGetProgramBuildInfo (m_program,
-					     m_clinfo.device_id,
+					     clinfo->device_id,
 					     CL_PROGRAM_BUILD_LOG,
 					     sizeof(build_log),
 					     build_log,
@@ -91,7 +92,7 @@ DeviceFunction::initialize(std::string file, std::string name)
 		return -1;
 
         err = clGetKernelWorkGroupInfo(m_kernel,
-                                       m_clinfo.device_id,
+                                       clinfo->device_id,
                                        CL_KERNEL_WORK_GROUP_SIZE,
                                        sizeof(size_t),
                                        &m_max_group_size,
@@ -101,7 +102,7 @@ DeviceFunction::initialize(std::string file, std::string name)
 
         size_t multiple;
         err = clGetKernelWorkGroupInfo(m_kernel,
-                                       m_clinfo.device_id,
+                                       clinfo->device_id,
                                        CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE,
                                        sizeof(size_t),
                                        &multiple,
@@ -195,8 +196,14 @@ int32_t DeviceFunction::set_local_size(size_t size[3])
         return 0;
 }
 
-int32_t DeviceFunction::execute()
+int32_t DeviceFunction::execute(size_t command_queue_i)
 {
+        CLInfo* clinfo = CLInfo::instance();
+        if (!clinfo->initialized() || !clinfo->has_command_queue(command_queue_i))
+                return -1;
+
+        cl_command_queue command_queue = clinfo->get_command_queue(command_queue_i);
+
         if (!valid())
                 return -1;
 
@@ -223,7 +230,7 @@ int32_t DeviceFunction::execute()
 
 	// Enqueueing the kernel command for execution
 	if (local_size_set)
-		err = clEnqueueNDRangeKernel(m_clinfo.command_queue,
+		err = clEnqueueNDRangeKernel(command_queue,
 					     m_kernel,
 					     m_work_dim,
 					     m_global_offset,
@@ -231,7 +238,7 @@ int32_t DeviceFunction::execute()
 					     m_local_size,
 					     0,NULL,NULL);
 	else
-		err = clEnqueueNDRangeKernel(m_clinfo.command_queue,
+		err = clEnqueueNDRangeKernel(command_queue,
 					     m_kernel,
 					     m_work_dim,
 					     m_global_offset,
@@ -243,7 +250,7 @@ int32_t DeviceFunction::execute()
 		return -1;
 
 	/* finish command queue */
-	err = clFinish(m_clinfo.command_queue);
+	err = clFinish(command_queue);
 	if (error_cl(err, "clFinish"))
 		return -1;
 
@@ -252,8 +259,14 @@ int32_t DeviceFunction::execute()
 
 int32_t 
 DeviceFunction::execute_single_dim(size_t global_size, size_t local_size, 
-                                   size_t global_offset) 
+                                   size_t global_offset, size_t command_queue_i) 
 {
+
+        CLInfo* clinfo = CLInfo::instance();
+        if (!clinfo->initialized() || !clinfo->has_command_queue(command_queue_i))
+                return -1;
+
+        cl_command_queue command_queue = clinfo->get_command_queue(command_queue_i);
 
         if (!valid() || global_size == 0) {
                 return -1;
@@ -275,7 +288,7 @@ DeviceFunction::execute_single_dim(size_t global_size, size_t local_size,
         size_t leftover_lsize[3] = {leftover,0,0};
 
         cl_int err;
-        err = clEnqueueNDRangeKernel(m_clinfo.command_queue,
+        err = clEnqueueNDRangeKernel(command_queue,
                                      m_kernel,
                                      1,
                                      goffset,
@@ -286,7 +299,7 @@ DeviceFunction::execute_single_dim(size_t global_size, size_t local_size,
 		return -1;
 
         if (leftover) {
-                err = clEnqueueNDRangeKernel(m_clinfo.command_queue,
+                err = clEnqueueNDRangeKernel(command_queue,
                                              m_kernel,
                                              1,
                                              leftover_goffset,
@@ -298,7 +311,7 @@ DeviceFunction::execute_single_dim(size_t global_size, size_t local_size,
         }
 
 	/* finish command queue */
-	err = clFinish(m_clinfo.command_queue);
+	err = clFinish(command_queue);
 	if (error_cl(err, "clFinish"))
 		return -1;
 
@@ -308,8 +321,14 @@ DeviceFunction::execute_single_dim(size_t global_size, size_t local_size,
 
 int32_t 
 DeviceFunction::enqueue_single_dim(size_t global_size, size_t local_size,
-                                   size_t global_offset) 
+                                   size_t global_offset, size_t command_queue_i) 
 {
+
+        CLInfo* clinfo = CLInfo::instance();
+        if (!clinfo->initialized() || !clinfo->has_command_queue(command_queue_i))
+                return -1;
+
+        cl_command_queue command_queue = clinfo->get_command_queue(command_queue_i);
 
         if (!valid() || global_size == 0) {
                 return -1;
@@ -331,7 +350,7 @@ DeviceFunction::enqueue_single_dim(size_t global_size, size_t local_size,
         size_t leftover_lsize[3] = {leftover,0,0};
 
         cl_int err;
-        err = clEnqueueNDRangeKernel(m_clinfo.command_queue,
+        err = clEnqueueNDRangeKernel(command_queue,
                                      m_kernel,
                                      1,
                                      goffset,
@@ -342,7 +361,7 @@ DeviceFunction::enqueue_single_dim(size_t global_size, size_t local_size,
 		return -1;
 
         if (leftover) {
-                err = clEnqueueNDRangeKernel(m_clinfo.command_queue,
+                err = clEnqueueNDRangeKernel(command_queue,
                                              m_kernel,
                                              1,
                                              leftover_goffset,
@@ -354,12 +373,12 @@ DeviceFunction::enqueue_single_dim(size_t global_size, size_t local_size,
         }
 
 	/* finish command queue */
-        if (!m_clinfo.sync()) {
-        	err = clFlush(m_clinfo.command_queue);
+        if (!clinfo->sync()) {
+        	err = clFlush(command_queue);
                 if (error_cl(err, "clFlush"))
                         return -1;
         } else {
-        	err = clFinish(m_clinfo.command_queue);
+        	err = clFinish(command_queue);
                 if (error_cl(err, "clFinish"))
                         return -1;
         }
@@ -367,10 +386,16 @@ DeviceFunction::enqueue_single_dim(size_t global_size, size_t local_size,
 }
 
 
-int32_t DeviceFunction::enqueue()
+int32_t DeviceFunction::enqueue(size_t command_queue_i)
 {
         if (!valid())
                 return -1;
+
+        CLInfo* clinfo = CLInfo::instance();
+        if (!clinfo->initialized() || !clinfo->has_command_queue(command_queue_i))
+                return -1;
+
+        cl_command_queue command_queue = clinfo->get_command_queue(command_queue_i);
 
 	cl_int err;
 	
@@ -395,7 +420,7 @@ int32_t DeviceFunction::enqueue()
 
 	// Enqueueing the kernel command for execution
 	if (local_size_set)
-		err = clEnqueueNDRangeKernel(m_clinfo.command_queue,
+		err = clEnqueueNDRangeKernel(command_queue,
 					     m_kernel,
 					     m_work_dim,
 					     m_global_offset,
@@ -403,7 +428,7 @@ int32_t DeviceFunction::enqueue()
 					     m_local_size,
 					     0,NULL,NULL);
 	else
-		err = clEnqueueNDRangeKernel(m_clinfo.command_queue,
+		err = clEnqueueNDRangeKernel(command_queue,
 					     m_kernel,
 					     m_work_dim,
 					     m_global_offset,
@@ -415,12 +440,12 @@ int32_t DeviceFunction::enqueue()
 		return -1;
 
 	/* finish command queue */
-        if (!m_clinfo.sync()) {
-        	err = clFlush(m_clinfo.command_queue);
+        if (!clinfo->sync()) {
+        	err = clFlush(command_queue);
                 if (error_cl(err, "clFlush"))
                         return -1;
         } else {
-        	err = clFinish(m_clinfo.command_queue);
+        	err = clFinish(command_queue);
                 if (error_cl(err, "clFinish"))
                         return -1;
         }
@@ -450,7 +475,8 @@ DeviceFunction::initialize(std::string name)
 {
 	cl_int err;
 
-        if (!m_clinfo.initialized)
+        CLInfo* clinfo = CLInfo::instance();
+        if (!clinfo->initialized())
                 return -1;
 
 	//specify which kernel from the program to execute
@@ -460,7 +486,7 @@ DeviceFunction::initialize(std::string name)
 		return -1;
 
         err = clGetKernelWorkGroupInfo(m_kernel,
-                                       m_clinfo.device_id,
+                                       clinfo->device_id,
                                        CL_KERNEL_WORK_GROUP_SIZE,
                                        sizeof(size_t),
                                        &m_max_group_size,
@@ -470,7 +496,7 @@ DeviceFunction::initialize(std::string name)
 
         size_t multiple;
         err = clGetKernelWorkGroupInfo(m_kernel,
-                                       m_clinfo.device_id,
+                                       clinfo->device_id,
                                        CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE,
                                        sizeof(size_t),
                                        &multiple,

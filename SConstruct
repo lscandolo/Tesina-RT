@@ -83,10 +83,10 @@ rt = env.Program('bin/rt' ,
                  LIBS= base_libs + clgl_lib + rt_primitives_lib + gpu_lib + misc_lib
                  )   
 
-rt_seq = env.Program('bin/rt-seq' ,
-                     'build/rt/rt-seq.cpp' ,
-                     LIBS= base_libs + clgl_lib + rt_primitives_lib + gpu_lib + misc_lib
-                     )   
+# rt_seq = env.Program('bin/rt-seq' ,
+#                      'build/rt/rt-seq.cpp' ,
+#                      LIBS= base_libs + clgl_lib + rt_primitives_lib + gpu_lib + misc_lib
+#                      )   
 
 rt_wave = env.Program('bin/rt-wave' ,
                       'build/rt/rt-wave.cpp' ,

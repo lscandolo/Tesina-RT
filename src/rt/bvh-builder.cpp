@@ -71,7 +71,7 @@ static int test_node (std::vector<BVHNode>& nodes,
 }
 
 int32_t 
-BVHBuilder::initialize(CLInfo& clinfo)
+BVHBuilder::initialize()
 {
         DeviceInterface& device = *DeviceInterface::instance();
 
@@ -273,6 +273,7 @@ BVHBuilder::build_bvh(Scene& scene)
         for (size_t i = 0; i < aux_bbox_mems.size()-1; ++i) {
                 device.delete_memory(aux_bbox_mems[i]);
         }
+
         memory_id last_bbox_out_id = aux_bbox_mems[aux_bbox_mems.size()-1];
         DeviceMemory& global_bbox_mem = device.memory(last_bbox_out_id);
 
@@ -297,7 +298,6 @@ BVHBuilder::build_bvh(Scene& scene)
                 return -1;
         device.enqueue_barrier();
         device.delete_memory(last_bbox_out_id);
-        std::cout << "Hello 2" << std::endl;
         if (m_logging && m_log != NULL) {
                 device.finish_commands();
                 partial_time_ms = partial_timer.msec_since_snap();
@@ -442,6 +442,7 @@ BVHBuilder::build_bvh(Scene& scene)
         ////////////////////// 4. Compute treelets and ouput nodes ////////////////////
         ///////////////////////////////////////////////////////////////////////////////
         rt_time_t node_time;
+        double read_time = 0;
         double node_count_time = 0;
         double treelet_build_time = 0;
         double node_build_time = 0;
@@ -576,12 +577,12 @@ BVHBuilder::build_bvh(Scene& scene)
                 node_time.snap_time();
                 /*Determine number of segments*/
                 uint32_t segment_count;
+                
                 if (segment_map_mem.read(sizeof(cl_uint), &segment_count, 
                                          sizeof(cl_int)*(triangle_count-1))) {
                     return -1;
                 }
                 segment_count++; /* We add one because it starts at 0*/
-                // std::cout << "Segment count read: " << segment_count << "\n";
 
                 /*Reserve memory for segment heads*/
                 size_t segment_heads_size = sizeof(cl_uint)*(segment_count+1);
@@ -599,9 +600,11 @@ BVHBuilder::build_bvh(Scene& scene)
                     segment_heads_init.set_arg(3,sizeof(cl_int), &last_head)) { 
                         return -1;
                 }
+
                 if (segment_heads_init.enqueue_single_dim(triangle_count)) {
                         return -1;
                 }
+
                 device.enqueue_barrier();
                 // std::cout << "Segment heads mem initialized" << "\n";
 
@@ -628,14 +631,13 @@ BVHBuilder::build_bvh(Scene& scene)
                 if (treelet_init.set_arg(0,treelets_mem)) {
                         return -1;
                 }
+
                 if (treelet_init.enqueue_single_dim(segment_count * treelet_size)) {
                         return -1;
                 }
                 device.enqueue_barrier();
-                // std::cout << "Treelets initialized" << "\n";
                 maps_init_time += node_time.msec_since_snap();
 
-                
                 node_time.snap_time();
                 /*Create treelets*/
                 size_t treelet_build_group_size = treelet_build.max_group_size();
@@ -734,6 +736,14 @@ BVHBuilder::build_bvh(Scene& scene)
 
                 node_count += new_node_count;
                 node_counts.push_back(node_count);
+
+                // std::cout << "New node count: " << new_node_count << "\n";
+                // if (new_node_count == 0) {
+                //         for (int i = node_counts.size(); i < 30; ++i) {
+                //                 node_counts.push_back(0);
+                //         }
+                //         break;
+                // }
                 // std::cout <<  "Finished level " << level << "\n";
         }
 
@@ -785,6 +795,8 @@ BVHBuilder::build_bvh(Scene& scene)
         for (int32_t i = (int32_t)node_counts.size()-1; i >= 0; --i) {
                 size_t start_node = i > 0 ? node_counts[i-1] : 0;
                 size_t count = node_counts[i] - start_node;
+                if (!count || node_counts[i] == 0)
+                        continue;
                 for (uint8_t k = 0; k < 3; ++k) {
                         if (node_bbox_builder.enqueue_single_dim(count, 0, start_node)) {
                                 return -1;
@@ -792,7 +804,6 @@ BVHBuilder::build_bvh(Scene& scene)
                         device.enqueue_barrier();
                 }
         }
-
 
         if (m_logging && m_log != NULL) {
                 device.finish_commands();

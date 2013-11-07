@@ -7,10 +7,28 @@
 
 #include <GL/glew.h>
 
-GLint init_gl(int argc, char** argv, GLInfo* glinfo, 
-	      const size_t* window_size, const std::string title)
-{
+GLInfo* GLInfo::pinstance = 0;
 
+GLInfo* GLInfo::instance()
+{
+        if (pinstance == 0)
+                pinstance = new GLInfo();
+        return pinstance;
+}
+
+GLInfo::GLInfo () :
+ m_initialized(false)
+{
+}
+
+bool GLInfo::initialized() 
+{
+        return m_initialized;
+}
+
+GLint GLInfo::initialize(int argc, char** argv, const size_t* window_size, 
+                         const std::string& title) 
+{
 	if (window_size[0] <= 0 || window_size[1] <= 0)
 		return 1;
 
@@ -18,19 +36,19 @@ GLint init_gl(int argc, char** argv, GLInfo* glinfo,
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA);
 	glutInitWindowPosition(100,100);
 	glutInitWindowSize(window_size[0], window_size[1]);
-	if ((glinfo->window_id = glutCreateWindow(title.c_str()) == 0))
+	if ((window_id = glutCreateWindow(title.c_str()) == 0))
 		return 1;
 
 	if (glewInit() != GLEW_OK)
 		return 1;
 
 #ifdef _WIN32
-	glinfo->windowHandle = FindWindow(NULL,title.c_str());
-	glinfo->deviceContext = GetDC(glinfo->windowHandle);
-	glinfo->renderingContext = wglGetCurrentContext();
+	windowHandle = FindWindow(NULL,title.c_str());
+	deviceContext = GetDC(windowHandle);
+	renderingContext = wglGetCurrentContext();
 #elif defined __linux__
-	glinfo->renderingDisplay = glXGetCurrentDisplay();
-	glinfo->renderingContext = glXGetCurrentContext();
+	renderingDisplay = glXGetCurrentDisplay();
+	renderingContext = glXGetCurrentContext();
 #else
 #error "UNKNOWN PLATFORM"
 #endif
@@ -44,6 +62,7 @@ GLint init_gl(int argc, char** argv, GLInfo* glinfo,
 	glDepthFunc(GL_LEQUAL);
 	glEnable(GL_TEXTURE_2D);
 
+        m_initialized = true;
 	return 0;
 }
 

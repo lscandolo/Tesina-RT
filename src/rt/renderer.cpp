@@ -65,15 +65,14 @@ uint32_t Renderer::render_to_framebuffer(Scene& scene)
         size_t pixel_count  = fb_w * fb_h;
         size_t sample_count = pixel_count * prim_ray_gen.get_spp();
         size_t fb_size[] = {fb_w, fb_h};
-        size_t current_tile_size = tile_size;
 
-        for (size_t offset = 0; offset < sample_count; offset+= current_tile_size) {
-
+        for (size_t offset = 0; offset < sample_count; offset+= tile_size) {
 
                 RayBundle* ray_in =  &ray_bundle_1;
                 RayBundle* ray_out = &ray_bundle_2;
 
-                if (sample_count - offset < current_tile_size)
+                size_t current_tile_size = tile_size;
+                if (sample_count - offset < tile_size)
                         current_tile_size = sample_count - offset;
 
                 if (prim_ray_gen.generate(scene.camera, *ray_in, fb_size,
@@ -81,6 +80,7 @@ uint32_t Renderer::render_to_framebuffer(Scene& scene)
                          std::cerr << "Error seting primary ray bundle" << std::endl;
                          return -1;
                 }
+
                 stats.stage_times[PRIM_RAY_GEN] += prim_ray_gen.get_exec_time();
                 stats.total_ray_count += current_tile_size;
 
@@ -104,14 +104,15 @@ uint32_t Renderer::render_to_framebuffer(Scene& scene)
                 stats.stage_times[SHADE] += ray_shader.get_exec_time();
 
                 size_t sec_ray_count = current_tile_size;
-                for (uint32_t i = 0; i < max_bounces; ++i) {
+                for (uint32_t bounce = 0; bounce < max_bounces; ++bounce) {
 
-                        if (sec_ray_gen.generate(scene, *ray_in, sec_ray_count, 
+                        if (sec_ray_gen.generate_disc(scene, *ray_in, sec_ray_count, 
                                 hit_bundle, *ray_out, &sec_ray_count)) {
                                         std::cerr << "Failed to create secondary rays." 
-                                                << std::endl;
+                                                  << std::endl;
                                         return -1;
                         }
+
                         stats.stage_times[SEC_RAY_GEN] += sec_ray_gen.get_exec_time();
 
                         std::swap(ray_in,ray_out);
@@ -126,7 +127,8 @@ uint32_t Renderer::render_to_framebuffer(Scene& scene)
 
                         if (tracer.trace(scene, sec_ray_count, 
                                 *ray_in, hit_bundle, true)) {
-                                        std::cerr << "Error tracing secondary rays" << std::endl;
+                                        std::cerr << "Error tracing secondary rays" 
+                                                  << std::endl;
                                         return -1;
                         }
 
@@ -149,7 +151,6 @@ uint32_t Renderer::render_to_framebuffer(Scene& scene)
                 }
         }
 
-        log.silent = true;
         return 0;
 }
 
@@ -237,14 +238,18 @@ uint32_t Renderer::initialize_from_ini_file(std::string file_path)
 
 }
 
-uint32_t Renderer::initialize(CLInfo clinfo, std::string log_filename)
+uint32_t Renderer::initialize(std::string log_filename)
 {
         
+        CLInfo* clinfo = clinfo->instance();
+        if (!clinfo->initialized())
+                return -1;
+
         log.initialize(log_filename);
         log.silent = false;
         log.enabled = false;
 
-        if (bvh_builder.initialize(clinfo)) {
+        if (bvh_builder.initialize()) {
                 std::cerr << "Failed to initialize bvh builder" << std::endl;
                 return -1;
         } else {
@@ -254,7 +259,7 @@ uint32_t Renderer::initialize(CLInfo clinfo, std::string log_filename)
 
         /*---------------------------- Set tile size ------------------------------*/
         size_t pixel_count = fb_w * fb_h;
-        tile_size = clinfo.max_compute_units * clinfo.max_work_item_sizes[0];
+        tile_size = clinfo->max_compute_units * clinfo->max_work_item_sizes[0];
         tile_size *= 128;
         tile_size = std::min(pixel_count, tile_size);
 

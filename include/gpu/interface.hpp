@@ -28,7 +28,7 @@ public:
         }
 
         bool good();
-        int32_t initialize(CLInfo clinfo);
+        int32_t initialize();
 
         memory_id new_memory();
         function_id new_function();
@@ -44,16 +44,19 @@ public:
         bool valid_function_id(function_id id);
         bool valid_memory_id(memory_id id);
 
-        int32_t acquire_graphic_resource(memory_id tex_id, bool enqueue_barrier = false);
-        int32_t release_graphic_resource(memory_id tex_id, bool enqueue_barrier = false);
+        int32_t acquire_graphic_resource(memory_id tex_id, bool enqueue_barrier = false,
+                                         size_t command_queue_i = 0);
+        int32_t release_graphic_resource(memory_id tex_id, bool enqueue_barrier = false, 
+                                         size_t command_queue_i = 0);
 
-        int32_t enqueue_barrier();
-        int32_t finish_commands();
+        int32_t enqueue_barrier(size_t command_queue_i = 0);
+        int32_t finish_commands(size_t command_queue_i = 0);
 
         int32_t copy_memory(memory_id from, memory_id to, 
                             size_t bytes = 0, 
                             size_t from_offset = 0,
-                            size_t to_offset = 0);
+                            size_t to_offset = 0,
+                            size_t command_queue_i = 0);
 
         size_t  max_group_size(uint32_t dim);
 
@@ -62,19 +65,17 @@ public:
 private:
 
         static DeviceInterface* s_instance;
-        CLInfo m_clinfo;
         bool m_initialized;
         // std::vector<DeviceMemory> memory_objects;
         // std::vector<DeviceFunction> function_objects;
 
-        CLInfo invalid_clinfo;
         DeviceMemory   invalid_memory;
         DeviceFunction invalid_function;
 
 
         std::vector<std::bitset<PREALLOC_SIZE> > memory_map;
         std::vector<std::bitset<PREALLOC_SIZE> > function_map;
-        std::vector<std::vector<DeviceMemory> > memory_objects;
+        std::vector<std::vector<DeviceMemory> >  memory_objects;
         std::vector<std::vector<DeviceFunction> > function_objects;
 };
 

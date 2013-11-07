@@ -1,19 +1,19 @@
 #include <gpu/memory.hpp>
 
-DeviceMemory::DeviceMemory(CLInfo clinfo)
+DeviceMemory::DeviceMemory() :
+        m_initialized(false)
 {
-        m_clinfo = clinfo;
-        m_initialized = false;
 }
 
 bool DeviceMemory::valid() const
 {
-        return m_clinfo.initialized && m_initialized;
+        return m_initialized;
 }
 
 int32_t DeviceMemory::initialize(size_t size, DeviceMemoryMode mode)
 {
-        if (!m_clinfo.initialized || m_initialized)
+        CLInfo* clinfo = CLInfo::instance();
+        if (!clinfo->initialized || m_initialized)
                 return -1;
 
         cl_mem_flags flags;
@@ -33,7 +33,7 @@ int32_t DeviceMemory::initialize(size_t size, DeviceMemoryMode mode)
         }
 
 	cl_int err;
-	m_mem = clCreateBuffer(m_clinfo.context,
+	m_mem = clCreateBuffer(clinfo->context,
                                flags,
                                size,
                                NULL,
@@ -49,7 +49,8 @@ int32_t DeviceMemory::initialize(size_t size, DeviceMemoryMode mode)
 }
 int32_t DeviceMemory::initialize(size_t size, const void* values, DeviceMemoryMode mode)
 {
-        if (!m_clinfo.initialized || m_initialized)
+        CLInfo* clinfo = CLInfo::instance();
+        if (!clinfo->initialized || m_initialized)
                 return -1;
 
         cl_mem_flags flags;
@@ -69,11 +70,11 @@ int32_t DeviceMemory::initialize(size_t size, const void* values, DeviceMemoryMo
         }
 
 	cl_int err;
-	m_mem = clCreateBuffer(m_clinfo.context,
+	m_mem = clCreateBuffer(clinfo->context,
                                flags | CL_MEM_COPY_HOST_PTR,
                                size,
                                const_cast<void*>(values), //This is ugly but necessary
-                               // Kronos, why u not have a const variant ?!?!
+                               // Khronos, why u not have a const variant ?!?!
                                &err);
 	if (error_cl(err, "clCreateBuffer"))
 		return 1;
@@ -87,12 +88,13 @@ int32_t DeviceMemory::initialize(size_t size, const void* values, DeviceMemoryMo
 
 int32_t DeviceMemory::initialize_from_gl_texture(const GLuint gl_tex)
 {
-        if (!m_clinfo.initialized || m_initialized)
+        CLInfo* clinfo = CLInfo::instance();
+        if (!clinfo->initialized || m_initialized)
                 return -1;
 
         cl_int err;
 
-        m_mem = clCreateFromGLTexture2D(m_clinfo.context,
+        m_mem = clCreateFromGLTexture2D(clinfo->context,
                                         CL_MEM_READ_WRITE,
                                         GL_TEXTURE_2D,0,
                                         gl_tex,&err);
@@ -106,13 +108,20 @@ int32_t DeviceMemory::initialize_from_gl_texture(const GLuint gl_tex)
         return 0;
 }
 
-size_t DeviceMemory::write(size_t nbytes, const void* values, size_t offset)
+size_t DeviceMemory::write(size_t nbytes, const void* values, size_t offset, 
+                           size_t command_queue_i)
 {
+        CLInfo* clinfo = CLInfo::instance();
+        if (!clinfo->initialized() || !clinfo->has_command_queue(command_queue_i))
+                return -1;
+
         if (!valid())
                 return -1;
 
+        cl_command_queue command_queue = clinfo->get_command_queue(command_queue_i);
+
 	cl_int err;
-	err = clEnqueueWriteBuffer(m_clinfo.command_queue,
+	err = clEnqueueWriteBuffer(command_queue,
 				   m_mem,
 				   true,  /* Blocking write */
 				   offset,
@@ -125,22 +134,28 @@ size_t DeviceMemory::write(size_t nbytes, const void* values, size_t offset)
 	    return -1;
 
 
-	err = clFinish(m_clinfo.command_queue);
-	if (error_cl(err, "clFinish"))
-		return -1;
+	// err = clFinish(clinfo->command_queue);
+	// if (error_cl(err, "clFinish"))
+	// 	return -1;
 
 	return 0;
 }
 
-size_t DeviceMemory::read(size_t nbytes, void* buffer, size_t offset)
+size_t DeviceMemory::read(size_t nbytes, void* buffer, 
+                          size_t offset, size_t command_queue_i)
 {
+        CLInfo* clinfo = CLInfo::instance();
+        if (!clinfo->initialized() || !clinfo->has_command_queue(command_queue_i))
+                return -1;
+
         if (!valid())
                 return -1;
 
+        cl_command_queue command_queue = clinfo->get_command_queue(command_queue_i);
 	cl_int err;
-	err = clEnqueueReadBuffer(m_clinfo.command_queue,
+	err = clEnqueueReadBuffer(command_queue,
 				  m_mem,
-				  true,  /* Blocking write */
+				  true,  /* Blocking read */
 				  offset, /* Offset */
 				  nbytes,  /* Bytes to read */
 				  buffer, /* Pointer to write to */
@@ -150,9 +165,9 @@ size_t DeviceMemory::read(size_t nbytes, void* buffer, size_t offset)
 	if (error_cl(err, "clEnqueueReadBuffer"))
 	    return -1;
 
-	err = clFinish(m_clinfo.command_queue);
-	if (error_cl(err, "clFinish"))
-		return -1;
+	// err = clFinish(clinfo->command_queue);
+	// if (error_cl(err, "clFinish"))
+	// 	return -1;
 
 	return 0;
 }
@@ -164,6 +179,10 @@ DeviceMemory::resize(size_t new_size)
                 return -1;
 
         if (valid() && release())
+                return -1;
+
+        CLInfo* clinfo = CLInfo::instance();
+        if (!clinfo->initialized())
                 return -1;
 
         cl_int err;
@@ -183,7 +202,7 @@ DeviceMemory::resize(size_t new_size)
                 return -1;
         }
 
-	m_mem = clCreateBuffer(m_clinfo.context,
+	m_mem = clCreateBuffer(clinfo->context,
                                flags,
                                new_size,
                                NULL,
@@ -197,8 +216,15 @@ DeviceMemory::resize(size_t new_size)
 }
 
 int32_t 
-DeviceMemory::copy_to(DeviceMemory& dst, size_t bytes, size_t offset, size_t dst_offset)
+DeviceMemory::copy_to(DeviceMemory& dst, size_t bytes, size_t offset, 
+                      size_t dst_offset, size_t command_queue_i)
 {
+        CLInfo* clinfo = CLInfo::instance();
+        if (!clinfo->initialized() || !clinfo->has_command_queue(command_queue_i))
+                return -1;
+
+        cl_command_queue command_queue = clinfo->get_command_queue(command_queue_i);
+
         if (!valid() || !dst.valid())
                 return -1;
 
@@ -210,7 +236,7 @@ DeviceMemory::copy_to(DeviceMemory& dst, size_t bytes, size_t offset, size_t dst
                 return -1;
 
         cl_int err;
-        err = clEnqueueCopyBuffer(m_clinfo.command_queue,
+        err = clEnqueueCopyBuffer(command_queue,
                                   m_mem,
                                   *dst.ptr(),
                                   offset,
@@ -221,7 +247,7 @@ DeviceMemory::copy_to(DeviceMemory& dst, size_t bytes, size_t offset, size_t dst
         if (error_cl(err, "clEnqueueCopyBuffer"))
                 return -1;
 
-        err = clFinish(m_clinfo.command_queue);
+        err = clFinish(command_queue);
         if (error_cl(err, "clFinish"))
                 return -1;
 

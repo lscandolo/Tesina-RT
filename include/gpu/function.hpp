@@ -30,7 +30,7 @@ class DeviceFunction {
 public:
         static bool sync;
 
-        DeviceFunction(CLInfo clinfo);
+        DeviceFunction();
         bool valid();
         int32_t initialize(std::string file, std::string name);
         int32_t set_arg(int32_t arg_num, size_t arg_size, void* arg);
@@ -39,12 +39,12 @@ public:
         int32_t set_global_size(size_t size[3]);
         int32_t set_global_offset(size_t offset[3]);
         int32_t set_local_size(size_t size[3]);
-        int32_t execute();
+        int32_t execute(size_t command_queue_i = 0);
         int32_t execute_single_dim(size_t global_size, size_t local_size = 0, 
-                                   size_t global_offset = 0);
-        int32_t enqueue();
+                                   size_t global_offset = 0, size_t command_queue_i = 0);
+        int32_t enqueue(size_t command_queue_i = 0);
         int32_t enqueue_single_dim(size_t global_size, size_t local_size = 0,
-                                   size_t global_offset = 0);
+                                   size_t global_offset = 0, size_t command_queue_i = 0);
         int32_t release();
         size_t max_group_size();
 
@@ -53,7 +53,6 @@ private:
         int32_t initialize(std::string name);
 
         bool m_initialized;
-        CLInfo m_clinfo;
         cl_program m_program;
         cl_kernel m_kernel;
         int32_t m_arg_count;

@@ -101,7 +101,7 @@ public:
         uint32_t conclude_frame(Scene& scene, memory_id tex_id);
 
         uint32_t initialize_from_ini_file(std::string file_path);
-        uint32_t initialize(CLInfo clinfo, std::string log_filename = "rt-log");
+        uint32_t initialize(std::string log_filename = "rt-log");
 
         uint32_t get_framebuffer_h(){return fb_h;}
         uint32_t get_framebuffer_w(){return fb_w;}
