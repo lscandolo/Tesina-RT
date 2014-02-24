@@ -18,7 +18,7 @@ public:
 
 	int32_t initialize();
 	int32_t build_bvh(Scene& scene);
-    void set_log(Log* log);
+        void set_log(Log* log);
 
 	void timing(bool b);
 	void logging(bool l);

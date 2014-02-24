@@ -133,7 +133,7 @@ cl_int CLInfo::initialize(size_t requested_command_queues)
                 cl_command_queue cq = 
                         clCreateCommandQueue(context,
                                              device_id,
-                                             CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE,
+                                             0, //CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE,
                                              &err);
                 if (error_cl(err, "clCreateCommandQueue"))
                         return err;

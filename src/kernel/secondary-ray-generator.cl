@@ -190,7 +190,7 @@ generate_secondary_rays_disc(global SampleTraceInfo* sample_trace_info,
                              global unsigned int* material_map,
                              global Sample* new_samples,
                              global int* sample_count,
-                             int  refract_offset,
+                             int    refract_offset,
                              int    max_sample_count)
 {
         int local_size = get_local_size(0);
@@ -316,7 +316,6 @@ mark_secondary_rays_disc(global SampleTraceInfo* sample_trace_info,
 		float k  = (1.f + (w-rel_eta) * (w+rel_eta));
 
 		if (k > 0.f) {
-
                         sample_count[index+refract_offset]=1;
 		}
         }

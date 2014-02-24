@@ -1,3 +1,4 @@
+/* #pragma OPENCL EXTENSION cl_amd_printf:enable */
 ////////////////////////////////////////////////////////////////////
 //////////////// BITONIC SORT //////////////////////////////////////
 ////////////////////////////////////////////////////////////////////
@@ -617,7 +618,7 @@ kernel void Radix_Local(global unsigned int* in,
         } while(bits_processed < RBITS);
 
         ///////////// Update global histogram //////////////////////////
-       Update_Global_Histogram(local_histogram,pass,local_out,global_histogram);
+        Update_Global_Histogram(local_histogram,pass,local_out,global_histogram);
         barrier(CLK_GLOBAL_MEM_FENCE|CLK_LOCAL_MEM_FENCE);
 
         out[2*lid]   = local_out[2*lid];
@@ -689,7 +690,7 @@ kernel void Hist_Prefix_Sum(global unsigned int* histogram,
                 histogram[2*lid+1] = aux[2*lid+1];
 }
 
-
+
 kernel void Radix_Prefix_Sum(global unsigned int* sums,
                              local unsigned int* local_sums,
                              unsigned int count,
@@ -701,13 +702,17 @@ kernel void Radix_Prefix_Sum(global unsigned int* sums,
 
         if (lid == 0) {
                 local_sums[0] = 0;
-                for (unsigned int i = 1; i < count; ++i) {
+        }
+        barrier(CLK_LOCAL_MEM_FENCE);
+
+        for (unsigned int i = 1; i < count; ++i) { 
+                if (lid == 0) {
                         local_sums[i] = sums[i-1] + local_sums[i-1];
                 }
         }
         barrier(CLK_LOCAL_MEM_FENCE);
 
-        unsigned int sum = local_sums[gid/block_size];
+        unsigned int sum = local_sums[0];
         global_histogram[gid] += sum;
 }
 
@@ -739,15 +744,28 @@ kernel void Radix_Rearrange(global unsigned int* in,
         barrier(CLK_LOCAL_MEM_FENCE);
 
         //// Compute offset of buckets from sizes
-        if (lid == 0) {
-                unsigned int last = 0,new_val;
-                for (int i = 1; i < (1<<RBITS); ++i) {
+        /* if (lid == 0) { */
+        /*         unsigned int last = 0,new_val; */
+        /*         for (int i = 1; i < (1<<RBITS); ++i) { */
+        /*                 new_val  = local_offsets[i-1] + last; */
+        /*                 last = local_offsets[i]; */
+        /*                 local_offsets[i]  = new_val; */
+        /*         } */
+        /*         local_offsets[0] = 0; */
+        /* } */
+        /* barrier(CLK_LOCAL_MEM_FENCE); */
+        unsigned int last = 0,new_val;
+        for (int i = 1; i < (1<<RBITS); ++i) {
+                if (lid == 0) {
                         new_val  = local_offsets[i-1] + last;
                         last = local_offsets[i];
                         local_offsets[i]  = new_val;
                 }
-                local_offsets[0] = 0;
         }
+
+        if (lid == 0)                 
+                local_offsets[0] = 0;
+
         barrier(CLK_LOCAL_MEM_FENCE);
 
         unsigned int id = lid + lsz*(gr%EPT);

@@ -797,6 +797,7 @@ BVHBuilder::build_bvh(Scene& scene)
                 size_t count = node_counts[i] - start_node;
                 if (!count || node_counts[i] == 0)
                         continue;
+
                 for (uint8_t k = 0; k < 3; ++k) {
                         if (node_bbox_builder.enqueue_single_dim(count, 0, start_node)) {
                                 return -1;
@@ -804,6 +805,11 @@ BVHBuilder::build_bvh(Scene& scene)
                         device.enqueue_barrier();
                 }
         }
+        // One last time for the root
+        if (node_bbox_builder.enqueue_single_dim(1, 0, 0)) {
+                return -1;
+        }
+        device.enqueue_barrier();
 
         if (m_logging && m_log != NULL) {
                 device.finish_commands();

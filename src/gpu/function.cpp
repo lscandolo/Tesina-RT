@@ -65,7 +65,7 @@ DeviceFunction::initialize(std::string file, std::string name)
 	err = clBuildProgram(m_program,
                              0,
                              NULL,
-                             NULL,
+                             /*"-cl-fast-relaxed-math",*/ NULL,
                              NULL,
                              NULL);
 	if (error_cl(err, "clBuildProgram")){
@@ -339,7 +339,6 @@ DeviceFunction::enqueue_single_dim(size_t global_size, size_t local_size,
         }
 
         size_t leftover = global_size > local_size? global_size % local_size : 0;
-
 
         size_t gsize[3] = {global_size - leftover,0,0};
         size_t goffset[3] = {global_offset,0,0};

@@ -6,7 +6,7 @@
 #include <cl-gl/opencl-init.hpp>
 #include <rt/rt.hpp>
 
-#define DO_BITONIC 1
+#define DO_BITONIC 0
 #define DO_RADIX   1
 
 function_id bitonic_local_id;
@@ -55,6 +55,7 @@ int main (int argc, char** argv)
                 std::cout << "Initialized CL succesfully" << std::endl;
         }
         clinfo->print_info();
+        clinfo->set_sync(false);
 
         // Initialize device interface and generic gpu library
         DeviceInterface* device = DeviceInterface::instance();
@@ -63,8 +64,10 @@ int main (int argc, char** argv)
                 pause_and_exit(1);
         }
 
+
 #if DO_BITONIC
 
+        std::vector<function_id> fids;
         std::vector<std::string> bitonic_names;
         bitonic_names.push_back("Bitonic_Local");
         bitonic_names.push_back("Bitonic_G2");
@@ -77,7 +80,6 @@ int main (int argc, char** argv)
         rt_time.snap_time();
 
 
-        std::vector<function_id> fids;
         fids = device->build_functions("src/kernel/sort.cl",bitonic_names);
         if (!fids.size())
                 return -1;
@@ -112,7 +114,7 @@ int main (int argc, char** argv)
 
         std::vector<function_id> rids;
         rids = device->build_functions("src/kernel/sort.cl", radix_names);
-        if (!fids.size())
+        if (!rids.size())
                 return -1;
 
         radix_id = rids[0];
@@ -477,7 +479,7 @@ void Radix(unsigned int N)
 
 
         ///////////////////// Local radix sort
-
+        
         rt_time.snap_time();
         size_t histogram_entries = (N2/block_size)*(1<<RBITS);
 
@@ -496,12 +498,12 @@ void Radix(unsigned int N)
                         return;
         }
         
-
         int passes = 32/RBITS;
-        // int passes = 1;
 
         std::vector<unsigned int> out_vals(N2);
         std::vector<unsigned int> histogram(histogram_entries);
+
+        // std::cout << "Initialized sorting"  << std::endl;
 
         for (unsigned int pass = 0; pass < passes; pass++) {
 
@@ -515,22 +517,31 @@ void Radix(unsigned int N)
                 radix.set_arg(7,sizeof(unsigned int)*(1<<RBITS),NULL);
                 radix.set_arg(8,histogram_mem);
 
-                //// If we can do everything in a group, then the output should go to in_mem
+                ////  If we can do everything in a group, 
+                //// then the output should go to in_mem
                 if (N2 > block_size) {
                         radix.set_arg(9,out_mem);
                 } else {
                         radix.set_arg(9,in_mem);
                 }
         
+                // std::cout << "Radix sort arguments set"  << std::endl;
+
+                // std::cout << "Enqueueing kernel size " << N2/EPT
+                //           << std::endl;
+
                 radix.set_dims(1);
                 if (radix.enqueue_single_dim(N2/EPT,group_size)) {
                         std::cout << "Error executing radix\n";
                 }
-                device->enqueue_barrier();
 
+                // std::cout << "Radix kernel enqueued "  << std::endl;
+                device->enqueue_barrier();
+                // std::cout << "Barrier enqueued "  << std::endl;
                 if (N2 <= block_size) 
                         continue;
 
+                
                 size_t histogram_work_size = histogram_entries/EPT;
                 if (histogram_work_size%block_size) {
                         histogram_work_size += block_size-(histogram_work_size%block_size);
@@ -541,22 +552,35 @@ void Radix(unsigned int N)
                 radix_hist.set_arg(2,sizeof(unsigned int), &block_size);
                 radix_hist.set_arg(3,sizeof(unsigned int), &histogram_entries);
                 radix_hist.set_arg(4,sizeof(unsigned int)*block_size,NULL);
+                // std::cout << "Radix histogram kernel args set "  << std::endl;
+                // std::cout << "Enqueueing radix histogram kernel, size "  
+                          // << histogram_work_size << std::endl;
+
                 if (radix_hist.enqueue_single_dim(histogram_work_size,group_size)) {
                         std::cout << "Error executing radix hist\n";
                 }
+                // // std::cout << "Radix histogram kernel enqueued "  << std::endl;
                 device->enqueue_barrier();
+                // // std::cout << "Barrier enqueued "  << std::endl;
 
-                unsigned int sum_count = histogram_sums.size()/sizeof(unsigned int)+1;
+                unsigned int sum_count = (histogram_sums.size()/sizeof(cl_uint));
+                if (sum_count == 0)
+                        sum_count = 1;
+
                 radix_sums.set_arg(0,histogram_sums);
-                radix_sums.set_arg(1,sizeof(unsigned int)*sum_count, NULL);
+                radix_sums.set_arg(1,sizeof(unsigned int) * sum_count, NULL);
                 radix_sums.set_arg(2,sizeof(unsigned int), &sum_count);
                 radix_sums.set_arg(3,sizeof(unsigned int), &block_size);
                 radix_sums.set_arg(4,histogram_mem);
+                // std::cout << "Enqueueing radix sums, size " << histogram_entries  
+                //           << std::endl;
+                
                 if (radix_sums.enqueue_single_dim(histogram_entries)) {
                         std::cout << "Error executing sums\n";
                 }
+                // std::cout << "Enqueued radix sums " << std::endl; 
                 device->enqueue_barrier();
-
+                // std::cout << "Enqueued barrier " << std::endl; 
 
                 unsigned int blocks = histogram_entries / (1<<RBITS);
                 radix_rearrange.set_arg(0,out_mem);
@@ -566,28 +590,39 @@ void Radix(unsigned int N)
                 radix_rearrange.set_arg(3,sizeof(unsigned int), &N);
                 radix_rearrange.set_arg(4,sizeof(unsigned int)*(1<<RBITS),NULL);
                 radix_rearrange.set_arg(5,in_mem);
+                // std::cout << "Enqueueing radix rearrange, size " << N2 << std::endl; 
                 if (radix_rearrange.enqueue_single_dim(N2,group_size)) {
                         std::cout << "Error executing rearrange\n";
                 }
+                // std::cout << "Enqueued radix rearrange " << std::endl; 
                 device->enqueue_barrier();
+                // std::cout << "barrier enqueued " << std::endl; 
 
         }
+        std::cout << "Finished loop " << std::endl; 
+
         device->finish_commands();
+        std::cout << "Finished commands " << std::endl; 
         msec = rt_time.msec_since_snap();
-        std::cout << "Local radix sort time: " << msec << " ms\n";
+        std::cout << "Radix sort time: " << msec << " ms\n";
         /////////////////////////////////
 
-
-        std::cout << std::endl;
         histogram_mem.release();
         histogram_sums.release();
         out_mem.release();
+        // std::cout << "Released mems " << std::endl; 
 
+        // std::cout << "Reading in_mem " << std::endl; 
         if (in_mem.read(sizeof(unsigned int)*N, &(out_vals[0])))
                 exit(1);
+        // std::cout << "Read in_mem " << std::endl; 
 
         bool sorting_error = false;
         for (uint32_t i = 0; i < N; ++i){
+                // std::cout << "val " << i << " : " 
+                //           << out_vals[i] 
+                //           << " -- " 
+                //           << sorted_vals[i] << std::endl; 
                 if (out_vals[i] != sorted_vals[i]) {
                         std::cout << "Sorting error at " << i << "!!!!!" << std::endl;
                         sorting_error = true;
@@ -595,6 +630,9 @@ void Radix(unsigned int N)
                 }
         }
 
+        // std::cout << "Releasing in_mem " << std::endl; 
         in_mem.release();
+        // std::cout << "Released in_mem " << std::endl; 
+        std::cout << std::endl;
         return;
 }

@@ -96,6 +96,8 @@ SecondaryRayGenerator::generate_disc(Scene& scene, RayBundle& ray_in, size_t ray
                 return -1;
         }
 
+        device.enqueue_barrier();
+
         uint32_t new_ray_count;
         if (count_mem.read(sizeof(cl_int),&new_ray_count,
                            sizeof(cl_int)*(2*rays_in))) {
@@ -142,7 +144,6 @@ SecondaryRayGenerator::generate(Scene& scene, RayBundle& ray_in, size_t rays_in,
 
 	if (m_timing)
 		m_timer.snap_time();
-
 
         DeviceInterface& device = *DeviceInterface::instance();
         DeviceFunction& marker = device.function(marker_id);

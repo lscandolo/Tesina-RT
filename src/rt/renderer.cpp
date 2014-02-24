@@ -47,7 +47,7 @@ uint32_t Renderer::set_up_frame(const memory_id tex_id, Scene& scene)
 
 uint32_t Renderer::update_accelerator(Scene& scene)
 {
-        bvh_builder.logging(true);
+        bvh_builder.logging(false);
         log.silent = false;
         
         if (!static_bvh || !scene.ready()) {
@@ -62,10 +62,12 @@ uint32_t Renderer::update_accelerator(Scene& scene)
 
 uint32_t Renderer::render_to_framebuffer(Scene& scene)
 {
+        CLInfo* clinfo = clinfo->instance();
         size_t pixel_count  = fb_w * fb_h;
         size_t sample_count = pixel_count * prim_ray_gen.get_spp();
         size_t fb_size[] = {fb_w, fb_h};
 
+        int tile_number = 0;
         for (size_t offset = 0; offset < sample_count; offset+= tile_size) {
 
                 RayBundle* ray_in =  &ray_bundle_1;
@@ -106,11 +108,37 @@ uint32_t Renderer::render_to_framebuffer(Scene& scene)
                 size_t sec_ray_count = current_tile_size;
                 for (uint32_t bounce = 0; bounce < max_bounces; ++bounce) {
 
-                        if (sec_ray_gen.generate_disc(scene, *ray_in, sec_ray_count, 
-                                hit_bundle, *ray_out, &sec_ray_count)) {
+
+                        size_t sec_ray_in = sec_ray_count;
+                        if (sec_ray_gen.generate_disc(scene, 
+                                                      *ray_in, 
+                                                      sec_ray_in, 
+                                                      hit_bundle, 
+                                                      *ray_out, 
+                                                      &sec_ray_count)) {
+                                std::cerr << "Failed to create secondary rays." 
+                                          << std::endl;
+                                return -1;
+                        }
+                        //// If sec_ray_count is too small, then it's very likely that 
+                        //// reflect and refract rays from the same base ray will be 
+                        //// handled by different warps at the same time. If that
+                        //// seems like it will be the case, then compute it so that
+                        //// they will be bundled together for (hopefully) the same 
+                        //// work group to analize. TODO: do this on the sec gen
+                        size_t max_count = 
+                                4 * clinfo->max_work_group_size * clinfo->max_compute_units;
+                        if (sec_ray_count < max_count) {
+                                if (sec_ray_gen.generate(scene, 
+                                                         *ray_in, 
+                                                         sec_ray_in, 
+                                                         hit_bundle, 
+                                                         *ray_out, 
+                                                         &sec_ray_count)) {
                                         std::cerr << "Failed to create secondary rays." 
                                                   << std::endl;
                                         return -1;
+                                }
                         }
 
                         stats.stage_times[SEC_RAY_GEN] += sec_ray_gen.get_exec_time();

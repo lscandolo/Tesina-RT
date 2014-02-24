@@ -389,6 +389,7 @@ void gl_loop()
         renderer.log << "Fb copy time: \t" << stats.get_stage_time(FB_COPY) << std::endl;
         renderer.log << std::endl;
 
+
 }
 
 
@@ -456,6 +457,7 @@ int main (int argc, char** argv)
         /*---------------------- Scene definition -----------------------*/
         buddha_set_cam_traj();
         dragon_set_scene(scene);
+        // buddha_set_scene(scene);
 
         /*---------------------- Move scene data to gpu -----------------------*/
          if (scene.create_aggregate_mesh()) { 
@@ -484,17 +486,17 @@ int main (int argc, char** argv)
                          std::cout << "Transfered aggregate mesh and bvh " 
                                    << "to device succesfully" << std::endl;
                  }
-         } else {
-                 if (scene.transfer_aggregate_mesh_to_device()) {
-                         std::cerr << "Failed to transfer aggregate mesh to device memory"
-                                   << std::endl;
-                         pause_and_exit(1);
-                 } else {
-                         std::cout << "Transfered aggregate mesh to device succesfully"
-                                   << std::endl;
-                 }
-
          }
+
+         if (scene.transfer_aggregate_mesh_to_device()) {
+                 std::cerr << "Failed to transfer aggregate mesh to device memory"
+                           << std::endl;
+                 pause_and_exit(1);
+         } else {
+                 std::cout << "Transfered aggregate mesh to device succesfully"
+                           << std::endl;
+         }
+
 
 
          /*---------------------- Set initial scene.camera paramaters -----------------------*/
@@ -539,6 +541,8 @@ int main (int argc, char** argv)
         glutDisplayFunc(gl_loop);
         glutIdleFunc(gl_loop);
         glutMainLoop(); 
+
+        CLInfo::instance()->set_sync(true);
 
         CLInfo::instance()->release_resources();
 
