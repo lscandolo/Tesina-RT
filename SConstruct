@@ -78,6 +78,11 @@ clgl_test = env.Program('bin/cl-gl-test' ,
                         LIBS = base_libs + clgl_lib
                         )   
 
+clgl_test = env.Program('bin/cl-gl-test-threaded' ,
+                        'build/cl-gl/clgl-test-threaded.cpp' ,
+                        LIBS = base_libs + clgl_lib + ["pthread"] 
+                        )   
+
 rt = env.Program('bin/rt' ,
                  'build/rt/rt.cpp' ,
                  LIBS= base_libs + clgl_lib + rt_primitives_lib + gpu_lib + misc_lib

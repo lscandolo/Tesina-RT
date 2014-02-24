@@ -28,18 +28,18 @@ Renderer renderer;
 
 memory_id tex_id;
 
-int model_count = 44; 
+int model_count   = 44; 
 int current_model = 0;
 Scene scene;
 std::vector<Scene> scenes;
 
 GLuint gl_tex;
 
-bool  print_fps = true;
-bool logging = false;
-bool logged = false;
+bool  print_fps     = true;
+bool logging        = false;
+bool logged         = false;
 bool custom_logging = false;
-int  stats_logged = 0;
+int  stats_logged   = 0;
 
 void gl_mouse(int x, int y)
 {
