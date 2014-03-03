@@ -401,7 +401,7 @@ void* bvh_thread_function(void* arg)
         }
 
         DeviceInterface& device = *DeviceInterface::instance();
-        device.finish_commands(0);
+        device.finish_commands(1);
 
         pthread_exit(ret);
 
