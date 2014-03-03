@@ -45,6 +45,10 @@ public:
         int32_t enqueue(size_t command_queue_i = 0);
         int32_t enqueue_single_dim(size_t global_size, size_t local_size = 0,
                                    size_t global_offset = 0, size_t command_queue_i = 0);
+                  //Convenience
+        int32_t enqueue_simple(size_t global_size, size_t command_queue_i = 0); 
+        int32_t execute_simple(size_t global_size, size_t command_queue_i = 0); 
+
         int32_t release();
         size_t max_group_size();
 

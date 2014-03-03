@@ -47,6 +47,113 @@ Scene::Scene()
         m_aggregate_kdt_transfered = false;
         m_bvhs_transfered = false;
         m_accelerator_type = BVH_ACCELERATOR;
+
+}
+
+int32_t
+Scene::copy_mem_from(Scene& scene, size_t cq_i)
+{
+        if (!m_initialized)
+                return -1;
+
+        DeviceInterface& device = *DeviceInterface::instance();
+        if (!device.good())
+                return -1;
+
+        /////////// Resize memories
+        if (!device.valid_memory_id(vert_id))
+             vert_id = device.new_memory(); 
+        DeviceMemory& vert_mem = device.memory(vert_id);
+        if (vert_mem.valid())
+                vert_mem.resize(scene.vertex_mem().size());
+        else
+                vert_mem.initialize(scene.vertex_mem().size());
+
+
+        if (!device.valid_memory_id (idx_id))
+                idx_id = device.new_memory();
+        DeviceMemory& idx_mem = device.memory(idx_id);
+        if (idx_mem.valid())
+                idx_mem.resize(scene.index_mem().size());
+        else
+                idx_mem.initialize(scene.index_mem().size());
+
+
+        if (!device.valid_memory_id (mat_map_id))
+                mat_map_id = device.new_memory();
+        DeviceMemory& mat_map_mem = device.memory(mat_map_id);
+        if (mat_map_mem.valid())
+                mat_map_mem.resize(scene.material_map_mem().size());
+        else
+                mat_map_mem.initialize(scene.material_map_mem().size());
+
+
+        if (!device.valid_memory_id (mat_list_id))
+                mat_list_id = device.new_memory();
+        DeviceMemory& mat_list_mem = device.memory(mat_list_id);
+        if (mat_list_mem.valid())
+                mat_list_mem.resize(scene.material_list_mem().size());
+        else
+                mat_list_mem.initialize(scene.material_list_mem().size());
+
+
+        if (!device.valid_memory_id (bvh_id))
+                bvh_id = device.new_memory();
+        DeviceMemory& bvh_mem = device.memory(bvh_id);
+        if (bvh_mem.valid() && 
+            scene.bvh_nodes_mem().valid() && 
+            scene.bvh_nodes_mem().size()) {
+                bvh_mem.resize(scene.bvh_nodes_mem().size());
+        } else {
+                if (scene.bvh_nodes_mem().size())
+                        bvh_mem.initialize(scene.bvh_nodes_mem().size());
+                else 
+                        bvh_mem.initialize(1);
+        }
+
+        if (!device.valid_memory_id (lights_id))
+                lights_id = device.new_memory();
+        DeviceMemory& lights_mem = device.memory(lights_id);
+        if (lights_mem.valid())
+                lights_mem.resize(scene.lights_mem().size());
+        else
+                lights_mem.initialize(scene.lights_mem().size());
+
+        ///////////// Copy memories
+        if (scene.vertex_mem().copy_all_to(vert_mem, cq_i))
+                return -1;
+
+        if (scene.index_mem().copy_all_to(idx_mem, cq_i))
+                return -1;
+
+        if (scene.bvh_nodes_mem().copy_all_to(bvh_mem, cq_i))
+                return -1;
+
+        if (scene.material_list_mem().copy_all_to(mat_list_mem, cq_i))
+                return -1;
+
+        if (scene.material_map_mem().copy_all_to(mat_map_mem, cq_i))
+                return -1;
+
+        if (scene.lights_mem().copy_all_to(lights_mem, cq_i))
+                return -1;
+        
+        ///////////// Copy state
+        m_initialized = true;
+        m_aggregate_mesh_built = true;
+        m_aggregate_bvh_built = true;
+        m_aggregate_bvh_transfered = true;
+        m_accelerator_type = BVH_ACCELERATOR;
+
+        texture_atlas = scene.texture_atlas;
+        camera        = scene.camera;
+        cubemap       = scene.cubemap;
+        objects       = scene.objects;
+        mesh_atlas    = scene.mesh_atlas;
+        material_list = scene.material_list;
+        material_map  = scene.material_map;
+
+        return 0;
 }
 
 Scene::~Scene()
@@ -1050,6 +1157,11 @@ Scene::vertex_count()
 int32_t
 Scene::destroy() 
 {
+        if (!m_initialized)
+                return -1;
+
+        std::cout << "Destroying scene\n";
+
         DeviceInterface& device = *DeviceInterface::instance();
 
         objects.clear();

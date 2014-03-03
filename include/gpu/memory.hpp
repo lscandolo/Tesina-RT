@@ -31,6 +31,7 @@ public:
         int32_t copy_to(DeviceMemory& dst, size_t bytes = 0,
                         size_t offset = 0, size_t dst_offset = 0,
                         size_t command_queue_i = 0);
+        int32_t copy_all_to(DeviceMemory& dst, size_t command_queue_i); //Convenience
 
         int32_t release();
         size_t size() const;

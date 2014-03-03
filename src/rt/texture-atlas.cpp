@@ -14,8 +14,6 @@ TextureAtlas::initialize()
 
         DeviceMemory& invalid_tex_mem = device.memory(invalid_tex_mem_id);
         GLuint invalid_gl_tex_id = create_tex_gl(1,1);
-        if (invalid_gl_tex_id < 0)
-                return -1;
         if (invalid_tex_mem.initialize_from_gl_texture(invalid_gl_tex_id))
                 return -1;
         if (device.acquire_graphic_resource(invalid_tex_mem_id, true))

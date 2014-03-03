@@ -1,6 +1,6 @@
 #pragma once
-#ifndef RENDERER_HPP
-#define RENDERER_HPP
+#ifndef RENDERERT_HPP
+#define RENDERERT_HPP
 
 #include <misc/log.hpp>
 #include <misc/ini.hpp>
@@ -20,28 +20,26 @@
 
 #include <string>
 
-
-
-class Renderer {
+class RendererT {
 
 public:
 
-        uint32_t set_up_frame(memory_id tex_id, Scene& scene);
-        uint32_t update_accelerator(Scene& scene);
+        int32_t set_up_frame(memory_id tex_id, Scene& scene);
+        int32_t update_accelerator(Scene& scene, size_t cq_i = 0);
 
-        uint32_t render_to_framebuffer(Scene& scene);
+        int32_t render_to_framebuffer(Scene& scene);
 
-        uint32_t render_to_texture(Scene& scene);
-        uint32_t render_to_texture(Scene& scene, memory_id tex_id);
+        int32_t render_to_texture(Scene& scene);
+        int32_t render_to_texture(Scene& scene, memory_id tex_id);
 
-        uint32_t copy_framebuffer();
-        uint32_t copy_framebuffer(memory_id tex_id);
+        int32_t copy_framebuffer();
+        int32_t copy_framebuffer(memory_id tex_id);
 
-        uint32_t conclude_frame(Scene& scene);
-        uint32_t conclude_frame(Scene& scene, memory_id tex_id);
+        int32_t conclude_frame(Scene& scene);
+        int32_t conclude_frame(Scene& scene, memory_id tex_id);
 
-        uint32_t initialize_from_ini_file(std::string file_path);
-        uint32_t initialize(std::string log_filename = "rt-log");
+        int32_t initialize_from_ini_file(std::string file_path);
+        int32_t initialize(std::string log_filename = "rt-log");
 
         uint32_t get_framebuffer_h(){return fb_h;}
         uint32_t get_framebuffer_w(){return fb_w;}
@@ -58,6 +56,10 @@ public:
 
         void     clear_stats() {stats.clear_times(); stats.clear_mean_times();}
         const FrameStats& get_frame_stats() {return stats;}
+
+        int32_t  init_loop(Scene& scene);
+        int32_t  render_one_frame(Scene& scene, memory_id tex_id);
+        int32_t  finalize_loop();
 
         INIReader ini;
 
@@ -86,6 +88,11 @@ private:
         rt_time_t             frame_timer;
 
         memory_id             target_tex_id;
+
+        Scene                 last_scene;
+
+        pthread_t             bvh_thread;
+
 };
 
-#endif /* RENDERER_HPP */
+#endif /* RENDERERT_HPP */

@@ -144,7 +144,7 @@ BVHBuilder::initialize()
 }
 
 int32_t
-BVHBuilder::build_bvh(Scene& scene)
+BVHBuilder::build_bvh(Scene& scene, size_t cq_i)
 {
         
         /*  New Pseudocode: 
@@ -198,17 +198,37 @@ BVHBuilder::build_bvh(Scene& scene)
                         return -1;
                     
         DeviceFunction& primitive_bbox_builder = device.function(primitive_bbox_builder_id);
-        if (primitive_bbox_builder.set_arg(0,scene.vertex_mem()) ||
-            primitive_bbox_builder.set_arg(1,scene.index_mem()) ||
-            primitive_bbox_builder.set_arg(2,bboxes_mem) ||
-            primitive_bbox_builder.set_arg(3,triangles_mem))
+        if (primitive_bbox_builder.set_arg(0,scene.vertex_mem())) {
+                std::cout << "arg 0"; 
                 return -1;
-        if (primitive_bbox_builder.enqueue_single_dim(triangle_count))
+        }
+
+        if (primitive_bbox_builder.set_arg(1,scene.index_mem())) {
+                std::cout << "arg 1"; 
                 return -1;
-        device.enqueue_barrier();
+        }
+
+        if (primitive_bbox_builder.set_arg(2,bboxes_mem)) {
+                std::cout << "arg 2"; 
+                return -1;
+        }
+
+        if (primitive_bbox_builder.set_arg(3,triangles_mem)) {
+                std::cout << "arg 3"; 
+                return -1;
+        }
+
+        // if (primitive_bbox_builder.set_arg(0,scene.vertex_mem()) ||
+        //     primitive_bbox_builder.set_arg(1,scene.index_mem()) ||
+        //     primitive_bbox_builder.set_arg(2,bboxes_mem) ||
+        //     primitive_bbox_builder.set_arg(3,triangles_mem))
+        //         return -1;
+        if (primitive_bbox_builder.enqueue_simple(triangle_count, cq_i))
+                return -1;
+        device.enqueue_barrier(cq_i);
 
         if (m_logging && m_log != NULL) { 
-                device.finish_commands();
+                device.finish_commands(cq_i);
                 partial_time_ms = partial_timer.msec_since_snap();
                 (*m_log) << "-----BVH construction times: " << "\n";
                 (*m_log) << "\tBBox builder time: " << partial_time_ms << " ms\n";
@@ -254,9 +274,9 @@ BVHBuilder::build_bvh(Scene& scene)
                     max_local_bbox.set_arg(3,bbox_out_mem))
                         return -1;
 
-                if (max_local_bbox.enqueue_single_dim(global_size,group_size))
+                if (max_local_bbox.enqueue_single_dim(global_size,group_size, 0, cq_i))
                         return -1;
-                device.enqueue_barrier();
+                device.enqueue_barrier(cq_i);
                     
                 bbox_count = out_bbox_count;
                 out_bbox_count = ceil(bbox_count/(2.*group_size));
@@ -294,12 +314,12 @@ BVHBuilder::build_bvh(Scene& scene)
             morton_encoder.set_arg(1,global_bbox_mem) ||
             morton_encoder.set_arg(2,morton_mem))
                 return -1;
-        if (morton_encoder.enqueue_single_dim(triangle_count))
+        if (morton_encoder.enqueue_simple(triangle_count, cq_i))
                 return -1;
-        device.enqueue_barrier();
+        device.enqueue_barrier(cq_i);
         device.delete_memory(last_bbox_out_id);
         if (m_logging && m_log != NULL) {
-                device.finish_commands();
+                device.finish_commands(cq_i);
                 partial_time_ms = partial_timer.msec_since_snap();
                 (*m_log) << "\tMorton encoder time: " << partial_time_ms << " ms\n";
         }
@@ -350,9 +370,9 @@ BVHBuilder::build_bvh(Scene& scene)
                                 morton_sorter_16.set_arg(5,sizeof(int),&last_step);
                                 morton_sorter_16.set_arg(6,sizeof(int),&morton_sort_size);
                                 
-                                if (morton_sorter_16.enqueue_single_dim(ms16_work_items))
+                                if (morton_sorter_16.enqueue_simple(ms16_work_items, cq_i))
                                         exit(1);
-                                device.enqueue_barrier();
+                                device.enqueue_barrier(cq_i);
 
                         } else if (inc > 2) {
                                 inc >>=2;
@@ -362,9 +382,9 @@ BVHBuilder::build_bvh(Scene& scene)
                                 morton_sorter_8.set_arg(5,sizeof(int),&last_step);
                                 morton_sorter_8.set_arg(6,sizeof(int),&morton_sort_size);
                                 
-                                if (morton_sorter_8.enqueue_single_dim(ms8_work_items))
+                                if (morton_sorter_8.enqueue_simple(ms8_work_items, cq_i))
                                         exit(1);
-                                device.enqueue_barrier();
+                                device.enqueue_barrier(cq_i);
 
                         } else if (inc > 1) {
                                 inc>>=1;
@@ -374,9 +394,9 @@ BVHBuilder::build_bvh(Scene& scene)
                                 morton_sorter_4.set_arg(5,sizeof(int),&last_step);
                                 morton_sorter_4.set_arg(6,sizeof(int),&morton_sort_size);
                                 
-                                if (morton_sorter_4.enqueue_single_dim(ms4_work_items))
+                                if (morton_sorter_4.enqueue_simple(ms4_work_items, cq_i))
                                         exit(1);
-                                device.enqueue_barrier();
+                                device.enqueue_barrier(cq_i);
                         } else {
                                 morton_sorter_2.set_arg(2,sizeof(int),&inc);
                                 morton_sorter_2.set_arg(3,sizeof(int),&dir);
@@ -384,15 +404,15 @@ BVHBuilder::build_bvh(Scene& scene)
                                 morton_sorter_2.set_arg(5,sizeof(int),&last_step);
                                 morton_sorter_2.set_arg(6,sizeof(int),&morton_sort_size);
                                 
-                                if (morton_sorter_2.enqueue_single_dim(ms2_work_items))
+                                if (morton_sorter_2.enqueue_simple(ms2_work_items, cq_i))
                                         exit(1);
-                                device.enqueue_barrier();
+                                device.enqueue_barrier(cq_i);
                         }
                 }
         }
-        // device.finish_commands();
+        // device.finish_commands(cq_i);
         if (m_logging && m_log != NULL) {
-                device.finish_commands();
+                device.finish_commands(cq_i);
                 partial_time_ms = partial_timer.msec_since_snap();
                 (*m_log) << "\tMorton sorter: " << partial_time_ms << " ms" << "\n";
         }
@@ -413,7 +433,7 @@ BVHBuilder::build_bvh(Scene& scene)
 
         if (aux_mem.initialize(aux_mem_size))
                 return -1;
-        if (scene.index_mem().copy_to(aux_mem)) {
+        if (scene.index_mem().copy_all_to(aux_mem, cq_i)) {
                 std::cout << "Error copying " << "\n";
                 return -1;
         }
@@ -422,12 +442,12 @@ BVHBuilder::build_bvh(Scene& scene)
             index_rearranger.set_arg(2,scene.index_mem())) {
                 return -1;
         }
-        if (index_rearranger.enqueue_single_dim(triangle_count))
+        if (index_rearranger.enqueue_simple(triangle_count, cq_i))
                 return -1;
-        device.enqueue_barrier();
+        device.enqueue_barrier(cq_i);
 
         ////// Rearrange material map
-        if (scene.material_map_mem().copy_to(aux_mem))
+        if (scene.material_map_mem().copy_all_to(aux_mem, cq_i))
                 return -1;
 
         if (map_rearranger.set_arg(0,aux_mem) || 
@@ -435,14 +455,13 @@ BVHBuilder::build_bvh(Scene& scene)
             map_rearranger.set_arg(2,scene.material_map_mem())) {
                 return -1;
         }
-        if (map_rearranger.enqueue_single_dim(triangle_count))
+        if (map_rearranger.enqueue_simple(triangle_count, cq_i))
                 return -1;
-        device.enqueue_barrier();
+        device.enqueue_barrier(cq_i);
         ///////////////////////////////////////////////////////////////////////////////
         ////////////////////// 4. Compute treelets and ouput nodes ////////////////////
         ///////////////////////////////////////////////////////////////////////////////
         rt_time_t node_time;
-        double read_time = 0;
         double node_count_time = 0;
         double treelet_build_time = 0;
         double node_build_time = 0;
@@ -508,7 +527,7 @@ BVHBuilder::build_bvh(Scene& scene)
         BVHNode root_node;
         root_node.m_parent = 0;
         root_node.m_split_axis = 2; //First split axis is x
-        if (nodes_mem.write(sizeof(BVHNode), &root_node)) {
+        if (nodes_mem.write(sizeof(BVHNode), &root_node, cq_i)) {
                 return -1;
         }
 
@@ -530,10 +549,13 @@ BVHBuilder::build_bvh(Scene& scene)
                 return -1;
         }
 
-        if (splits_build.enqueue_single_dim(triangle_count-1,splits_build_group_size)) {
+        if (splits_build.enqueue_single_dim(triangle_count-1,
+                                            splits_build_group_size, 
+                                            0, 
+                                            cq_i)) {
                 return -1;
         }
-        device.enqueue_barrier();
+        device.enqueue_barrier(cq_i);
 
         /* Initialize segment map and node map*/
         if (treelet_maps_init.set_arg(0,node_map_mem) ||
@@ -541,10 +563,10 @@ BVHBuilder::build_bvh(Scene& scene)
                 return -1;
         }
 
-        if (treelet_maps_init.enqueue_single_dim(triangle_count)) {
+        if (treelet_maps_init.enqueue_simple(triangle_count, cq_i)) {
                 return -1;
         }
-        device.enqueue_barrier();
+        device.enqueue_barrier(cq_i);
 
         const size_t treelet_levels = 3;
         size_t treelet_size = (1 << treelet_levels) - 1;
@@ -560,13 +582,13 @@ BVHBuilder::build_bvh(Scene& scene)
                             segment_map_init.set_arg(1, segment_map_mem)) {
                                 return -1;
                         }
-                        if (segment_map_init.enqueue_single_dim(triangle_count)) {
+                        if (segment_map_init.enqueue_simple(triangle_count, cq_i)) {
                                 return -1;
                         }
-                        device.enqueue_barrier();
+                        device.enqueue_barrier(cq_i);
                         
                         if (gpu_scan_uint(device, segment_map_id, 
-                                          triangle_count, segment_map_id)){
+                                          triangle_count, segment_map_id, cq_i)){
                                 return -1;
                         }
 
@@ -579,7 +601,8 @@ BVHBuilder::build_bvh(Scene& scene)
                 uint32_t segment_count;
                 
                 if (segment_map_mem.read(sizeof(cl_uint), &segment_count, 
-                                         sizeof(cl_int)*(triangle_count-1))) {
+                                         sizeof(cl_int)*(triangle_count-1),
+                                         cq_i)) {
                     return -1;
                 }
                 segment_count++; /* We add one because it starts at 0*/
@@ -601,11 +624,11 @@ BVHBuilder::build_bvh(Scene& scene)
                         return -1;
                 }
 
-                if (segment_heads_init.enqueue_single_dim(triangle_count)) {
+                if (segment_heads_init.enqueue_simple(triangle_count, cq_i)) {
                         return -1;
                 }
 
-                device.enqueue_barrier();
+                device.enqueue_barrier(cq_i);
                 // std::cout << "Segment heads mem initialized" << "\n";
 
                 /*Reserve memory for treelets*/
@@ -632,10 +655,10 @@ BVHBuilder::build_bvh(Scene& scene)
                         return -1;
                 }
 
-                if (treelet_init.enqueue_single_dim(segment_count * treelet_size)) {
+                if (treelet_init.enqueue_simple(segment_count * treelet_size, cq_i)) {
                         return -1;
                 }
-                device.enqueue_barrier();
+                device.enqueue_barrier(cq_i);
                 maps_init_time += node_time.msec_since_snap();
 
                 node_time.snap_time();
@@ -660,10 +683,10 @@ BVHBuilder::build_bvh(Scene& scene)
                                 return -1;
                         }
 
-                        if (treelet_build.enqueue_single_dim(triangle_count)) {
+                        if (treelet_build.enqueue_simple(triangle_count, cq_i)) {
                                 return -1;
                         }
-                        device.enqueue_barrier();
+                        device.enqueue_barrier(cq_i);
                 }
                 treelet_build_time += node_time.msec_since_snap();
 
@@ -673,10 +696,10 @@ BVHBuilder::build_bvh(Scene& scene)
                     node_counter.set_arg(1, node_count_mem)) {
                         return -1;
                 }
-                if (node_counter.enqueue_single_dim(segment_count)) {
+                if (node_counter.enqueue_simple(segment_count, cq_i)) {
                         return -1;
                 }
-                device.enqueue_barrier();
+                device.enqueue_barrier(cq_i);
 
                 node_count_time += node_time.msec_since_snap();
                 // std::cout << "Node counts set" << "\n";
@@ -685,17 +708,18 @@ BVHBuilder::build_bvh(Scene& scene)
 
                 /* Compute local node prefix sums */
                 if (gpu_scan_uint(device, node_count_id, 
-                                  node_offsets_count, node_offsets_id)){
+                                  node_offsets_count, node_offsets_id, cq_i)){
                         return -1;
                 }
 
 
                 uint32_t new_node_count;
                 if (node_offsets_mem.read(sizeof(cl_uint), &new_node_count,
-                                          sizeof(cl_uint) * segment_count)) {
+                                          sizeof(cl_uint) * segment_count, 
+                                          cq_i)) {
                         return -1;
                 }
-                device.enqueue_barrier();
+                device.enqueue_barrier(cq_i);
                 node_offset_scan_time += node_time.msec_since_snap();
                 // std::cout << "Node offsets computed" << "\n";
                 // std::cout << "New node count: " << new_node_count << "\n";
@@ -716,10 +740,10 @@ BVHBuilder::build_bvh(Scene& scene)
                     node_build.set_arg(7, sizeof(cl_int), &last_pass)) {
                         return -1;
                 }
-                if (node_build.enqueue_single_dim(segment_count)) {
+                if (node_build.enqueue_simple(segment_count, cq_i)) {
                         return -1;
                 }
-                device.enqueue_barrier();
+                device.enqueue_barrier(cq_i);
                 // std::cout << "Nodes built" << "\n";
                 
                 node_build_time += node_time.msec_since_snap();
@@ -753,9 +777,9 @@ BVHBuilder::build_bvh(Scene& scene)
                 return -1;
         buffer_release_time += node_time.msec_since_snap();
 
-        // device.finish_commands();
+        // device.finish_commands(cq_i);
         if (m_logging && m_log != NULL) {
-                device.finish_commands();
+                device.finish_commands(cq_i);
                 partial_time_ms = partial_timer.msec_since_snap();
                 (*m_log) << "\tbvh emmission time: " << partial_time_ms << " ms" <<"\n";
         }
@@ -783,10 +807,10 @@ BVHBuilder::build_bvh(Scene& scene)
             leaf_bbox_builder.set_arg(2,nodes_mem)) {
                 return -1;
         }
-        if (leaf_bbox_builder.enqueue_single_dim(node_count)) {
+        if (leaf_bbox_builder.enqueue_simple(node_count, cq_i)) {
                 return -1;
         }
-        device.enqueue_barrier();
+        device.enqueue_barrier(cq_i);
 
         if (node_bbox_builder.set_arg(0,nodes_mem)) {
                 return -1;
@@ -799,20 +823,23 @@ BVHBuilder::build_bvh(Scene& scene)
                         continue;
 
                 for (uint8_t k = 0; k < 3; ++k) {
-                        if (node_bbox_builder.enqueue_single_dim(count, 0, start_node)) {
+                        if (node_bbox_builder.enqueue_single_dim(count, 
+                                                                 0, 
+                                                                 start_node, 
+                                                                 cq_i)) {
                                 return -1;
                         }
-                        device.enqueue_barrier();
+                        device.enqueue_barrier(cq_i);
                 }
         }
         // One last time for the root
-        if (node_bbox_builder.enqueue_single_dim(1, 0, 0)) {
+        if (node_bbox_builder.enqueue_single_dim(1, 0, 0, cq_i)) {
                 return -1;
         }
-        device.enqueue_barrier();
+        device.enqueue_barrier(cq_i);
 
         if (m_logging && m_log != NULL) {
-                device.finish_commands();
+                device.finish_commands(cq_i);
                 partial_time_ms = partial_timer.msec_since_snap();
                 (*m_log) << "\tNode bbox compute time: " 
                           << partial_time_ms << " ms\n" ;
@@ -836,7 +863,7 @@ BVHBuilder::build_bvh(Scene& scene)
         // std::cout << "Nodes created: " << node_count << "\n";
         // exit(0);
         if (m_timing) {
-                device.finish_commands();
+                device.finish_commands(cq_i);
                 m_time_ms = m_timer.msec_since_snap();
         }
 

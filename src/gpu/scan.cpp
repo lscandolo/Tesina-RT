@@ -13,7 +13,7 @@ static size_t pad(size_t size, size_t pad_multiplier) {
 
 int32_t gpu_scan_uint(DeviceInterface& device, 
                       memory_id in_mem_id, size_t size,
-                      memory_id out_mem_id)
+                      memory_id out_mem_id, size_t cq_i)
 {
         
         DeviceMemory& in_mem = device.memory(in_mem_id);
@@ -85,11 +85,11 @@ int32_t gpu_scan_uint(DeviceInterface& device,
 
                 padded_size = pad(remaining_size,block_size);
                 size_t scan_local_size = padded_size/2; /*2 elements per thread*/
-                if (scan_local.enqueue_single_dim(scan_local_size, group_size)) {
+                if (scan_local.enqueue_single_dim(scan_local_size, group_size, 0, cq_i)) {
                         std::cerr << "Scan error enqeueing scan_local" << std::endl;
                         return -1;
                 }
-                device.enqueue_barrier();
+                device.enqueue_barrier(cq_i);
                 
                 remaining_size /= block_size;
                 sum_idx ++;
@@ -123,11 +123,11 @@ int32_t gpu_scan_uint(DeviceInterface& device,
                 
 
                 uint32_t scan_post_size = out_mem.size() / sizeof(cl_uint);
-                if (scan_post.enqueue_single_dim(scan_post_size, group_size)) {
+                if (scan_post.enqueue_single_dim(scan_post_size, group_size, 0, cq_i)) {
                         std::cerr << "Scan error enqeueing scan_post" << std::endl;
                         return -1;
                 }
-                device.enqueue_barrier();
+                device.enqueue_barrier(cq_i);
 
                 sum_idx--;
                 if (sum_idx < 0)

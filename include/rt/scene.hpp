@@ -6,6 +6,8 @@
 #include <string>
 #include <stdint.h>
 
+#include <pthread.h>
+
 #include <cl-gl/opencl-init.hpp>
 #include <gpu/interface.hpp>
 #include <rt/mesh.hpp>
@@ -61,6 +63,7 @@ public:
         Scene();
         ~Scene();
         int32_t initialize();
+        int32_t copy_mem_from(Scene& scene, size_t command_queue_i = 0);
         int32_t destroy();
         bool    valid();
         bool    valid_aggregate();
@@ -139,7 +142,10 @@ public:
         TextureAtlas texture_atlas;
         Camera camera;
         Cubemap cubemap;
+
 private:
+
+        friend class Scene;
 
         Mesh aggregate_mesh;
         BVH  aggregate_bvh;
@@ -184,6 +190,11 @@ private:
         memory_id kdt_leaf_tris_id;
         memory_id lights_id;
         memory_id bvh_roots_id;
+
+        pthread_t bvh_thread;
+        pthread_barrier_t thread_barrier;
+        pthread_barrierattr_t thread_barrier_attr;
+
 };
 
 

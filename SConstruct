@@ -70,7 +70,8 @@ rt_primitives_lib = env.StaticLibrary('lib/rt-primitives' ,
                                        'build/rt/bvh-builder.cpp',
                                        'build/rt/ray-shader.cpp',
                                        'build/rt/tracer.cpp',
-                                       'build/rt/renderer.cpp'
+                                       'build/rt/renderer.cpp',
+                                       'build/rt/renderer-threaded.cpp'
                                        ])
 
 clgl_test = env.Program('bin/cl-gl-test' ,
@@ -87,6 +88,11 @@ rt = env.Program('bin/rt' ,
                  'build/rt/rt.cpp' ,
                  LIBS= base_libs + clgl_lib + rt_primitives_lib + gpu_lib + misc_lib
                  )   
+
+rtt = env.Program('bin/rtt' ,
+                  'build/rt/rtt.cpp' ,
+                  LIBS= base_libs + clgl_lib + rt_primitives_lib + gpu_lib + misc_lib
+                  )   
 
 # rt_seq = env.Program('bin/rt-seq' ,
 #                      'build/rt/rt-seq.cpp' ,

@@ -34,6 +34,7 @@
 #include <rt/kdtree.hpp>
 #include <rt/cl_aux.hpp>
 #include <rt/renderer.hpp>
+#include <rt/renderer-threaded.hpp>
 
 void pause_and_exit(int val)
 {

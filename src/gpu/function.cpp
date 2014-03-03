@@ -385,6 +385,7 @@ DeviceFunction::enqueue_single_dim(size_t global_size, size_t local_size,
 }
 
 
+
 int32_t DeviceFunction::enqueue(size_t command_queue_i)
 {
         if (!valid())
@@ -451,6 +452,20 @@ int32_t DeviceFunction::enqueue(size_t command_queue_i)
 
 	return 0;	
 }
+
+///////////////////// Convenience
+int32_t 
+DeviceFunction::enqueue_simple(size_t global_size, size_t command_queue_i) 
+{
+        return enqueue_single_dim(global_size, 0, 0, command_queue_i);
+}
+
+int32_t 
+DeviceFunction::execute_simple(size_t global_size, size_t command_queue_i) 
+{
+        return execute_single_dim(global_size, 0, 0, command_queue_i);
+}
+///////////////////// 
 
 int32_t
 DeviceFunction::release()

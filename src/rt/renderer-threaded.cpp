@@ -1,10 +1,10 @@
-#include <rt/renderer.hpp>
+#include <rt/renderer-threaded.hpp>
 #include <algorithm>
 
 #include <stdio.h>
 //#include <conio.h>
 
-uint32_t Renderer::set_up_frame(const memory_id tex_id, Scene& scene)
+int32_t RendererT::set_up_frame(const memory_id tex_id, Scene& scene)
 {
         // Initialize frame timer
         frame_timer.snap_time();
@@ -25,7 +25,7 @@ uint32_t Renderer::set_up_frame(const memory_id tex_id, Scene& scene)
         stats.total_sec_ray_count = 0;
 
         // Acquire resources for render texture
-        if (device.acquire_graphic_resource(target_tex_id)) {
+        if (device.acquire_graphic_resource(target_tex_id, true)) {
                 //|| scene.acquire_graphic_resources()) {// Scene acquire is not needed
                 std::cerr << "Error acquiring texture resource." << std::endl;
                 return -1;
@@ -38,29 +38,24 @@ uint32_t Renderer::set_up_frame(const memory_id tex_id, Scene& scene)
         }
         stats.stage_times[FB_CLEAR] = framebuffer.get_clear_exec_time();
 
-        // Create accelerator (if needed)
-        if (update_accelerator(scene))
-                return -1;
-
         return 0;
 }
 
-uint32_t Renderer::update_accelerator(Scene& scene)
+int32_t RendererT::update_accelerator(Scene& scene, size_t cq_i)
 {
         bvh_builder.logging(false);
         log.silent = false;
         
-        if (!static_bvh || !scene.ready()) {
-                if (bvh_builder.build_bvh(scene)) {
-                        std::cout << "BVH builder failed." << std::endl;
-                        return -1;
-                } 
-                stats.stage_times[BVH_BUILD] = bvh_builder.get_exec_time();
-        }
+        if (bvh_builder.build_bvh(scene, cq_i)) {
+                std::cout << "BVH builder failed." << std::endl;
+                return -1;
+        } 
+        stats.stage_times[BVH_BUILD] = bvh_builder.get_exec_time();
+
         return 0;
 }
 
-uint32_t Renderer::render_to_framebuffer(Scene& scene)
+int32_t RendererT::render_to_framebuffer(Scene& scene)
 {
         CLInfo* clinfo = clinfo->instance();
         size_t pixel_count  = fb_w * fb_h;
@@ -181,7 +176,7 @@ uint32_t Renderer::render_to_framebuffer(Scene& scene)
         return 0;
 }
 
-uint32_t Renderer::copy_framebuffer(memory_id tex_id)
+int32_t RendererT::copy_framebuffer(memory_id tex_id)
 {
         DeviceInterface& device = *DeviceInterface::instance();
 
@@ -194,12 +189,12 @@ uint32_t Renderer::copy_framebuffer(memory_id tex_id)
         return 0;
 }
 
-uint32_t Renderer::copy_framebuffer()
+int32_t RendererT::copy_framebuffer()
 {
         return copy_framebuffer(target_tex_id);
 }
 
-uint32_t Renderer::render_to_texture(Scene& scene, memory_id tex_id)
+int32_t RendererT::render_to_texture(Scene& scene, memory_id tex_id)
 {
         if (render_to_framebuffer(scene))
                 return -1;
@@ -208,12 +203,12 @@ uint32_t Renderer::render_to_texture(Scene& scene, memory_id tex_id)
         return 0;
 }
 
-uint32_t Renderer::render_to_texture(Scene& scene)
+int32_t RendererT::render_to_texture(Scene& scene)
 {
         return render_to_texture(scene, target_tex_id);
 }
 
-uint32_t Renderer::conclude_frame(Scene& scene, memory_id tex_id)
+int32_t RendererT::conclude_frame(Scene& scene, memory_id tex_id)
 {
         // Obtain device handle and check it's ok
         DeviceInterface& device = *DeviceInterface::instance();
@@ -237,12 +232,12 @@ uint32_t Renderer::conclude_frame(Scene& scene, memory_id tex_id)
         return 0;
 }
 
-uint32_t Renderer::conclude_frame(Scene& scene)
+int32_t RendererT::conclude_frame(Scene& scene)
 {
         return conclude_frame(scene, target_tex_id);
 }
 
-uint32_t Renderer::initialize_from_ini_file(std::string file_path)
+int32_t RendererT::initialize_from_ini_file(std::string file_path)
 {
         int32_t ini_err;
         ini_err = ini.load_file(file_path);
@@ -265,7 +260,7 @@ uint32_t Renderer::initialize_from_ini_file(std::string file_path)
 
 }
 
-uint32_t Renderer::initialize(std::string log_filename)
+int32_t RendererT::initialize(std::string log_filename)
 {
         
         CLInfo* clinfo = clinfo->instance();
@@ -371,13 +366,126 @@ uint32_t Renderer::initialize(std::string log_filename)
 }
 
 int32_t 
-Renderer::set_samples_per_pixel(size_t spp, pixel_sample_cl const* pixel_samples)
+RendererT::set_samples_per_pixel(size_t spp, pixel_sample_cl const* pixel_samples)
 {
         return prim_ray_gen.set_spp(spp,pixel_samples);
 }
 
 size_t
-Renderer::get_samples_per_pixel() 
+RendererT::get_samples_per_pixel() 
 {
 	return prim_ray_gen.get_spp();
 }
+
+
+/////////////////////// Threaded only
+
+struct BVHThreadArguments {
+
+        RendererT* renderer;
+        Scene*     last_scene;
+        Scene*     new_scene;
+        
+};
+
+void* bvh_thread_function(void* arg) 
+{
+        void *ret = (void*)0;
+
+        BVHThreadArguments* args = (BVHThreadArguments*)arg;
+
+        /// Thread 2
+        if (args->renderer->update_accelerator(*args->new_scene, 1)) {
+                std::cout << "Error updating accelerator\n";
+                ret = (void*)1;
+        }
+
+        DeviceInterface& device = *DeviceInterface::instance();
+        device.finish_commands(0);
+
+        pthread_exit(ret);
+
+        return 0;
+}
+
+int32_t RendererT::init_loop(Scene& new_scene)
+{
+        if (last_scene.initialize()) {
+                std::cout << "Failed to initialize new scene\n"; 
+                return -1;
+        }
+
+        ////// Copy scene information
+        if (last_scene.copy_mem_from(new_scene)) {
+                std::cout << "Failed to copy scene\n"; 
+                return -1;
+        }
+
+        ////// Create accelerator
+        if (update_accelerator(last_scene, 0)) {
+                std::cout << "Failed to create bvh\n"; 
+                return -1;
+        }
+        DeviceInterface& device = *DeviceInterface::instance();
+        device.finish_commands(0);
+
+        return 0;
+}
+
+int32_t RendererT::render_one_frame(Scene& new_scene, memory_id tex_id)
+{
+
+        BVHThreadArguments args;
+        args.renderer = this;
+        args.last_scene = &this->last_scene;
+        args.new_scene = &new_scene;
+                
+        pthread_create( &bvh_thread, NULL, &bvh_thread_function, &args);
+
+
+        /// Thread 1
+        if (set_up_frame(tex_id, last_scene)) {
+                std::cout << "Error setting up frame\n";
+                return -1;
+        }
+                
+        if (render_to_framebuffer(last_scene)) {
+                std::cout << "Error rendering frame\n";
+                return -1;
+        }
+
+        if (copy_framebuffer()) {
+                std::cout << "Error copying framebuffer\n";
+                return -1;
+        }
+
+        if (conclude_frame(last_scene)) {
+                std::cout << "Error concluding frame\n";
+                return -1;
+        }
+
+
+
+        void* thread_ret;
+        pthread_join(bvh_thread, &thread_ret);
+        if (thread_ret) {
+                std::cout << "Pthread return an error!\n";
+                return -1;
+        }
+
+        /////////////// Once finished
+
+        DeviceInterface& device = *DeviceInterface::instance();
+        device.finish_commands(0);
+        device.finish_commands(1);
+
+        return 0;
+
+}
+
+
+int32_t RendererT::finalize_loop()
+{
+        last_scene.destroy();
+}
+

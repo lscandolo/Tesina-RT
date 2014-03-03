@@ -114,9 +114,10 @@ size_t cl_mem_size(const cl_mem& mem);
 int32_t acquire_gl_tex(cl_mem& tex_mem, size_t cq_i = 0);
 int32_t release_gl_tex(cl_mem& tex_mem, size_t cq_i = 0);
 
-#define error_cl(x,y) __error_cl(x,y,__FILE__,__func__,__LINE__)
 
 inline int32_t __error_cl(cl_int err_num, std::string msg,
                           const char* file, const char* func,  int line);
+
+#define error_cl(x,y) __error_cl(x,y,__FILE__,__func__,__LINE__)
 
 #endif //OPENCL_INIT_HPP

@@ -255,7 +255,11 @@ DeviceMemory::copy_to(DeviceMemory& dst, size_t bytes, size_t offset,
 
 }
 
-
+int32_t 
+DeviceMemory::copy_all_to(DeviceMemory& dst, size_t command_queue_i)
+{
+        copy_to(dst, 0, 0, 0, command_queue_i);
+}
 
 int32_t
 DeviceMemory::release()
