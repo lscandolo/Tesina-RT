@@ -1,9 +1,11 @@
-//#pragma OPENCL EXTENSION cl_amd_printf:enable
+#pragma OPENCL EXTENSION cl_amd_printf:enable
+
 #define UINT_MAX_INV 2.3283064370807974e-10f
 #define UINT_MAX_F 4294967295.f
 
 #define M_AXIS_BITS  10
-#define M_UINT_COUNT 1 //This value needs to be ceil(1+ (M_AXIS_BITS*3-1)/32)
+#define M_MORTON_BITS 32
+#define M_UINT_COUNT 1 
 
 #define MORTON_MAX_F 1024.f // 2^M_AXIS_BITS
 #define MORTON_MAX_INV_F 0.000976562.f //1/MORTON_MAX_F
@@ -102,9 +104,9 @@ rearrange_bboxes(global BBox*          bbox_buffer_in,
 }
 
 kernel void
-rearrange_codes(global morton_code_t* code_buffer_in,
-                global unsigned int*  triangles,
-                global morton_code_t* code_buffer_out) 
+rearrange_morton_codes(global morton_code_t* code_buffer_in,
+                       global unsigned int*  triangles,
+                       global morton_code_t* code_buffer_out) 
 {
         size_t gid = get_global_id(0);
         unsigned int out_id = triangles[gid];
@@ -163,16 +165,19 @@ morton_encode(global BBox* bboxes,
         const float3 zeros = (float3)(0.f,0.f,0.f);
         const float3 ones = (float3)(1.f,1.f,1.f);
         slice = fmax(zeros,fmin(ones,slice));
+        ///// Slice is the value between 0 and 1 in the global bbox where this tri stands
 
         slice *= MORTON_MAX_F;
 
         /*Scramble codes*/
         
+        //// Buffer output per each axis
         unsigned int morton_in[3];
         morton_in[0] = slice.x;
         morton_in[1] = slice.y;
         morton_in[2] = slice.z;
 
+        //// Set morton code to 0
         morton_code_t morton;
         for (int i = 0; i < M_UINT_COUNT; ++i){
                 morton.code[i] = 0;
@@ -192,34 +197,100 @@ morton_encode(global BBox* bboxes,
 
 }
 
-unsigned char split_bit(morton_code_t c1, morton_code_t c2) 
+kernel void
+morton_encode_32(global BBox* bboxes,
+                 global BBox* global_bbox,
+                 global morton_code_t* morton_codes) 
 {
-        if (M_UINT_COUNT == 1) {
-                c1.code[0] = c1.code[0] ^ c2.code[0];
-                for (int i = 0; i < M_AXIS_BITS*3; ++i) {
-                        if (c1.code[0]>> (M_AXIS_BITS*3-i-1)) {
-                                return M_AXIS_BITS*3-i;
-                        }
-                }
-                return 0;
-        } else {
+        int index = get_global_id(0);
+        BBox bbox = bboxes[index];
+        float3 center = (bbox.hi + bbox.lo) * 0.5f;
 
-                //// This is broken, i think!
-                for (int u = 0; u < M_UINT_COUNT; ++u) {
-                        if (c1.code[u] != c2.code[u]) {
-                                c1.code[u] = c1.code[u] ^ c2.code[u];
-                                int max_bit = (u==0)?
-                                        (M_AXIS_BITS*3-1)%(sizeof(uint)*8):
-                                        sizeof(uint)*8 - 1;
-                                for (int i = 0; i <= max_bit; ++i)
-                                        if (c1.code[u] >> (max_bit-i-1))
-                                                return (M_UINT_COUNT-u)*
-                                                        sizeof(unsigned int)*8-i;
-                        }
-                }
-                return 0;
+        float3 g_lo = global_bbox->lo;
+        float3 g_hi = global_bbox->hi;
+
+        float3 inv_global_bbox_size = 1.f/(g_hi-g_lo);
+        float3 slice  = (center - g_lo) * inv_global_bbox_size.xyz;
+        const float3 zeros = (float3)(0.f,0.f,0.f);
+        const float3 ones = (float3)(1.f,1.f,1.f);
+        slice = fmax(zeros,fmin(ones,slice));
+        ///// Slice is the value between 0 and 1 in the global bbox where this tri stands
+
+        slice *= MORTON_MAX_F;
+
+        /*Scramble codes*/
+        
+        //// Buffer output per each axis
+        unsigned int morton_in[3];
+        morton_in[0] = slice.x;
+        morton_in[1] = slice.y;
+        morton_in[2] = slice.z;
+
+        //// Set morton code to 0
+        morton_code_t morton;
+        for (int i = 0; i < M_UINT_COUNT; ++i){
+                morton.code[i] = 0;
         }
+
+        for (int i = 0; i < M_AXIS_BITS*3 + 1; ++i) {
+                int src       = 2-(i%3);
+                int src_bit   = i/3;
+
+                int dest      = M_UINT_COUNT-1-(i/(sizeof(uint)*8));
+                int dest_bit  = i%(sizeof(uint)*8);
+
+                if (dest_bit < 32)
+                        morton.code[dest] |= ((morton_in[src]>>src_bit) & 1)<<dest_bit;
+        }
+
+        morton_codes[index] = morton;
 }
+
+// kernel void
+// morton_encode(global BBox* bboxes,
+//               global BBox* global_bbox,
+//               global morton_code_t* morton_codes) 
+// {
+//         int index = get_global_id(0);
+//         BBox bbox = bboxes[index];
+//         float3 center = (bbox.hi + bbox.lo) * 0.5f;
+
+//         float3 g_lo = global_bbox->lo;
+//         float3 g_hi = global_bbox->hi;
+
+//         float3 inv_global_bbox_size = 1.f/(g_hi-g_lo);
+//         float3 slice  = (center - g_lo) * inv_global_bbox_size.xyz;
+//         const float3 zeros = (float3)(0.f,0.f,0.f);
+//         const float3 ones = (float3)(1.f,1.f,1.f);
+//         slice = fmax(zeros,fmin(ones,slice));
+
+//         slice *= MORTON_MAX_F;
+
+//         /*Scramble codes*/
+        
+//         unsigned int morton_in[3];
+//         morton_in[0] = slice.x;
+//         morton_in[1] = slice.y;
+//         morton_in[2] = slice.z;
+
+//         morton_code_t morton;
+//         for (int i = 0; i < M_UINT_COUNT; ++i){
+//                 morton.code[i] = 0;
+//         }
+
+//         for (int i = 0; i < M_AXIS_BITS*3; ++i) {
+//                 int src       = 2-(i%3);
+//                 int src_bit   = i/3;
+
+//                 int dest      = M_UINT_COUNT-1-(i/(sizeof(uint)*8));
+//                 int dest_bit  = i%(sizeof(uint)*8);
+
+//                 morton.code[dest] |= ((morton_in[src]>>src_bit) & 1)<<dest_bit;
+//         }
+
+//         morton_codes[index] = morton;
+
+// }
 
 kernel void
 build_splits(global morton_code_t*   morton_codes,
@@ -800,5 +871,232 @@ max_local_bbox(global BBox*   in_bboxes,
                 if (l_idx == 0) {
                         out_bboxes[group_id] = aux[0];
                 }
+        }
+}
+
+void prefix_sum(local  volatile int* bit,
+                local  volatile int* sum)
+{
+        size_t lid = get_local_id(0);
+        size_t lsz = get_local_size(0) / 2;
+
+        int offset = 1;
+
+        sum[lid] = bit[lid];
+
+        for (int d = lsz; d > 0; d >>= 1) {
+                barrier(CLK_LOCAL_MEM_FENCE);
+
+                if (lid < d) {
+                        int ai = offset * (2*lid+1)-1;
+                        int bi = ai + offset;
+                        sum[bi] += sum[ai];
+                }
+                offset <<= 1;
+        }
+        barrier(CLK_LOCAL_MEM_FENCE);
+
+        if (lid == 0) {
+                sum[lsz*2 - 1] = 0;
+        }
+        
+        for (int d = 1; d < lsz<<1; d <<= 1) // traverse down tree & build scan
+        {
+                offset >>= 1;
+                barrier(CLK_LOCAL_MEM_FENCE);
+                if (lid < d) {
+                        int ai = offset * (2*lid+1)-1;
+                        int bi = ai + offset;
+                        int t = sum[ai];
+                        sum[ai] = sum[bi];
+                        sum[bi] += t;
+                }
+        }
+        barrier(CLK_LOCAL_MEM_FENCE);
+        if (lid == 0) {
+                sum[lsz*2] = bit[lsz*2-1] + sum[lsz*2-1];
+        }
+        barrier(CLK_LOCAL_MEM_FENCE);
+}
+
+int find_middle(global volatile BVHNode* node, 
+                global morton_code_t* codes)
+                /*, int level)  */
+{
+#define CODEBIT(x) ((codes[(x)].code[0]) & mask)
+
+        
+        unsigned int first_code = node->start_index;
+        unsigned int last_code  = node->end_index-1;
+
+        // node->leaf encodes the level we need to check
+        int level = node->leaf;
+
+        // bit mask for the level
+        unsigned int mask = 1 << (29 - level);
+
+        // if level is such that mask is 0, we output is as leaf
+        if (!mask) {
+                node->split_axis = (node->leaf-1)%3;
+                node->leaf = 1;
+                return 0;
+        }
+
+        // If node is small, just end it
+        if (first_code + 4 >= last_code) {
+                node->split_axis = level%3;
+                node->leaf = 1;
+                return 0;
+        }
+        
+        // Advance levels until we found one with different start and end
+        while (CODEBIT(first_code) != 0 || 
+               CODEBIT(last_code)  == 0) {
+                level++;
+                mask >>= 1;
+                if (!mask) {
+                        node->split_axis = (level-1)%3;
+                        node->leaf = 1;
+                        return 0;
+                }
+        }
+
+        // save level in node->leaf
+        node->leaf = level;
+
+        // Do binomial search for the middle
+        while (first_code < last_code) {
+
+                unsigned int middle = (first_code + last_code) / 2;
+                if (CODEBIT(middle) == 0)  {
+                        if (CODEBIT(middle+1) != 0)
+                                return middle+1;
+                        first_code = middle;
+                } else {
+                        if (CODEBIT(middle-1) == 0)
+                                return middle;
+                        last_code = middle;
+                }
+
+                if (first_code + 1 == last_code)
+                        return last_code;
+        }
+
+        return last_code;
+
+#undef CODEBIT
+
+}
+
+
+kernel void 
+process_task(global volatile int* OC,        // Output counter
+             global volatile int* PC,        // Processed counter
+             global volatile BVHNode* nodes, // BVH Nodes
+             global morton_code_t* codes,    // morton codes
+             local volatile int*  LC,        // Local output counter
+             local volatile int*  PS,        // local prefix sum
+             int   level)                    // Current level
+{
+
+        int wgsize = (int)get_local_size(0);
+        int wi     = (int)get_local_id(0);
+
+        size_t inputOffset;
+        size_t outputOffset;
+
+        
+        int    available_tasks;
+
+        if (level == 0) {
+                available_tasks = 1;
+                inputOffset = 0;
+        } else if (level == 1) {
+                available_tasks = OC[0];
+                inputOffset = 1;
+        } else {
+                available_tasks = OC[level-1];
+                inputOffset = 1;
+                for (int i = 0; i < level-1; ++i) {
+                        inputOffset += OC[i];
+                }
+        }
+
+        outputOffset = inputOffset + available_tasks;
+
+        global volatile BVHNode* inputNodes = nodes + inputOffset;
+        global volatile BVHNode* outputNodes = nodes + outputOffset;
+
+        local volatile int firstNode;
+
+        barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+
+        if (wi == 0) {
+                firstNode = atomic_add(PC + level, wgsize);
+        }
+        barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+
+        while (firstNode < available_tasks) {
+                LC[wi] = 0;
+                int middle = 0;
+
+                if (firstNode + wi < available_tasks)  {
+                        middle = find_middle(inputNodes + firstNode + wi, 
+                                             codes);
+                }
+
+                barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+
+                if (middle)
+                        LC[wi] = 2;
+
+                barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+
+                ///////// PREFIX SUM!
+                prefix_sum(LC, PS);
+                barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+
+                local volatile int localOffset;
+                if (wi == 0) {
+                        int outputTasks = PS[wgsize];
+                        localOffset  = atomic_add(OC + level, outputTasks);
+                }
+                barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+
+                if (middle) {
+                        /* printf("inputNodes: %d\n", inputOffset); */
+                        /* printf("outputNodes: %d\n", outputOffset); */
+                        /* printf("localOffset: %d\n", localOffset); */
+                        /* printf("PS[wi]: %d\n", PS[wi]); */
+
+                        global volatile BVHNode* parent = inputNodes + firstNode + wi;
+                        global volatile BVHNode* lchild = outputNodes+localOffset+PS[wi];
+                        global volatile BVHNode* rchild = lchild+1;
+
+                        lchild->leaf = parent->leaf+1; // Next level we check
+                        rchild->leaf = parent->leaf+1;
+                        parent->leaf = 0;
+
+                        lchild->start_index = parent->start_index;
+                        lchild->end_index   = middle;
+
+                        rchild->start_index = middle;
+                        rchild->end_index   = parent->end_index;
+
+                        parent->l_child = outputOffset + localOffset + PS[wi];
+                        parent->r_child =  parent->l_child + 1;
+
+                        lchild->parent = inputOffset + firstNode + wi;
+                        rchild->parent = lchild->parent;
+
+                        lchild->split_axis = (parent->split_axis+1)%3;
+                        rchild->split_axis = lchild->split_axis;
+                }
+                barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+                
+                if (wi == 0) {
+                        firstNode = atomic_add(PC + level, wgsize);
+                }
+                barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
         }
 }

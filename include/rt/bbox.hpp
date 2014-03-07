@@ -24,8 +24,14 @@ struct BBox {
 	float surfaceArea() const;
     void reset();
 
-	cl_float3 hi,lo;
-
+        union {
+                cl_float4 hi_4;
+                cl_float3 hi;
+        };        
+        union {
+                cl_float4 lo_4;
+                cl_float3 lo;
+        };
 };
 
 

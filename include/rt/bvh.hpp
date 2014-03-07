@@ -16,6 +16,20 @@ class BVHNode {
 
 public:
 
+	BBox m_bbox;
+        union {
+                cl_uint m_l_child;
+                cl_uint m_start_index;
+        };
+        union {
+                cl_uint m_r_child;
+                cl_uint m_end_index;
+        };
+	cl_uint m_parent;
+	cl_char m_split_axis;
+	cl_char m_leaf; /* Leaf is not bool because of the inability of OpenCL to 
+			   handle byte aligned structs (at least my work implementation)*/
+
 	void set_bounds(uint32_t s, uint32_t e){
 		m_start_index = s;
 		m_end_index = e;
@@ -47,20 +61,6 @@ public:
         BBox bbox() {return m_bbox;}
 
 // private:
-
-	BBox m_bbox;
-        union {
-                cl_uint m_l_child;
-                cl_uint m_start_index;
-        };
-        union {
-                cl_uint m_r_child;
-                cl_uint m_end_index;
-        };
-	cl_uint m_parent;
-	cl_char m_split_axis;
-	cl_char m_leaf; /* Leaf is not bool because of the inability of OpenCL to 
-			   handle byte aligned structs (at least my work implementation)*/
 
 	BBox     computeBBox(const std::vector<BBox>& bboxes, 
 			     const std::vector<tri_id>& ordered_triangles) const; 

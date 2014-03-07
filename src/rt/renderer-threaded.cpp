@@ -442,7 +442,6 @@ int32_t RendererT::render_one_frame(Scene& new_scene, memory_id tex_id)
                 
         pthread_create( &bvh_thread, NULL, &bvh_thread_function, &args);
 
-
         /// Thread 1
         if (set_up_frame(tex_id, last_scene)) {
                 std::cout << "Error setting up frame\n";
@@ -474,8 +473,14 @@ int32_t RendererT::render_one_frame(Scene& new_scene, memory_id tex_id)
         }
 
         /////////////// Once finished
-
         DeviceInterface& device = *DeviceInterface::instance();
+        device.finish_commands(0);
+        device.finish_commands(1);
+
+        if (last_scene.copy_mem_from(new_scene)) {
+                std::cout << "Failed to copy scene\n"; 
+                return -1;
+        }
         device.finish_commands(0);
         device.finish_commands(1);
 

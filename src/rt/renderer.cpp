@@ -51,7 +51,7 @@ uint32_t Renderer::update_accelerator(Scene& scene)
         log.silent = false;
         
         if (!static_bvh || !scene.ready()) {
-                if (bvh_builder.build_bvh(scene)) {
+                if (bvh_builder.build_bvh_3(scene)) {//!!
                         std::cout << "BVH builder failed." << std::endl;
                         return -1;
                 } 

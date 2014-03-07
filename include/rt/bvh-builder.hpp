@@ -18,6 +18,7 @@ public:
 
 	int32_t initialize();
 	int32_t build_bvh(Scene& scene, size_t cq_i = 0);
+	int32_t build_bvh_3(Scene& scene, size_t cq_i = 0);
         void set_log(Log* log);
 
 	void timing(bool b);
@@ -34,6 +35,7 @@ private:
 
         function_id  primitive_bbox_builder_id;
         function_id  morton_encoder_id;
+        function_id  morton_encoder_32_id;
 
         function_id  morton_sorter_2_id;
         function_id  morton_sorter_4_id;
@@ -52,8 +54,11 @@ private:
         function_id  leaf_bbox_builder_id;
         function_id  max_local_bbox_id;
 
+        function_id  process_task_id;
+
         function_id index_rearranger_id;
         function_id map_rearranger_id;
+        function_id morton_rearranger_id;
 
         memory_id    triangles_mem_id;
 };
