@@ -214,8 +214,8 @@ morton_encode_32(global BBox* bboxes,
         const float3 zeros = (float3)(0.f,0.f,0.f);
         const float3 ones = (float3)(1.f,1.f,1.f);
         slice = fmax(zeros,fmin(ones,slice));
-        ///// Slice is the value between 0 and 1 in the global bbox where this tri stands
 
+        ///// Slice is the value between 0 and 1 in the global bbox where this tri stands
         slice *= MORTON_MAX_F;
 
         /*Scramble codes*/
@@ -935,20 +935,22 @@ int find_middle(global volatile BVHNode* node,
         // bit mask for the level
         unsigned int mask = 1 << (29 - level);
 
+        // If node is small, just end it
+        if (first_code + 1 >= last_code) {
+                node->split_axis = level%3;
+                node->leaf = 1;
+                return 0;
+        }
+
         // if level is such that mask is 0, we output is as leaf
         if (!mask) {
                 node->split_axis = (node->leaf-1)%3;
                 node->leaf = 1;
                 return 0;
+                /* node->leaf = 30; */
+                /* return (first_code+last_code)/2; */
         }
-
-        // If node is small, just end it
-        if (first_code + 4 >= last_code) {
-                node->split_axis = level%3;
-                node->leaf = 1;
-                return 0;
-        }
-        
+      
         // Advance levels until we found one with different start and end
         while (CODEBIT(first_code) != 0 || 
                CODEBIT(last_code)  == 0) {
@@ -958,6 +960,8 @@ int find_middle(global volatile BVHNode* node,
                         node->split_axis = (level-1)%3;
                         node->leaf = 1;
                         return 0;
+                        /* node->leaf = 30; */
+                        /* return (first_code+last_code)/2; */
                 }
         }
 
@@ -1029,7 +1033,7 @@ process_task(global volatile int* OC,        // Output counter
 
         local volatile int firstNode;
 
-        barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+        /* barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE); */
 
         if (wi == 0) {
                 firstNode = atomic_add(PC + level, wgsize);
@@ -1092,7 +1096,7 @@ process_task(global volatile int* OC,        // Output counter
                         lchild->split_axis = (parent->split_axis+1)%3;
                         rchild->split_axis = lchild->split_axis;
                 }
-                barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+                /* barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE); */
                 
                 if (wi == 0) {
                         firstNode = atomic_add(PC + level, wgsize);

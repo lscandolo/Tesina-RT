@@ -458,6 +458,8 @@ int main (int argc, char** argv)
         buddha_set_cam_traj();
         dragon_set_scene(scene);
         // buddha_set_scene(scene);
+        // hand_set_scene(scene);
+        // fairy_set_scene(scene);
 
         /*---------------------- Move scene data to gpu -----------------------*/
          if (scene.create_aggregate_mesh()) { 

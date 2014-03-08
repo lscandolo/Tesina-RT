@@ -1062,7 +1062,7 @@ BVHBuilder::build_bvh_3(Scene& scene, size_t cq_i)
         memory_id last_bbox_out_id = aux_bbox_mems[aux_bbox_mems.size()-1];
         DeviceMemory& global_bbox_mem = device.memory(last_bbox_out_id);
 
-        DeviceFunction& morton_encoder_32 = device.function(morton_encoder_32_id);
+        DeviceFunction& morton_encoder_32 = device.function(morton_encoder_id);//!!
         if (morton_encoder_32.set_arg(0,bboxes_mem) ||
             morton_encoder_32.set_arg(1,global_bbox_mem) ||
             morton_encoder_32.set_arg(2,morton_mem))
@@ -1268,7 +1268,7 @@ BVHBuilder::build_bvh_3(Scene& scene, size_t cq_i)
         DeviceFunction& process_tasks = device.function(process_task_id);
 
         cl_uint oc[32] = {0};
-        cl_uint pc[32] = {0};
+        cl_uint pc[33] = {0};
 
         memory_id OC_id = device.new_memory();
         DeviceMemory OC = device.memory(OC_id);
@@ -1279,9 +1279,6 @@ BVHBuilder::build_bvh_3(Scene& scene, size_t cq_i)
         PC.initialize(32 * sizeof(cl_uint), oc);
 
         int gsize = process_tasks.max_group_size();
-
-        std::cout << "gsize: " << gsize << std::endl;
-
         node_time.snap_time();
 
         if (process_tasks.set_arg(0, OC) ||
@@ -1294,10 +1291,10 @@ BVHBuilder::build_bvh_3(Scene& scene, size_t cq_i)
                 return -1;
         }
 
-        std::cout << "bvh mem size: " << nodes_mem.size() << "\n";
-        std::cout << "OC size: " << OC.size() << "\n";
-        std::cout << "PC size: " << PC.size() << "\n";
-        std::cout << "morton_mem size: " << morton_mem.size() << "\n";
+        // std::cout << "bvh mem size: " << nodes_mem.size() << "\n";
+        // std::cout << "OC size: " << OC.size() << "\n";
+        // std::cout << "PC size: " << PC.size() << "\n";
+        // std::cout << "morton_mem size: " << morton_mem.size() << "\n";
 
         for (int i = 0; i < 30; ++i) {
 
@@ -1306,7 +1303,12 @@ BVHBuilder::build_bvh_3(Scene& scene, size_t cq_i)
                         return -1;
                 }
 
-                if (process_tasks.enqueue_single_dim(4*gsize,gsize, 0, cq_i)) {
+                size_t max_size = pow(2, i);
+                size_t global_size = gsize;
+                while (global_size < max_size && global_size < gsize * 4 - 1)
+                        global_size += gsize;
+
+                if (process_tasks.enqueue_single_dim(global_size,gsize, 0, cq_i)) {
                         std::cout << "Error executing process_tasks\n";
                         return -1;
                 }
@@ -1318,11 +1320,12 @@ BVHBuilder::build_bvh_3(Scene& scene, size_t cq_i)
         // PC.read(sizeof(int) * 32, pc, 0, cq_i);
         pc[0] = 0;
         for (int i = 0; i < 32; ++i) {
-                std::cout << "OC[" << i << "]: " << oc[i] << "\t";
+                // std::cout << "OC[" << i << "]: " << oc[i] << "\t";
+                pc[i] = node_count;
                 node_count += oc[i];
-                pc[i+1] = pc[i] + node_count;
-                std::cout << "PC[" << i+1 << "]: " << pc[i+1] << "\n";
+                // std::cout << "PC[" << i << "]: " << pc[i] << "\n";
         }
+
         // std::cout << "Nodes: " << node_count << "\n";
         
         // std::vector<BVHNode> nodes(node_count);
@@ -1343,57 +1346,50 @@ BVHBuilder::build_bvh_3(Scene& scene, size_t cq_i)
         //                   << nodes[i].m_r_child << std::endl;
         // }        
 
-        device.finish_commands(cq_i);
-
-
         device.delete_memory(OC_id);
         device.delete_memory(PC_id);
-
-        std::cout << "node_time: " << node_time.msec_since_snap() << std::endl;
 
         //////////////////////////////////////////////////////////////////////////
         ////////////////////// 5. Compute node BBoxes ////////////////////////////
         //////////////////////////////////////////////////////////////////////////
-        // partial_timer.snap_time();
+        partial_timer.snap_time();
 
-        // DeviceFunction& node_bbox_builder = device.function(node_bbox_builder_id);
-        // DeviceFunction& leaf_bbox_builder = device.function(leaf_bbox_builder_id);
+        DeviceFunction& node_bbox_builder = device.function(node_bbox_builder_id);
+        DeviceFunction& leaf_bbox_builder = device.function(leaf_bbox_builder_id);
 
-        // if (leaf_bbox_builder.set_arg(0,triangles_mem) ||
-        //     leaf_bbox_builder.set_arg(1,bboxes_mem) ||
-        //     leaf_bbox_builder.set_arg(2,nodes_mem)) {
-        //         return -1;
-        // }
-        // if (leaf_bbox_builder.enqueue_simple(node_count, cq_i)) {
-        //         return -1;
-        // }
-        // device.enqueue_barrier(cq_i);
+        if (leaf_bbox_builder.set_arg(0,triangles_mem) ||
+            leaf_bbox_builder.set_arg(1,bboxes_mem) ||
+            leaf_bbox_builder.set_arg(2,nodes_mem)) {
+                return -1;
+        }
 
-        // if (node_bbox_builder.set_arg(0,nodes_mem)) {
-        //         return -1;
-        // }
+        if (leaf_bbox_builder.enqueue_simple(node_count, cq_i)) {
+                return -1;
+        }
+        device.enqueue_barrier(cq_i);
 
-        // for (int32_t i = (int32_t)node_counts.size()-1; i >= 0; --i) {
-        //         size_t start_node = i > 0 ? node_counts[i-1] : 0;
-        //         size_t count = node_counts[i] - start_node;
-        //         if (!count || node_counts[i] == 0)
-        //                 continue;
+        if (node_bbox_builder.set_arg(0,nodes_mem)) {
+                return -1;
+        }
+        device.enqueue_barrier(cq_i);
 
-        //         for (uint8_t k = 0; k < 3; ++k) {
-        //                 if (node_bbox_builder.enqueue_single_dim(count, 
-        //                                                          0, 
-        //                                                          start_node, 
-        //                                                          cq_i)) {
-        //                         return -1;
-        //                 }
-        //                 device.enqueue_barrier(cq_i);
-        //         }
-        // }
+        for (int32_t i = 31; i >= 0; --i) {
+                size_t start_node = i ? pc[i-1] : 0;
+                size_t count = pc[i] - start_node;
+                if (!count)
+                        continue;
+
+                if (node_bbox_builder.enqueue_single_dim(count, 0,start_node, cq_i)) {
+                        return -1;
+                }
+                device.enqueue_barrier(cq_i);
+        }
+
         // // One last time for the root
-        // if (node_bbox_builder.enqueue_single_dim(1, 0, 0, cq_i)) {
-        //         return -1;
-        // }
-        // device.enqueue_barrier(cq_i);
+        if (node_bbox_builder.enqueue_single_dim(1, 0, 0, cq_i)) {
+                return -1;
+        }
+        device.enqueue_barrier(cq_i);
 
         // if (m_logging && m_log != NULL) {
         //         device.finish_commands(cq_i);
@@ -1403,10 +1399,13 @@ BVHBuilder::build_bvh_3(Scene& scene, size_t cq_i)
         // }
         //////////////////////////////////
 
-        if (device.delete_memory(aux_id) ||
-            device.delete_memory(bboxes_mem_id) || 
-            device.delete_memory(morton_mem_id)) {
-                std::cerr << "Error deleting memory\n";
+        if (device.delete_memory(bboxes_mem_id)) {
+                std::cerr << "Error deleting bboxes memory\n";
+                return -1;
+        }
+
+        if (device.delete_memory(morton_mem_id)) {
+                std::cerr << "Error deleting morton memory\n";
                 return -1;
         }
         ///////////////////////////////
@@ -1422,7 +1421,7 @@ BVHBuilder::build_bvh_3(Scene& scene, size_t cq_i)
         scene.m_aggregate_bvh_built = true;
         scene.m_aggregate_bvh_transfered = true;
 
-        return -1;
+        return 0;
 }
         
 void
@@ -1447,20 +1446,4 @@ void BVHBuilder::logging(bool l)
 {
         m_logging = l;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
