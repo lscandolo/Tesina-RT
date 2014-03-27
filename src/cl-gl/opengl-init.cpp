@@ -134,9 +134,7 @@ int32_t create_tex_gl_from_file(uint32_t& width, uint32_t& height,
 		}
 	}
 
-	GLuint tex;
-
-	glGenTextures(1,tex_id);
+    glGenTextures(1,tex_id);
 	glBindTexture(GL_TEXTURE_2D, *tex_id);
 
 	// select modulate to mix texture with color for shading

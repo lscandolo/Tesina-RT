@@ -56,7 +56,7 @@ static int test_node(std::vector<BVHNode>& nodes,
                 return -1;
         }
 
-        if (id >= nodes.size()) {
+        if (id >= (int)nodes.size()) {
                 std::cout << "Error, trying to access node " << id << "\n";
                 return -1;
         }
@@ -95,7 +95,7 @@ static int test_node(std::vector<BVHNode>& nodes,
         if (depth)
                 return 0;
 
-        for (int i = 0; i < prim_checked.size(); ++i) {
+        for (size_t i = 0; i < prim_checked.size(); ++i) {
                 if (prim_checked[i] != 1) {
                         std::cout << "Error: primitive " << i 
                                   << " checked " << prim_checked[i] << " times\n";
@@ -103,7 +103,7 @@ static int test_node(std::vector<BVHNode>& nodes,
                 }
         }
 
-        for (int i = 0; i < node_checked.size(); ++i) {
+        for (size_t i = 0; i < node_checked.size(); ++i) {
                 if (node_checked[i] != 1) {
                         std::cout << "Error: node " << i 
                                   << " checked " << node_checked[i] << " times\n";
@@ -316,8 +316,8 @@ BVHBuilder::build_bvh(Scene& scene, size_t cq_i)
                 if (bbox_out_mem.initialize(out_bbox_count * sizeof(BBox))) {
                         return -1;
                 }
-                // std::cout << "global size: "  << global_size << std::endl;
-                // std::cout << "group size: "  << group_size << std::endl;
+                // std::cout << "global size: "  << global_size << "\n";
+                // std::cout << "group size: "  << group_size << "\n";
                 if (max_local_bbox.set_arg(0,bbox_in_mem) ||
                     max_local_bbox.set_arg(1,2 * group_size * sizeof(BBox), NULL) ||
                     max_local_bbox.set_arg(2, sizeof(cl_uint), &bbox_count) ||
@@ -1031,8 +1031,8 @@ BVHBuilder::build_bvh_3(Scene& scene, size_t cq_i)
                 if (bbox_out_mem.initialize(out_bbox_count * sizeof(BBox))) {
                         return -1;
                 }
-                // std::cout << "global size: "  << global_size << std::endl;
-                // std::cout << "group size: "  << group_size << std::endl;
+                // std::cout << "global size: "  << global_size << "\n";
+                // std::cout << "group size: "  << group_size << "\n";
                 if (max_local_bbox.set_arg(0,bbox_in_mem) ||
                     max_local_bbox.set_arg(1,2 * group_size * sizeof(BBox), NULL) ||
                     max_local_bbox.set_arg(2, sizeof(cl_uint), &bbox_count) ||
@@ -1278,7 +1278,7 @@ BVHBuilder::build_bvh_3(Scene& scene, size_t cq_i)
         DeviceMemory PC = device.memory(PC_id);
         PC.initialize(32 * sizeof(cl_uint), oc);
 
-        int gsize = process_tasks.max_group_size();
+        size_t gsize = process_tasks.max_group_size();
         node_time.snap_time();
 
         if (process_tasks.set_arg(0, OC) ||
@@ -1303,7 +1303,7 @@ BVHBuilder::build_bvh_3(Scene& scene, size_t cq_i)
                         return -1;
                 }
 
-                size_t max_size = pow(2, i);
+                size_t max_size = powf(2, i);
                 size_t global_size = gsize;
                 while (global_size < max_size && global_size < gsize * 4 - 1)
                         global_size += gsize;
@@ -1343,7 +1343,7 @@ BVHBuilder::build_bvh_3(Scene& scene, size_t cq_i)
         //         std::cout << "Node " << i << ": " 
         //                   << (nodes[i].m_leaf? "(leaf)   \t" : "(branch)\t")
         //                   << nodes[i].m_l_child << " - " 
-        //                   << nodes[i].m_r_child << std::endl;
+        //                   << nodes[i].m_r_child << "\n";
         // }        
 
         device.delete_memory(OC_id);

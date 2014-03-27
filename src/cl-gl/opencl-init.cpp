@@ -21,8 +21,8 @@ CLInfo* CLInfo::instance()
 
 void CLInfo::release_resources()
 {
-        if (!initialized) return;
-        for (int i = 0; i < command_queues.size(); ++i) {
+        if (!m_initialized) return;
+        for (size_t i = 0; i < command_queues.size(); ++i) {
                 clReleaseCommandQueue(command_queues[i]);
         }
         command_queues.clear();
@@ -129,7 +129,7 @@ cl_int CLInfo::initialize(size_t requested_command_queues)
 
 	//create command queues using the context and device
 	std::cerr << "Creating command queues using the context and device" << std::endl;
-        for (int i = 0; i < requested_command_queues; ++i) {
+        for (size_t i = 0; i < requested_command_queues; ++i) {
                 cl_command_queue cq = 
                         clCreateCommandQueue(context,
                                              device_id,
@@ -664,7 +664,7 @@ int create_cl_mem_from_gl_tex(const GLuint gl_tex, cl_mem* mem, size_t cq_i)
 {
         CLInfo* clinfo = CLInfo::instance();
         if (!clinfo->initialized() || !clinfo->has_command_queue(cq_i))
-                return;
+                return -1;
 
 	cl_int err;
 
@@ -729,7 +729,7 @@ int32_t acquire_gl_tex(cl_mem& tex_mem, size_t cq_i)
 {
         CLInfo* clinfo = CLInfo::instance();
         if (!clinfo->initialized() || !clinfo->has_command_queue(cq_i))
-                return;
+                return -1;
 
         cl_int err;
 
@@ -753,7 +753,7 @@ int32_t release_gl_tex(cl_mem& tex_mem, size_t cq_i)
 {
         CLInfo* clinfo = CLInfo::instance();
         if (!clinfo->initialized() || !clinfo->has_command_queue(cq_i))
-                return;
+                return -1;
 
         cl_int err;
 

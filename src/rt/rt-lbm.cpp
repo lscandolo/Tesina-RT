@@ -24,37 +24,28 @@ int32_t MAX_BOUNCE = 5;
 int32_t GPU_BVH_BUILD = 1;
 #define WAVE_HEIGHT 0.1
 
+Renderer renderer;
+
 void rainEvent();
 
-CLInfo clinfo;
-GLInfo glinfo;
 
 int loging_state = 0;
+
+size_t frame = 0;
+
 bool is_raining = false;
 bool show_boat = false;
 
-DeviceInterface& device = *DeviceInterface::instance();
 memory_id tex_id;
 mesh_id   grid_id;
 mesh_id   boat_mesh_id;
 object_id boat_id;
 std::vector<object_id> boat_ids;
 
-RayBundle             ray_bundle_1,ray_bundle_2;
-HitBundle             hit_bundle;
 Scene                 scene;
-PrimaryRayGenerator   prim_ray_gen;
-SecondaryRayGenerator sec_ray_gen;
-RayShader             ray_shader;
-FrameBuffer           framebuffer;
-Tracer                tracer;
-BVHBuilder            bvh_builder;
 
 GLuint gl_tex;
 rt_time_t rt_time;
-size_t window_size[] = {512, 512};
-size_t pixel_count;
-size_t best_tile_size;
 Log rt_log;
 
 #define STEPS 16
@@ -125,8 +116,8 @@ void gl_mouse_click(int button, int state, int x, int y)
                 if (state == GLUT_UP)
                         splashing = false;
 
-                float xPosNDC = ((float)x)/window_size[0];
-                float yPosNDC = 1.f - ((float)y)/window_size[1];
+                float xPosNDC = ((float)x)/renderer.get_framebuffer_w();
+                float yPosNDC = 1.f - ((float)y)/renderer.get_framebuffer_w();
                 vec3 raydir = (scene.camera.dir + scene.camera.right * (xPosNDC * 2.0f - 1.0f) +
                         scene.camera.up    * (yPosNDC * 2.0f - 1.0f)).normalized();
                 vec3 raypos = scene.camera.pos;
@@ -149,8 +140,8 @@ void gl_mouse(int x, int y)
         } else if (moving) {
 
                 float delta = 0.005f;
-                float d_inc = delta * (window_size[1]*0.5f - y);/* y axis points downwards */
-                float d_yaw = delta * (x - window_size[0]*0.5f);
+                float d_inc = delta * (renderer.get_framebuffer_h() *0.5f - y);/* y axis points downwards */
+                float d_yaw = delta * (x - renderer.get_framebuffer_w() *0.5f);
 
                 float max_motion = 0.3f;
 
@@ -162,7 +153,8 @@ void gl_mouse(int x, int y)
 
                 scene.camera.modifyAbsYaw(d_yaw);
                 scene.camera.modifyPitch(d_inc);
-                glutWarpPointer(window_size[0] * 0.5f, window_size[1] * 0.5f);
+                glutWarpPointer(renderer.get_framebuffer_w() * 0.5f, 
+                                renderer.get_framebuffer_h() * 0.5f);
         }
 }
 
@@ -207,15 +199,6 @@ void gl_key(unsigned char key, int x, int y)
     case 'b':
             rt_log.silent = !rt_log.silent;
             break;
-    case 'l':
-            if (rt_log.initialize("rt-lbm-log-100")){
-                    std::cerr << "Error initializing log!" << std::endl;
-            }
-            loging_state = 1;
-            rt_log.enabled = true;
-            bvh_builder.logging(true);
-            rt_log << "SPP: " << prim_ray_gen.get_spp() << std::endl;
-            rt_log << "Resolution: " << window_size[0] << "x" << window_size[1] << std::endl;
     case 'u':
             if (!show_boat)
                     break;
@@ -274,18 +257,17 @@ void gl_key(unsigned char key, int x, int y)
             is_raining = !is_raining;
             break;
     case '1': /* Set 1 sample per pixel */
-            if (prim_ray_gen.set_spp(1,samples1)){
-                    std::cerr << "Error seting spp" << std::endl;
+            if (renderer.set_samples_per_pixel(1,samples1)){
+                    std::cerr << "Error seting spp" << "\n";
                     pause_and_exit(1);
             }
             break;
     case '4': /* Set 4 samples per pixel */
-            if (prim_ray_gen.set_spp(4,samples4)){
-                    std::cerr << "Error seting spp" << std::endl;
+            if (renderer.set_samples_per_pixel(4,samples4)){
+                    std::cerr << "Error seting spp" << "\n";
                     pause_and_exit(1);
             }
             break;
-
     }
 }
 
@@ -309,23 +291,9 @@ void gl_loop()
 	double fb_clear_time = 0;
 	double fb_copy_time = 0;
 
-	glClear(GL_COLOR_BUFFER_BIT);
-
-        if (device.acquire_graphic_resource(tex_id) ||
-            scene.cubemap.acquire_graphic_resources() || 
-            scene.acquire_graphic_resources()) {
-                std::cerr << "Error acquiring texture resource." << std::endl;
-                pause_and_exit(1);
-        }
-
-        if (framebuffer.clear()) {
-		std::cerr << "Failed to clear framebuffer." << std::endl;
-		pause_and_exit(1);
-	}
-	fb_clear_time = framebuffer.get_clear_exec_time();
+    DeviceInterface* device = DeviceInterface::instance();
 
 	cl_int arg = i%STEPS;
-	size_t tile_size = best_tile_size;
 
 	mangler_arg += 1.f;
 	rt_time_t mangle_timer;
@@ -334,25 +302,24 @@ void gl_loop()
 		if(loging_state == 1){
 			rt_log << "scene.camera configuration 'o' " << std::endl;
 			scene.camera.set(makeVector(0,3,-30), makeVector(0,0,1), makeVector(0,1,0), M_PI/4.,
-                                   window_size[0] / (float)window_size[1]);
+                                   renderer.get_framebuffer_w() / (float)renderer.get_framebuffer_h());
 		} else if (loging_state == 3){
 			rt_log << "scene.camera configuration 'i' " << std::endl;
 			scene.camera.set(makeVector(0,5,-30), makeVector(0,-0.5,1), makeVector(0,1,0), M_PI/4.,
-                                   window_size[0] / (float)window_size[1]);
+                                   renderer.get_framebuffer_w() / (float)renderer.get_framebuffer_h());
 		} else if (loging_state == 5) {
 			rt_log << "scene.camera configuration 'k' " << std::endl;
 			scene.camera.set(makeVector(0,25,-60), makeVector(0,-0.5,1), makeVector(0,1,0), M_PI/4.,
-                                   window_size[0] / (float)window_size[1]);
+                                   renderer.get_framebuffer_w() / (float)renderer.get_framebuffer_h());
 		} else if (loging_state == 7) {
 			rt_log << "scene.camera configuration 'l' " << std::endl;
 			scene.camera.set(makeVector(0,120,0), makeVector(0,-1,0.01), makeVector(0,1,0), M_PI/4.,
-                                   window_size[0] / (float)window_size[1]);
+                                   renderer.get_framebuffer_w() / (float)renderer.get_framebuffer_h());
 		} else if (loging_state == 9) {
 			rt_log.enabled = false;
 			rt_log.silent = true;
-            bvh_builder.logging(false);
             scene.camera.set(makeVector(0,3,-30), makeVector(0,0,1), makeVector(0,1,0), M_PI/4.,
-                                            window_size[0] / (float)window_size[1]);
+                                            renderer.get_framebuffer_w() / (float)renderer.get_framebuffer_h());
             std::cout << "Done loging!"	<< std::endl;
             loging_state = 0;
 		}
@@ -412,16 +379,6 @@ void gl_loop()
         //std::cerr << "Simulation time: "  << mangle_time << " msec." << std::endl;
         last_mangler_arg = mangler_arg;
 	
-
-        if (GPU_BVH_BUILD) {
-                if (bvh_builder.build_bvh(scene)) {
-                        std::cout << "BVH builder failed." << std::endl;
-                        pause_and_exit(1);
-                }
-                bvh_build_time = bvh_builder.get_exec_time();
-        }
-
-
         directional_light_cl light;
         //light.set_dir(0.05f * (arg - 8.f) , -0.6f, 0.2f);
         light.set_dir(0.05f * (1.f - 8.f) , -0.6f, 0.2f);
@@ -439,100 +396,24 @@ void gl_loop()
          //spot.set_color(0.7f,0.7f,0.7f);
          //scene.set_spot_light(spot);
 
-
-        size_t sample_count = pixel_count * prim_ray_gen.get_spp();
-        for (size_t offset = 0; offset < sample_count; offset+= tile_size) {
-
-		
-                RayBundle* ray_in =  &ray_bundle_1;
-                RayBundle* ray_out = &ray_bundle_2;
-
-                if (sample_count - offset < tile_size)
-                        tile_size = sample_count - offset;
-
-                if (prim_ray_gen.generate(scene.camera, ray_bundle_1, window_size,
-                                          tile_size, offset)) {
-                        std::cerr << "Error seting primary ray bundle" << std::endl;
-                        pause_and_exit(1);
-                }
-                prim_gen_time += prim_ray_gen.get_exec_time();
-
-                total_ray_count += tile_size;
-
-                if (tracer.trace(scene, tile_size, *ray_in, hit_bundle)){
-                        std::cerr << "Failed to trace." << std::endl;
-                        pause_and_exit(1);
-                }
-                prim_trace_time += tracer.get_trace_exec_time();
-
-                if (tracer.shadow_trace(scene, tile_size, *ray_in, hit_bundle)){
-                        std::cerr << "Failed to shadow trace." << std::endl;
-                        pause_and_exit(1);
-                }
-                prim_shadow_trace_time += tracer.get_shadow_exec_time();
-
-                if (ray_shader.shade(*ray_in, hit_bundle, scene,
-                                     scene.cubemap, framebuffer, tile_size,true)){
-                        std::cerr << "Failed to update framebuffer." << std::endl;
-                        pause_and_exit(1);
-                }
-                shader_time += ray_shader.get_exec_time();
-		
-
-                size_t sec_ray_count = tile_size;
-                for (int32_t i = 0; i < MAX_BOUNCE; ++i) {
-
-                        sec_ray_gen.generate(scene, *ray_in, sec_ray_count, 
-                                             hit_bundle, *ray_out, &sec_ray_count);
-                        sec_gen_time += sec_ray_gen.get_exec_time();
-
-                        std::swap(ray_in,ray_out);
-
-                        if (!sec_ray_count)
-                                break;
-                        if (sec_ray_count == ray_bundle_1.count())
-                                std::cerr << "Max sec rays reached!\n";
-
-                        total_ray_count += sec_ray_count;
-
-                        if (tracer.trace(scene, sec_ray_count, 
-                                         *ray_in, hit_bundle, true)) {
-                                std::cerr << "Failed to trace." << std::endl;
-                                pause_and_exit(1);
-                        }
-                        sec_trace_time += tracer.get_trace_exec_time();
-
-
-                        if (tracer.shadow_trace(scene, sec_ray_count, 
-                                                *ray_in, hit_bundle, true)) {
-                                std::cerr << "Failed to shadow trace." << std::endl;
-                                pause_and_exit(1);
-                        }
-                        sec_shadow_trace_time += tracer.get_shadow_exec_time();
-
-                        if (ray_shader.shade(*ray_in, hit_bundle, scene,
-                                             scene.cubemap, framebuffer, sec_ray_count)){
-                                std::cerr << "Ray shader failed execution." << std::endl;
-                                pause_and_exit(1);
-                        }
-                        shader_time += ray_shader.get_exec_time();
-                }
-
+        //Acquire graphics library resources, clear framebuffer, 
+        // clear counters and create bvh if needed
+        if (renderer.set_up_frame(tex_id ,scene)) {
+                std::cerr << "Error in setting up frame" << "\n";
+                exit(-1);
         }
 
-        if (framebuffer.copy(device.memory(tex_id))){
-                std::cerr << "Failed to copy framebuffer." << std::endl;
-                pause_and_exit(1);
+        renderer.render_to_framebuffer(scene);//!!
+        
+        renderer.copy_framebuffer();//!!
+
+        if (renderer.conclude_frame(scene)) {
+                std::cerr << "Error concluding frame" << "\n";
+                exit(-1);
         }
-        fb_copy_time = framebuffer.get_copy_exec_time();
+
         double total_msec = rt_time.msec_since_snap();
 
-        if (device.release_graphic_resource(tex_id) ||
-            scene.cubemap.release_graphic_resources() ||
-            scene.release_graphic_resources()) {
-                std::cerr << "Error releasing texture resource." << std::endl;
-                pause_and_exit(1);
-        }
         ////////////////// Immediate mode textured quad
         glBindTexture(GL_TEXTURE_2D, gl_tex);
 
@@ -565,8 +446,8 @@ void gl_loop()
               << "\t"
               << total_ray_count
               << " rays casted "
-              << "\t(" << pixel_count << " primary, " 
-              << total_ray_count-pixel_count << " secondary)"
+              //<< "\t(" << pixel_count << " primary, " 
+              //<< total_ray_count-pixel_count << " secondary)"
               << std::endl;
         if (rt_log.silent)
                 std::cout<< "Time elapsed: "
@@ -579,21 +460,45 @@ void gl_loop()
         rt_time.snap_time();
         total_ray_count = 0;
 
-        rt_log << "\nBVH Build time:\t" << bvh_build_time << std::endl;
-        rt_log << "Prim Gen time: \t" << prim_gen_time  << std::endl;
-        rt_log << "Sec Gen time: \t" << sec_gen_time << std::endl;
-        rt_log << "Tracer time: \t" << prim_trace_time + sec_trace_time  
-               << " (" <<  prim_trace_time << " - " << sec_trace_time 
-               << ")" << std::endl;
-        rt_log << "Shadow time: \t" << prim_shadow_trace_time + sec_shadow_trace_time 
-               << " (" <<  prim_shadow_trace_time 
-               << " - " << sec_shadow_trace_time << ")" << std::endl;
-        rt_log << "Shader time: \t " << shader_time << std::endl;
-        rt_log << "Fb clear time: \t" << fb_clear_time << std::endl;
-        rt_log << "Fb copy time: \t" << fb_copy_time << std::endl;
-        rt_log << std::endl;
+        if (frame == 10) 
+                renderer.log.enabled = true;
+
+        const FrameStats& stats = renderer.get_frame_stats();
+
+        renderer.log << "Resolution:\t" << renderer.get_framebuffer_w() << "x" 
+                     << renderer.get_framebuffer_h() << "\n";
+
+        renderer.log << "Max ray bounces:\t" << renderer.get_max_bounces() << "\n";
+
+        renderer.log << "\nBVH Build mean time:\t" << stats.get_stage_mean_time(BVH_BUILD) << "\n";
+        renderer.log << "Prim Gen mean time: \t" << stats.get_stage_mean_time(PRIM_RAY_GEN)<< "\n";
+        renderer.log << "Sec Gen mean time: \t" << stats.get_stage_mean_time(SEC_RAY_GEN)  << "\n";
+        renderer.log << "Tracer mean time: \t" << stats.get_stage_mean_time(PRIM_TRACE) + stats.get_stage_mean_time(SEC_TRACE)
+                << " (" <<  stats.get_stage_mean_time(PRIM_TRACE) << " - " << stats.get_stage_mean_time(SEC_TRACE)
+                << ")" << "\n";
+        renderer.log << "Shadow mean time: \t" << stats.get_stage_mean_time(PRIM_SHADOW_TRACE) + stats.get_stage_mean_time(SEC_SHADOW_TRACE)
+                << " (" <<  stats.get_stage_mean_time(PRIM_SHADOW_TRACE)
+                << " - " << stats.get_stage_mean_time(SEC_SHADOW_TRACE) << ")" << "\n";
+        renderer.log << "Shader mean time: \t" << stats.get_stage_mean_time(SHADE) << "\n";
+        renderer.log << "Fb clear mean time: \t" << stats.get_stage_mean_time(FB_CLEAR) << "\n";
+        renderer.log << "Fb copy mean time: \t" << stats.get_stage_mean_time(FB_COPY) << "\n";
+        renderer.log << std::endl;
+
+        if (frame == 10) 
+                renderer.log.enabled = false;
+
+
+        glRasterPos2f(-0.95f,0.9f);
+        std::stringstream ss;
+        ss << "FPS: " << (1000.f / stats.get_frame_time());
+        std::string fps_s = ss.str();
+        for (uint32_t i = 0; i < fps_s.size(); ++i)
+                glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *(fps_s.c_str()+i));
+
 
         glutSwapBuffers();
+
+        frame++;
 
 }
 
@@ -602,6 +507,8 @@ int main (int argc, char** argv)
 
         /*---------------------- Attempt to read INI File --------------------------*/
 
+        renderer.initialize_from_ini_file("rt.ini");
+
         INIReader ini;
         int32_t ini_err;
         ini_err = ini.load_file("rt.ini");
@@ -609,48 +516,46 @@ int main (int argc, char** argv)
                 std::cout << "Error at ini file line: " << -ini_err << std::endl;
         else if (ini_err > 0)
                 std::cout << "Unable to open ini file" << std::endl;
-        else {
-                int32_t val;
-                if (!ini.get_int_value("RT", "screen_w", val))
-                        window_size[0] = val;
-                if (!ini.get_int_value("RT", "screen_h", val))
-                        window_size[1] = val;
-                //if (!ini.get_int_value("RT", "gpu_bvh", val))
-                //        GPU_BVH_BUILD = val;
-                if (!ini.get_int_value("RT", "max_bounce", val)) 
-                        MAX_BOUNCE = val;
-        }
-        pixel_count = window_size[0] * window_size[1];
 
+        size_t window_size[] = {renderer.get_framebuffer_w(), renderer.get_framebuffer_h()};
+        size_t pixel_count = window_size[0] * window_size[1];
 
-	rt_log.enabled = true;
-	rt_log.silent = false;
+        rt_log.enabled = true;
+        rt_log.silent = false;
 
 	/*---------------------- Initialize OpenGL and OpenCL ----------------------*/
 
-	if (init_gl(argc,argv,&glinfo, window_size, "RT") != 0){
-		std::cerr << "Failed to initialize GL" << std::endl;
-		pause_and_exit(1);
-	} else { 
-		std::cout << "Initialized GL succesfully" << std::endl;
-	}
+        // Initialize OpenGL and OpenCL
+        GLInfo* glinfo = GLInfo::instance();
 
-	if (init_cl(glinfo,&clinfo) != CL_SUCCESS){
-		std::cerr << "Failed to initialize CL" << std::endl;
-		pause_and_exit(1);
-	} else { 
-		std::cout << "Initialized CL succesfully" << std::endl;
-	}
-	print_cl_info(clinfo);
+        if (glinfo->initialize(argc,argv, window_size, "RT-LBM")){
+                std::cerr << "Failed to initialize GL" << std::endl;
+                pause_and_exit(1);
+        } else { 
+                std::cout << "Initialized GL succesfully" << std::endl;
+        }
 
-	/* Initialize device interface */
-	if (device.initialize(clinfo)) {
-		std::cerr << "Failed to initialize device interface" << std::endl;
-		pause_and_exit(1);
-	}
+        CLInfo* clinfo = CLInfo::instance();
 
-    /* Initialize generic gpu library */
-    DeviceFunctionLibrary::initialize(clinfo);
+        if (clinfo->initialize(2) != CL_SUCCESS){
+                std::cerr << "Failed to initialize CL" << std::endl;
+                pause_and_exit(1);
+        } else { 
+                std::cout << "Initialized CL succesfully" << std::endl;
+        }
+        clinfo->print_info();
+
+    // Initialize device interface and generic gpu library
+    DeviceInterface* device = DeviceInterface::instance();
+    if (device->initialize()) {
+            std::cerr << "Failed to initialize device interface" << std::endl;
+            pause_and_exit(1);
+    }
+
+    if (DeviceFunctionLibrary::instance()->initialize()) {
+            std::cerr << "Failed to initialize function library" << std::endl;
+            pause_and_exit(1);
+    }
 
     /*---------------------- Initialize lbm simulator ----------------------*/
     LBM_initialize(GRID_SIZE_X, GRID_SIZE_Y, 0.05f, 0.77f);
@@ -660,8 +565,8 @@ int main (int argc, char** argv)
 
 	/*---------------------- Create shared GL-CL texture ----------------------*/
 	gl_tex = create_tex_gl(window_size[0],window_size[1]);
-	tex_id = device.new_memory();
-	DeviceMemory& tex_mem = device.memory(tex_id);
+	tex_id = device->new_memory();
+	DeviceMemory& tex_mem = device->memory(tex_id);
 	if (tex_mem.initialize_from_gl_texture(gl_tex)) {
 		std::cerr << "Failed to create memory object from gl texture" << std::endl;
 		pause_and_exit(1);
@@ -673,16 +578,6 @@ int main (int argc, char** argv)
 		pause_and_exit(1);
 	}
 	std::cout << "Initialized scene succesfully." << std::endl;
-    scene.set_accelerator_type(BVH_ACCELERATOR);
-    if (GPU_BVH_BUILD) {
-            if (bvh_builder.initialize(clinfo)) {
-                    std::cerr << "Failed to initialize bvh builder" << std::endl;
-                    pause_and_exit(1);
-            } else {
-                    std::cout << "Initialized bvh builder succesfully" << std::endl;
-            }
-            bvh_builder.set_log(&rt_log);
-    }
 
     /////////// Water
     mesh_id floor_mesh_id = scene.load_obj_file_as_aggregate("models/obj/grid100.obj");
@@ -733,7 +628,7 @@ int main (int argc, char** argv)
 
          scene.set_accelerator_type(BVH_ACCELERATOR);
 
-         clinfo.set_sync(false);
+         clinfo->set_sync(false);
 
          if (GPU_BVH_BUILD) {
                  if (scene.transfer_aggregate_mesh_to_device()) {
@@ -743,11 +638,6 @@ int main (int argc, char** argv)
                  } else {
                          std::cout << "Transfered aggregate mesh to device succesfully" 
                                    << std::endl;
-                 }
-
-                 if (bvh_builder.build_bvh(scene)) {
-                         std::cout << "BVH builder failed." << std::endl;
-                         pause_and_exit(1);
                  }
 
          } else {
@@ -781,38 +671,6 @@ int main (int argc, char** argv)
 	//scene.camera.set(makeVector(0,3,-30), makeVector(0,0,1), makeVector(0,1,0), M_PI/4.,
 	//	   window_size[0] / (float)window_size[1]);
 
-
-	/*---------------------------- Set tile size ------------------------------*/
-	best_tile_size = clinfo.max_compute_units * clinfo.max_work_item_sizes[0];
-	best_tile_size *= 64;
-	best_tile_size = std::min(pixel_count, best_tile_size);
-
-	/*---------------------- Initialize ray bundles -----------------------------*/
-	size_t ray_bundle_size = best_tile_size * 3;
-
-	if (ray_bundle_1.initialize(ray_bundle_size)) {
-		std::cerr << "Error initializing ray bundle 1" << std::endl;
-		std::cerr.flush();
-		pause_and_exit(1);
-	}
-
-	if (ray_bundle_2.initialize(ray_bundle_size)) {
-		std::cerr << "Error initializing ray bundle 2" << std::endl;
-		std::cerr.flush();
-		pause_and_exit(1);
-	}
-	std::cout << "Initialized ray bundles succesfully" << std::endl;
-
-	/*---------------------- Initialize hit bundle -----------------------------*/
-	size_t hit_bundle_size = ray_bundle_size;
-
-	if (hit_bundle.initialize(hit_bundle_size)) {
-		std::cerr << "Error initializing hit bundle" << std::endl;
-		std::cerr.flush();
-		pause_and_exit(1);
-	}
-	std::cout << "Initialized hit bundle succesfully" << std::endl;
-
 	/*----------------------- Initialize scene.cubemap ---------------------------*/
 	
 	if (scene.cubemap.initialize("textures/cubemap/Path/posx.jpg",
@@ -826,52 +684,6 @@ int main (int argc, char** argv)
 	}
 	std::cerr << "Initialized scene.cubemap succesfully." << std::endl;
 
-	/*------------------------ Initialize FrameBuffer ---------------------------*/
-	if (framebuffer.initialize(window_size)) {
-		std::cerr << "Error initializing framebuffer." << std::endl;
-		pause_and_exit(1);
-	}
-	std::cout << "Initialized framebuffer succesfully." << std::endl;
-
-	/* ------------------ Initialize ray tracer kernel ----------------------*/
-
-	if (tracer.initialize()){
-		std::cerr << "Failed to initialize tracer." << std::endl;
-		return 0;
-	}
-	std::cerr << "Initialized tracer succesfully." << std::endl;
-
-
-	/* ------------------ Initialize Primary Ray Generator ----------------------*/
-
-	if (prim_ray_gen.initialize()) {
-		std::cerr << "Error initializing primary ray generator." << std::endl;
-		pause_and_exit(1);
-	}
-	std::cout << "Initialized primary ray generator succesfully." << std::endl;
-
-
-	/* ------------------ Initialize Secondary Ray Generator ----------------------*/
-	if (sec_ray_gen.initialize()) {
-		std::cerr << "Error initializing secondary ray generator." << std::endl;
-		pause_and_exit(1);
-	}
-	sec_ray_gen.set_max_rays(ray_bundle_1.count());
-	std::cout << "Initialized secondary ray generator succesfully." << std::endl;
-
-	/*------------------------ Initialize RayShader ---------------------------*/
-	if (ray_shader.initialize()) {
-		std::cerr << "Error initializing ray shader." << std::endl;
-		pause_and_exit(1);
-	}
-	std::cout << "Initialized ray shader succesfully." << std::endl;
-
-	/*----------------------- Enable timing in all clases -------------------*/
-	framebuffer.timing(true);
-	prim_ray_gen.timing(true);
-	sec_ray_gen.timing(true);
-	tracer.timing(true);
-	ray_shader.timing(true);
 
 	/*---------------------- Print scene data ----------------------*/
 	Mesh& scene_mesh = scene.get_aggregate_mesh();
@@ -879,37 +691,11 @@ int main (int argc, char** argv)
 	std::cerr << "\tTriangle count: " << scene_mesh.triangleCount() << std::endl;
 	std::cerr << "\tVertex count: " << scene_mesh.vertexCount() << std::endl;
 
-	/*------------------------- Count mem usage -----------------------------------*/
-	size_t total_cl_mem = 0;
-	total_cl_mem += pixel_count * 4; /* 4bpp texture */
-	total_cl_mem += ray_bundle_1.mem().size() + ray_bundle_2.mem().size();
-	total_cl_mem += hit_bundle.mem().size();
-	total_cl_mem += scene.cubemap.positive_x_mem().size() * 6;
-	total_cl_mem += framebuffer.image_mem().size();
-	
-	std::cout << "\nMemory stats: " << std::endl;
-	std::cout << "\tTotal opencl mem usage: "
-                  << total_cl_mem/1e6 << " MB." << std::endl;
-	std::cout << "\tFramebuffer+Tex mem usage: "
-                  << (framebuffer.image_mem().size() + pixel_count * 4)/1e6
-                  << " MB."<< std::endl;
-	std::cout << "\tscene.cubemap mem usage: "
-                  << (scene.cubemap.positive_x_mem().size()*6)/1e6
-                  << " MB."<< std::endl;
-	std::cout << "\tRay mem usage: "
-                  << (ray_bundle_1.mem().size()*2)/1e6
-                  << " MB."<< std::endl;
-	std::cout << "\tRay hit info mem usage: "
-                  << hit_bundle.mem().size()/1e6
-                  << " MB."<< std::endl;
-
 
         /* !! ---------------------- Test area ---------------- */
 	std::cerr << std::endl;
 	std::cerr << "Misc info: " << std::endl;
 
-	std::cerr << "Tile size: " << best_tile_size << std::endl;
-	std::cerr << "Tiles: " << pixel_count / (float)best_tile_size << std::endl;
 	std::cerr << "color_cl size: "
 		  << sizeof(color_cl)
 		  << std::endl;
@@ -932,14 +718,22 @@ int main (int argc, char** argv)
 	rt_log.enabled = false;
 	rt_log.silent = true;
 
-	glutKeyboardFunc(gl_key);
-	glutMotionFunc(gl_mouse);
+    /* Initialize renderer */
+    renderer.initialize("rt-lbm-log");
+    int32_t max_bounces = 9;
+    ini.get_int_value("RT", "max_bounces", max_bounces);
+    max_bounces = std::min(std::max(max_bounces, 0), 9);
+    renderer.set_max_bounces(max_bounces);
+    renderer.log.silent = true;
+
+    glutKeyboardFunc(gl_key);
+    glutMotionFunc(gl_mouse);
 	glutMouseFunc(gl_mouse_click);
 	glutDisplayFunc(gl_loop);
 	glutIdleFunc(gl_loop);
 	glutMainLoop();	
 
-	clinfo.release_resources();
+	clinfo->release_resources();
 
 	return 0;
 }

@@ -13,7 +13,7 @@ bool DeviceMemory::valid() const
 int32_t DeviceMemory::initialize(size_t size, DeviceMemoryMode mode)
 {
         CLInfo* clinfo = CLInfo::instance();
-        if (!clinfo->initialized || m_initialized)
+        if (!clinfo->initialized() || m_initialized)
                 return -1;
 
         cl_mem_flags flags;
@@ -50,7 +50,7 @@ int32_t DeviceMemory::initialize(size_t size, DeviceMemoryMode mode)
 int32_t DeviceMemory::initialize(size_t size, const void* values, DeviceMemoryMode mode)
 {
         CLInfo* clinfo = CLInfo::instance();
-        if (!clinfo->initialized || m_initialized)
+        if (!clinfo->initialized() || m_initialized)
                 return -1;
 
         cl_mem_flags flags;
@@ -89,7 +89,7 @@ int32_t DeviceMemory::initialize(size_t size, const void* values, DeviceMemoryMo
 int32_t DeviceMemory::initialize_from_gl_texture(const GLuint gl_tex)
 {
         CLInfo* clinfo = CLInfo::instance();
-        if (!clinfo->initialized || m_initialized)
+        if (!clinfo->initialized() || m_initialized)
                 return -1;
 
         cl_int err;
@@ -258,7 +258,7 @@ DeviceMemory::copy_to(DeviceMemory& dst, size_t bytes, size_t offset,
 int32_t 
 DeviceMemory::copy_all_to(DeviceMemory& dst, size_t command_queue_i)
 {
-        copy_to(dst, 0, 0, 0, command_queue_i);
+        return copy_to(dst, 0, 0, 0, command_queue_i);
 }
 
 int32_t

@@ -86,6 +86,7 @@
     <ClInclude Include="..\..\include\rt\camera.hpp" />
     <ClInclude Include="..\..\include\rt\cl_aux.hpp" />
     <ClInclude Include="..\..\include\rt\cubemap.hpp" />
+    <ClInclude Include="..\..\include\rt\frame-stats.hpp" />
     <ClInclude Include="..\..\include\rt\framebuffer.hpp" />
     <ClInclude Include="..\..\include\rt\geom.hpp" />
     <ClInclude Include="..\..\include\rt\kdtree.hpp" />
