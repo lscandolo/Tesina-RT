@@ -107,7 +107,6 @@ uint32_t Renderer::render_to_framebuffer(Scene& scene)
                 size_t sec_ray_count = current_tile_size;
                 for (uint32_t bounce = 0; bounce < max_bounces; ++bounce) {
 
-
                         size_t sec_ray_in = sec_ray_count;
                         if (sec_ray_gen.generate_disc(scene, 
                                                       *ray_in, 
@@ -119,6 +118,7 @@ uint32_t Renderer::render_to_framebuffer(Scene& scene)
                                           << std::endl;
                                 return -1;
                         }
+
                         //// If sec_ray_count is too small, then it's very likely that 
                         //// reflect and refract rays from the same base ray will be 
                         //// handled by different warps at the same time. If that
@@ -126,8 +126,8 @@ uint32_t Renderer::render_to_framebuffer(Scene& scene)
                         //// they will be bundled together for (hopefully) the same 
                         //// work group to analize. TODO: do this on the sec gen
                         size_t max_count = 
-                                4 * clinfo->max_work_group_size * clinfo->max_compute_units;
-                        if (sec_ray_count < max_count) {
+                                6 * clinfo->max_work_group_size * clinfo->max_compute_units;
+                        if (sec_ray_count < max_count && sec_ray_count > 1) {
                                 if (sec_ray_gen.generate(scene, 
                                                          *ray_in, 
                                                          sec_ray_in, 
@@ -164,14 +164,15 @@ uint32_t Renderer::render_to_framebuffer(Scene& scene)
                         if (tracer.shadow_trace(scene, sec_ray_count, 
                                 *ray_in, hit_bundle, true)) {
                                         std::cerr << "Error shadow tracing primary rays" 
-                                                << std::endl;
+                                                  << std::endl;
                                         return -1;
                         }
                         stats.stage_times[SEC_SHADOW_TRACE] += tracer.get_shadow_exec_time();
 
                         if (ray_shader.shade(*ray_in, hit_bundle, scene,
                                 scene.cubemap, framebuffer, sec_ray_count)){
-                                        std::cerr << "Ray shader failed execution." << std::endl;
+                                        std::cerr << "Ray shader failed execution." 
+                                                  << std::endl;
                                         return -1;
                         }
                         stats.stage_times[SHADE] += ray_shader.get_exec_time();
