@@ -51,7 +51,7 @@ static int test_node(std::vector<BVHNode>& nodes,
                      std::vector<int>& prim_checked,
                      std::vector<int>& node_checked) 
 {
-        if (depth > 30)  {
+        if (depth > 32)  {
                 std::cout << "Error, trying to access depth " << depth << "\n";
                 return -1;
         }
@@ -988,8 +988,10 @@ BVHBuilder::build_bvh_3(Scene& scene, size_t cq_i)
             primitive_bbox_builder.set_arg(2,bboxes_mem) ||
             primitive_bbox_builder.set_arg(3,triangles_mem))
                 return -1;
-        if (primitive_bbox_builder.enqueue_simple(triangle_count, cq_i))
+        if (primitive_bbox_builder.enqueue_simple(triangle_count, cq_i)) {
+                std::cout << "Failed at primitive_bbox_builder " << std::endl; 
                 return -1;
+        }
         device.enqueue_barrier(cq_i);
 
         if (m_logging && m_log != NULL) { 
@@ -1039,8 +1041,10 @@ BVHBuilder::build_bvh_3(Scene& scene, size_t cq_i)
                     max_local_bbox.set_arg(3,bbox_out_mem))
                         return -1;
 
-                if (max_local_bbox.enqueue_single_dim(global_size,group_size, 0, cq_i))
+                if (max_local_bbox.enqueue_single_dim(global_size,group_size, 0, cq_i)) {
+                        std::cout << "Failed at max_local_bbox " << std::endl; 
                         return -1;
+                }
                 device.enqueue_barrier(cq_i);
                     
                 bbox_count = out_bbox_count;
@@ -1062,13 +1066,15 @@ BVHBuilder::build_bvh_3(Scene& scene, size_t cq_i)
         memory_id last_bbox_out_id = aux_bbox_mems[aux_bbox_mems.size()-1];
         DeviceMemory& global_bbox_mem = device.memory(last_bbox_out_id);
 
-        DeviceFunction& morton_encoder_32 = device.function(morton_encoder_id);//!!
+        DeviceFunction& morton_encoder_32 = device.function(morton_encoder_32_id);//!!
         if (morton_encoder_32.set_arg(0,bboxes_mem) ||
             morton_encoder_32.set_arg(1,global_bbox_mem) ||
             morton_encoder_32.set_arg(2,morton_mem))
                 return -1;
-        if (morton_encoder_32.enqueue_simple(triangle_count, cq_i))
+        if (morton_encoder_32.enqueue_simple(triangle_count, cq_i)) {
+                std::cout << "Failed at morton encoder " << std::endl; 
                 return -1;
+        }
         device.enqueue_barrier(cq_i);
         device.delete_memory(last_bbox_out_id);
         if (m_logging && m_log != NULL) {
@@ -1123,8 +1129,11 @@ BVHBuilder::build_bvh_3(Scene& scene, size_t cq_i)
                                 morton_sorter_16.set_arg(5,sizeof(int),&last_step);
                                 morton_sorter_16.set_arg(6,sizeof(int),&morton_sort_size);
                                 
-                                if (morton_sorter_16.enqueue_simple(ms16_work_items, cq_i))
+                                if (morton_sorter_16.enqueue_simple(ms16_work_items, cq_i)){
+                                        std::cout << "Failed at morton sorter_16" 
+                                                  << std::endl; 
                                         exit(1);
+                                }
                                 device.enqueue_barrier(cq_i);
 
                         } else if (inc > 2) {
@@ -1135,8 +1144,11 @@ BVHBuilder::build_bvh_3(Scene& scene, size_t cq_i)
                                 morton_sorter_8.set_arg(5,sizeof(int),&last_step);
                                 morton_sorter_8.set_arg(6,sizeof(int),&morton_sort_size);
                                 
-                                if (morton_sorter_8.enqueue_simple(ms8_work_items, cq_i))
+                                if (morton_sorter_8.enqueue_simple(ms8_work_items, cq_i)) {
+                                        std::cout << "Failed at morton sorter_8" 
+                                                  << std::endl; 
                                         exit(1);
+                                }
                                 device.enqueue_barrier(cq_i);
 
                         } else if (inc > 1) {
@@ -1147,8 +1159,11 @@ BVHBuilder::build_bvh_3(Scene& scene, size_t cq_i)
                                 morton_sorter_4.set_arg(5,sizeof(int),&last_step);
                                 morton_sorter_4.set_arg(6,sizeof(int),&morton_sort_size);
                                 
-                                if (morton_sorter_4.enqueue_simple(ms4_work_items, cq_i))
+                                if (morton_sorter_4.enqueue_simple(ms4_work_items, cq_i)) {
+                                        std::cout << "Failed at morton sorter_4" 
+                                                  << std::endl; 
                                         exit(1);
+                                }
                                 device.enqueue_barrier(cq_i);
                         } else {
                                 morton_sorter_2.set_arg(2,sizeof(int),&inc);
@@ -1157,8 +1172,11 @@ BVHBuilder::build_bvh_3(Scene& scene, size_t cq_i)
                                 morton_sorter_2.set_arg(5,sizeof(int),&last_step);
                                 morton_sorter_2.set_arg(6,sizeof(int),&morton_sort_size);
                                 
-                                if (morton_sorter_2.enqueue_simple(ms2_work_items, cq_i))
+                                if (morton_sorter_2.enqueue_simple(ms2_work_items, cq_i)) {
+                                        std::cout << "Failed at morton sorter_2" 
+                                                  << std::endl; 
                                         exit(1);
+                                }
                                 device.enqueue_barrier(cq_i);
                         }
                 }
@@ -1169,8 +1187,6 @@ BVHBuilder::build_bvh_3(Scene& scene, size_t cq_i)
                 partial_time_ms = partial_timer.msec_since_snap();
                 (*m_log) << "\tMorton sorter: " << partial_time_ms << " ms" << "\n";
         }
-
-
 
         ///////////////////////////////////////////////////////////////////////////////
         ////////////////////// 3.2 Rearrange indices and map //////////////////////////
@@ -1200,8 +1216,10 @@ BVHBuilder::build_bvh_3(Scene& scene, size_t cq_i)
             index_rearranger.set_arg(2,scene.index_mem())) {
                 return -1;
         }
-        if (index_rearranger.enqueue_simple(triangle_count, cq_i))
+        if (index_rearranger.enqueue_simple(triangle_count, cq_i)) {
+                std::cout << "Failed at index rearranger" << std::endl; 
                 return -1;
+        }
         device.enqueue_barrier(cq_i);
 
         ////// Rearrange material map
@@ -1215,8 +1233,10 @@ BVHBuilder::build_bvh_3(Scene& scene, size_t cq_i)
             map_rearranger.set_arg(2,scene.material_map_mem())) {
                 return -1;
         }
-        if (map_rearranger.enqueue_simple(triangle_count, cq_i))
+        if (map_rearranger.enqueue_simple(triangle_count, cq_i)) {
+                std::cout << "Failed at map rearranger" << std::endl; 
                 return -1;
+        }
         device.enqueue_barrier(cq_i);
 
         if (morton_mem.copy_all_to(aux_mem, cq_i)) {
@@ -1228,10 +1248,13 @@ BVHBuilder::build_bvh_3(Scene& scene, size_t cq_i)
             morton_rearranger.set_arg(2,morton_mem)) {
                 return -1;
         }
-        if (morton_rearranger.enqueue_simple(triangle_count, cq_i))
+        if (morton_rearranger.enqueue_simple(triangle_count, cq_i)) {
+                std::cout << "Failed at morton rearranger" << std::endl; 
                 return -1;
+        }
         device.enqueue_barrier(cq_i);
         device.delete_memory(aux_id);
+
         ///////////////////////////////////////////////////////////////////////////////
         ////////////////////// 4. Create bvh nodes ////////////////////////////////////
         ///////////////////////////////////////////////////////////////////////////////
@@ -1285,8 +1308,8 @@ BVHBuilder::build_bvh_3(Scene& scene, size_t cq_i)
             process_tasks.set_arg(1, PC) ||
             process_tasks.set_arg(2, nodes_mem) ||
             process_tasks.set_arg(3, morton_mem) ||
-            process_tasks.set_arg(4, gsize * sizeof(int) * 2, NULL) ||
-            process_tasks.set_arg(5, gsize * sizeof(int) * 2, NULL)) {
+            process_tasks.set_arg(4, sizeof(cl_int) * (gsize * 2 + 1), NULL) ||
+            process_tasks.set_arg(5, sizeof(cl_int) * (gsize * 2 + 1), NULL)) {
                 std::cout << "Error setting arguments for process_tasks\n";
                 return -1;
         }
@@ -1296,7 +1319,9 @@ BVHBuilder::build_bvh_3(Scene& scene, size_t cq_i)
         // std::cout << "PC size: " << PC.size() << "\n";
         // std::cout << "morton_mem size: " << morton_mem.size() << "\n";
 
-        for (int i = 0; i < 30; ++i) {
+        int compute_units = CLInfo::instance()->max_compute_units;
+
+        for (int i = 0; i < 32; ++i) {
 
                 if (process_tasks.set_arg(6, sizeof(int), &i)) {
                         std::cout << "Error setting arguments for process_tasks\n";
@@ -1305,7 +1330,7 @@ BVHBuilder::build_bvh_3(Scene& scene, size_t cq_i)
 
                 size_t max_size = pow(2, i);
                 size_t global_size = gsize;
-                while (global_size < max_size && global_size < gsize * 4 - 1)
+                while (global_size < max_size && global_size < gsize * compute_units - 1)
                         global_size += gsize;
 
                 if (process_tasks.enqueue_single_dim(global_size,gsize, 0, cq_i)) {
@@ -1346,6 +1371,16 @@ BVHBuilder::build_bvh_3(Scene& scene, size_t cq_i)
         //                   << nodes[i].m_r_child << std::endl;
         // }        
 
+        // unsigned int max_node_tris = 0;
+        // for (int i = 0; i < node_count; ++i) {
+        //         if (!nodes[i].m_leaf)
+        //                 continue;
+        //         max_node_tris = std::max(max_node_tris, 
+        //                                  nodes[i].m_end_index - nodes[i].m_start_index);
+
+        // }
+        // std::cout << "MAX TRIS: " << max_node_tris;
+
         device.delete_memory(OC_id);
         device.delete_memory(PC_id);
 
@@ -1364,11 +1399,13 @@ BVHBuilder::build_bvh_3(Scene& scene, size_t cq_i)
         }
 
         if (leaf_bbox_builder.enqueue_simple(node_count, cq_i)) {
+                std::cout << "Failed at leaf bbox builder" << std::endl; 
                 return -1;
         }
         device.enqueue_barrier(cq_i);
 
         if (node_bbox_builder.set_arg(0,nodes_mem)) {
+                std::cout << "Failed at node bbox builder iteration 0" << std::endl; 
                 return -1;
         }
         device.enqueue_barrier(cq_i);
@@ -1380,16 +1417,18 @@ BVHBuilder::build_bvh_3(Scene& scene, size_t cq_i)
                         continue;
 
                 if (node_bbox_builder.enqueue_single_dim(count, 0,start_node, cq_i)) {
+                        std::cout << "Failed at node bbox builder iteration " 
+                                  << i << std::endl; 
                         return -1;
                 }
                 device.enqueue_barrier(cq_i);
         }
 
         // // One last time for the root
-        if (node_bbox_builder.enqueue_single_dim(1, 0, 0, cq_i)) {
-                return -1;
-        }
-        device.enqueue_barrier(cq_i);
+        // if (node_bbox_builder.enqueue_single_dim(1, 0, 0, cq_i)) {
+        //         return -1;
+        // }
+        // device.enqueue_barrier(cq_i);
 
         // if (m_logging && m_log != NULL) {
         //         device.finish_commands(cq_i);
