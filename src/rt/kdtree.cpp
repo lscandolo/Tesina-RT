@@ -6,7 +6,7 @@
 
 #define  PRINT(x)  std::cout << (#x) << " = " << (x) << std::endl
 
-int max_leaf = 0;
+size_t max_leaf = 0;
 
 int32_t 
 KDTree::construct(Mesh& mesh, BBox* scene_bbox, int32_t node_offset, int32_t tri_offset) 

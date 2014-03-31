@@ -6,7 +6,7 @@
 #include <string>
 #include <stdint.h>
 
-#include <pthread.h>
+//#include <pthread.h>
 
 #include <cl-gl/opencl-init.hpp>
 #include <gpu/interface.hpp>
@@ -191,9 +191,9 @@ private:
         memory_id lights_id;
         memory_id bvh_roots_id;
 
-        pthread_t bvh_thread;
-        pthread_barrier_t thread_barrier;
-        pthread_barrierattr_t thread_barrier_attr;
+//        pthread_t bvh_thread;
+//        pthread_barrier_t thread_barrier;
+//        pthread_barrierattr_t thread_barrier_attr;
 
 };
 

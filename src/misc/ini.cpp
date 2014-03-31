@@ -49,7 +49,7 @@ INIReader::load_file(std::string filename)
                 if (line[0] == '[') {
                         int end_pos = line.find(']');
                         if (end_pos == std::string::npos || end_pos == 1)
-                                return -line_number;
+                                return -(int)line_number;
                         current_section = line.substr(1,end_pos-1);
                         continue;
                 }
@@ -57,7 +57,7 @@ INIReader::load_file(std::string filename)
                 // Property = value line
                 int eq_pos = line.find('=');
                 if (eq_pos == std::string::npos) {
-                        return -line_number;
+                        return -(int)line_number;
                 }
                 std::string name = line.substr(0, eq_pos);
                 std::string val  = line.substr(eq_pos+1, line.length() - eq_pos - 1);
@@ -66,7 +66,7 @@ INIReader::load_file(std::string filename)
                 remove_excess_spaces(val);
 
                 if (name.length() == 0 || val.length() == 0) {
-                        return -line_number;
+                        return -(int)line_number;
                 }
                 m_values[current_section][name] = val;
 

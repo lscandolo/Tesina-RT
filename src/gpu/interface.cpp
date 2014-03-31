@@ -133,7 +133,7 @@ DeviceInterface::build_functions(std::string file, std::vector<std::string>& nam
         DeviceFunction& f = function(ids[0]);
 
         if (f.initialize(file, names[0]))  {
-                for (int i = 0; i < ids.size(); ++i) {
+                for (size_t i = 0; i < ids.size(); ++i) {
                         delete_function(ids[i]);
                         ids.clear();
                 }
@@ -142,14 +142,14 @@ DeviceInterface::build_functions(std::string file, std::vector<std::string>& nam
 
         cl_program file_program = f.m_program;
 
-        for (int i = 1; i < names.size(); ++i) {
+        for (size_t i = 1; i < names.size(); ++i) {
                 
                 function_id fid = new_function();
                 ids.push_back(fid);
                 DeviceFunction& f = function(fid);
                 f.m_program = file_program;
                 if (f.initialize(names[i])) {
-                        for (int i = 0; i < ids.size(); ++i) {
+                        for (size_t i = 0; i < ids.size(); ++i) {
                                 delete_function(ids[i]);
                                 ids.clear();
                         }

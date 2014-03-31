@@ -27,13 +27,13 @@ uint32_t Renderer::set_up_frame(const memory_id tex_id, Scene& scene)
         // Acquire resources for render texture
         if (device.acquire_graphic_resource(target_tex_id)) {
                 //|| scene.acquire_graphic_resources()) {// Scene acquire is not needed
-                std::cerr << "Error acquiring texture resource." << std::endl;
+                std::cerr << "Error acquiring texture resource." << "\n";
                 return -1;
         }
         
         // Clear the framebuffer
         if (framebuffer.clear()) {
-                std::cerr << "Failed to clear framebuffer." << std::endl;
+                std::cerr << "Failed to clear framebuffer." << "\n";
                 return -1;
         }
         stats.stage_times[FB_CLEAR] = framebuffer.get_clear_exec_time();
@@ -52,7 +52,7 @@ uint32_t Renderer::update_accelerator(Scene& scene)
         
         if (!static_bvh || !scene.ready()) {
                 if (bvh_builder.build_bvh_3(scene)) {//!!
-                        std::cout << "BVH builder failed." << std::endl;
+                        std::cout << "BVH builder failed." << "\n";
                         return -1;
                 } 
                 stats.stage_times[BVH_BUILD] = bvh_builder.get_exec_time();
@@ -78,7 +78,7 @@ uint32_t Renderer::render_to_framebuffer(Scene& scene)
 
                 if (prim_ray_gen.generate(scene.camera, *ray_in, fb_size,
                     current_tile_size, offset)) {
-                         std::cerr << "Error seting primary ray bundle" << std::endl;
+                         std::cerr << "Error seting primary ray bundle" << "\n";
                          return -1;
                 }
 
@@ -86,20 +86,20 @@ uint32_t Renderer::render_to_framebuffer(Scene& scene)
                 stats.total_ray_count += current_tile_size;
 
                 if (tracer.trace(scene, current_tile_size, *ray_in, hit_bundle)) {
-                        std::cerr << "Error tracing primary rays" << std::endl;
+                        std::cerr << "Error tracing primary rays" << "\n";
                         return -1;
                 }
                 stats.stage_times[PRIM_TRACE] += tracer.get_trace_exec_time();
 
                 if (tracer.shadow_trace(scene, current_tile_size, *ray_in, hit_bundle)) {
-                        std::cerr << "Error shadow tracing primary rays" << std::endl;
+                        std::cerr << "Error shadow tracing primary rays" << "\n";
                         return - 1;
                 }
                 stats.stage_times[PRIM_SHADOW_TRACE] += tracer.get_shadow_exec_time();
                 
                 if (ray_shader.shade(*ray_in, hit_bundle, scene,
                     scene.cubemap, framebuffer, current_tile_size,true)){
-                         std::cerr << "Failed to update framebuffer." << std::endl;
+                         std::cerr << "Failed to update framebuffer." << "\n";
                          return -1;
                 }
                 stats.stage_times[SHADE] += ray_shader.get_exec_time();
@@ -115,7 +115,7 @@ uint32_t Renderer::render_to_framebuffer(Scene& scene)
                                                       *ray_out, 
                                                       &sec_ray_count)) {
                                 std::cerr << "Failed to create secondary rays." 
-                                          << std::endl;
+                                          << "\n";
                                 return -1;
                         }
 
@@ -135,7 +135,7 @@ uint32_t Renderer::render_to_framebuffer(Scene& scene)
                                                          *ray_out, 
                                                          &sec_ray_count)) {
                                         std::cerr << "Failed to create secondary rays." 
-                                                  << std::endl;
+                                                  << "\n";
                                         return -1;
                                 }
                         }
@@ -155,7 +155,7 @@ uint32_t Renderer::render_to_framebuffer(Scene& scene)
                         if (tracer.trace(scene, sec_ray_count, 
                                 *ray_in, hit_bundle, true)) {
                                         std::cerr << "Error tracing secondary rays" 
-                                                  << std::endl;
+                                                  << "\n";
                                         return -1;
                         }
 
@@ -164,15 +164,14 @@ uint32_t Renderer::render_to_framebuffer(Scene& scene)
                         if (tracer.shadow_trace(scene, sec_ray_count, 
                                 *ray_in, hit_bundle, true)) {
                                         std::cerr << "Error shadow tracing primary rays" 
-                                                  << std::endl;
+                                                  << "\n";
                                         return -1;
                         }
                         stats.stage_times[SEC_SHADOW_TRACE] += tracer.get_shadow_exec_time();
 
                         if (ray_shader.shade(*ray_in, hit_bundle, scene,
                                 scene.cubemap, framebuffer, sec_ray_count)){
-                                        std::cerr << "Ray shader failed execution." 
-                                                  << std::endl;
+                                        std::cerr << "Ray shader failed execution." << "\n";
                                         return -1;
                         }
                         stats.stage_times[SHADE] += ray_shader.get_exec_time();
@@ -187,7 +186,7 @@ uint32_t Renderer::copy_framebuffer(memory_id tex_id)
         DeviceInterface& device = *DeviceInterface::instance();
 
         if (!device.good() || framebuffer.copy(device.memory(tex_id))){
-                std::cerr << "Failed to copy framebuffer." << std::endl;
+                std::cerr << "Failed to copy framebuffer." << "\n";
                 return -1;
         }
         stats.stage_times[FB_COPY] = framebuffer.get_copy_exec_time();
@@ -224,7 +223,7 @@ uint32_t Renderer::conclude_frame(Scene& scene, memory_id tex_id)
         // Release render texture resource
         if (device.release_graphic_resource(tex_id)) {
                 //|| scene.release_graphic_resources()) { // Scene release is not needed
-            std::cerr << "Error releasing texture resource." << std::endl;
+            std::cerr << "Error releasing texture resource." << "\n";
             return -1;
         }
         device.finish_commands();
@@ -248,9 +247,9 @@ uint32_t Renderer::initialize_from_ini_file(std::string file_path)
         int32_t ini_err;
         ini_err = ini.load_file(file_path);
         if (ini_err < 0)
-                std::cout << "Error at ini file line: " << -ini_err << std::endl;
+                std::cout << "Error at ini file line: " << -ini_err << "\n";
         else if (ini_err > 0)
-                std::cout << "Unable to open ini file" << std::endl;
+                std::cout << "Unable to open ini file" << "\n";
         else {
                 int32_t int_val;
                 std::string str_val;
@@ -278,10 +277,10 @@ uint32_t Renderer::initialize(std::string log_filename)
         log.enabled = false;
 
         if (bvh_builder.initialize()) {
-                std::cerr << "Failed to initialize bvh builder" << std::endl;
+                std::cerr << "Failed to initialize bvh builder" << "\n";
                 return -1;
         } else {
-                std::cout << "Initialized bvh builder succesfully" << std::endl;
+                std::cout << "Initialized bvh builder succesfully" << "\n";
         }
         bvh_builder.set_log(&log);
 
@@ -295,68 +294,68 @@ uint32_t Renderer::initialize(std::string log_filename)
         size_t ray_bundle_size = tile_size * 3;
 
         if (ray_bundle_1.initialize(ray_bundle_size)) {
-                std::cerr << "Error initializing ray bundle" << std::endl;
+                std::cerr << "Error initializing ray bundle" << "\n";
                 std::cerr.flush();
                 return -1;
         }
 
         if (ray_bundle_2.initialize(ray_bundle_size)) {
-                std::cerr << "Error initializing ray bundle 2" << std::endl;
+                std::cerr << "Error initializing ray bundle 2" << "\n";
                 std::cerr.flush();
                 return -1;
         }
-        std::cout << "Initialized ray bundles succesfully" << std::endl;
+        std::cout << "Initialized ray bundles succesfully" << "\n";
 
         /*---------------------- Initialize hit bundle -----------------------------*/
         size_t hit_bundle_size = ray_bundle_size;
 
         if (hit_bundle.initialize(hit_bundle_size)) {
-                std::cerr << "Error initializing hit bundle" << std::endl;
+                std::cerr << "Error initializing hit bundle" << "\n";
                 std::cerr.flush();
                 return -1;
         }
-        std::cout << "Initialized hit bundle succesfully" << std::endl;
+        std::cout << "Initialized hit bundle succesfully" << "\n";
 
         /*------------------------ Initialize FrameBuffer ---------------------------*/
         size_t fb_size[] = {fb_w, fb_h};
         if (framebuffer.initialize(fb_size)) {
-                std::cerr << "Error initializing framebuffer." << std::endl;
+                std::cerr << "Error initializing framebuffer." << "\n";
                 return -1;
         }
-        std::cout << "Initialized framebuffer succesfully." << std::endl;
+        std::cout << "Initialized framebuffer succesfully." << "\n";
 
         /* ------------------ Initialize ray tracer kernel ----------------------*/
 
         if (tracer.initialize()){
-                std::cerr << "Failed to initialize tracer." << std::endl;
+                std::cerr << "Failed to initialize tracer." << "\n";
                 return -1;
         }
-        std::cerr << "Initialized tracer succesfully." << std::endl;
+        std::cerr << "Initialized tracer succesfully." << "\n";
 
 
         /* ------------------ Initialize Primary Ray Generator ----------------------*/
 
         if (prim_ray_gen.initialize()) {
-                std::cerr << "Error initializing primary ray generator." << std::endl;
+                std::cerr << "Error initializing primary ray generator." << "\n";
                 return -1;
         }
-        std::cout << "Initialized primary ray generator succesfully." << std::endl;
+        std::cout << "Initialized primary ray generator succesfully." << "\n";
                 
 
         /* ------------------ Initialize Secondary Ray Generator ----------------------*/
         if (sec_ray_gen.initialize()) {
-                std::cerr << "Error initializing secondary ray generator." << std::endl;
+                std::cerr << "Error initializing secondary ray generator." << "\n";
                 return -1;
         }
         sec_ray_gen.set_max_rays(ray_bundle_1.count());
-        std::cout << "Initialized secondary ray generator succesfully." << std::endl;
+        std::cout << "Initialized secondary ray generator succesfully." << "\n";
 
         /*------------------------ Initialize RayShader ---------------------------*/
         if (ray_shader.initialize()) {
-                std::cerr << "Error initializing ray shader." << std::endl;
+                std::cerr << "Error initializing ray shader." << "\n";
                 return -1;
         }
-        std::cout << "Initialized ray shader succesfully." << std::endl;
+        std::cout << "Initialized ray shader succesfully." << "\n";
 
         /*----------------------- Enable timing in all clases -------------------*/
         bvh_builder.timing(true);

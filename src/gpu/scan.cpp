@@ -78,7 +78,7 @@ int32_t gpu_scan_uint(DeviceInterface& device,
                     scan_local.set_arg(2, local_mem_size, NULL) ||
                     scan_local.set_arg(3, sizeof(cl_uint), &in_mem_size) ||
                     scan_local.set_arg(4, out_mem) ||
-                    sum_idx >= sum_mems.size()) {
+                    (uint32_t)sum_idx >= sum_mems.size()) {
                         std::cerr << "Scan error seting args for scan_local" << std::endl;
                         return -1;
                 }
@@ -99,7 +99,7 @@ int32_t gpu_scan_uint(DeviceInterface& device,
         }
 
         if (size <= block_size) {
-                for (int i = 0; i < sum_mems.size(); ++i)
+                for (size_t i = 0; i < sum_mems.size(); ++i)
                         if (device.delete_memory(sum_mems[i]))
                                 return -1;
                 return 0;
@@ -138,7 +138,7 @@ int32_t gpu_scan_uint(DeviceInterface& device,
 
         } while (1);
 
-        for (int i = 0; i < sum_mems.size(); ++i)
+        for (size_t i = 0; i < sum_mems.size(); ++i)
                 if (device.delete_memory(sum_mems[i]))
                         return -1;
 
