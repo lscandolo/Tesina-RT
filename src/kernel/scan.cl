@@ -3,6 +3,7 @@
 #define CONFLICT_FREE_OFFSET(n) (((n) >> LOG_NUM_BANKS) + ((n) >> (2 * LOG_NUM_BANKS)))
 
 /* #define CONFLICT_FREE_OFFSET(n) ((n) >> (LOG_NUM_BANKS)) */
+/* #define CONFLICT_FREE_OFFSET(n) n */
 
 void kernel scan_local_uint(global unsigned int* in,
                             global unsigned int* sums,
@@ -16,7 +17,7 @@ void kernel scan_local_uint(global unsigned int* in,
 
         int in_start_idx = group_id * local_size * 2;
 
-        // Have to check range
+        /////////// Have to check range
         if (group_id == get_num_groups(0) - 1) {
         /* if (group_id == get_num_groups(0) - 1) { */
 
@@ -81,13 +82,13 @@ void kernel scan_local_uint(global unsigned int* in,
                 }
                 barrier(CLK_LOCAL_MEM_FENCE);
 
-                if (in_start_idx + ai < size)
+                if (in_start_idx + ai <= size)
                         out[ai]   = aux[ai + bankOffsetA];
 
-                if (in_start_idx + bi < size)
+                if (in_start_idx + bi <= size)
                         out[bi]   = aux[bi + bankOffsetB];
 
-                // Don't have to check range
+        ///////////// Don't have to check range
         } else {
 
                 int g_idx = get_global_id(0);
