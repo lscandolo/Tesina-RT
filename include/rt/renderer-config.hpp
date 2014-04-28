@@ -17,22 +17,22 @@ private:
 
         Renderer* target;
 
+public:
         // Config parameters
 
-        int use_lbvh;
+        int use_lbvh;                // Done
 
-        int bvh_refit_only;
-        int bvh_depth;
-        int bvh_min_leaf_size;
+        int bvh_refit_only;          // Done
+        int bvh_depth;               // Done
+        int bvh_min_leaf_size;       // Done
 
-        int sec_ray_use_atomics;
-        int sec_ray_use_disc;
+        int sec_ray_use_atomics;     // Done
+        int sec_ray_use_disc;        // Done
 
-        int prim_ray_quad_size;
-        int prim_ray_use_zcurve;
+        int prim_ray_quad_size;      // Done
+        int prim_ray_use_zcurve;     // Done
 
-        double tile_to_cores_ratio;
-
+        double tile_to_cores_ratio;  // Done
 };
 
-#endif RTCONFIG_HPP
+#endif // RTCONFIG_HPP

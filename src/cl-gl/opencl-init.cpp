@@ -692,8 +692,8 @@ int create_cl_mem_from_gl_tex(const GLuint gl_tex, cl_mem* mem, size_t cq_i)
 	return 0;
 }
 
-inline int32_t __error_cl(cl_int err_num, std::string msg, 
-                          const char* file, const char* func,  int line)
+int32_t __error_cl(cl_int err_num, std::string msg, 
+                   const char* file, const char* func,  int line)
 {
 	if (err_num != CL_SUCCESS){
 		std::cerr << " *** OpenCL error: " << msg 

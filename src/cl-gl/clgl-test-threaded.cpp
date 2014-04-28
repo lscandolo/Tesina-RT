@@ -72,13 +72,13 @@ __int64 compute_diff(__int64 tp_begin, __int64 tp_end)
 
 void* extra_thread_function(void* arg) {
         
+        (void)arg;
+
 	static int i = 0;
 	static int dir = 1;
-	cl_int err;
 
         std::cout << "In extra thread!!\n" ;
 
-        GLInfo* glinfo = GLInfo::instance();
 	print_cl_mem_info(cl_buf_mem);
         std::cout << "Returned extra thread!!\n" ;
 
@@ -109,6 +109,9 @@ void* extra_thread_function(void* arg) {
 
 void gl_key(unsigned char key, int x, int y)
 {
+        (void)x;
+        (void)y;
+
 	if (key == 'q')
 		std::cout << std::endl;
 		exit(1);
@@ -118,7 +121,6 @@ void gl_loop()
 {
 	static int i = 0;
 	static int dir = 1;
-	cl_int err;
 	
 	//////////// CL STUFF
         acquire_gl_tex(cl_tex_mem);

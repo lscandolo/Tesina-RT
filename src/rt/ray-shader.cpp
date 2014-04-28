@@ -164,3 +164,8 @@ RayShader::get_exec_time()
 {
         return m_time_ms;
 }
+
+void 
+RayShader::update_configuration(const RendererConfig& conf)
+{
+}

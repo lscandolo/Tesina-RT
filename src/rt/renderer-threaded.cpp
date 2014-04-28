@@ -6,6 +6,8 @@
 
 int32_t RendererT::set_up_frame(const memory_id tex_id, Scene& scene)
 {
+        (void)scene; // To avoid warning
+
         // Initialize frame timer
         frame_timer.snap_time();
 
@@ -46,7 +48,7 @@ int32_t RendererT::update_accelerator(Scene& scene, size_t cq_i)
         bvh_builder.logging(false);
         log.silent = false;
         
-        if (bvh_builder.build_bvh(scene, cq_i)) {
+        if (bvh_builder.build_lbvh(scene, cq_i)) {
                 std::cout << "BVH builder failed." << std::endl;
                 return -1;
         } 
@@ -104,36 +106,49 @@ int32_t RendererT::render_to_framebuffer(Scene& scene)
 
 
                         size_t sec_ray_in = sec_ray_count;
-                        if (sec_ray_gen.generate_disc(scene, 
-                                                      *ray_in, 
-                                                      sec_ray_in, 
-                                                      hit_bundle, 
-                                                      *ray_out, 
-                                                      &sec_ray_count)) {
+                        if (sec_ray_gen.generate(scene, 
+                                                 *ray_in, 
+                                                 sec_ray_in, 
+                                                 hit_bundle, 
+                                                 *ray_out, 
+                                                 &sec_ray_count)) {
                                 std::cerr << "Failed to create secondary rays." 
                                           << std::endl;
                                 return -1;
                         }
-                        //// If sec_ray_count is too small, then it's very likely that 
-                        //// reflect and refract rays from the same base ray will be 
-                        //// handled by different warps at the same time. If that
-                        //// seems like it will be the case, then compute it so that
-                        //// they will be bundled together for (hopefully) the same 
-                        //// work group to analize. TODO: do this on the sec gen
-                        size_t max_count = 
-                                4 * clinfo->max_work_group_size * clinfo->max_compute_units;
-                        if (sec_ray_count < max_count) {
-                                if (sec_ray_gen.generate(scene, 
-                                                         *ray_in, 
-                                                         sec_ray_in, 
-                                                         hit_bundle, 
-                                                         *ray_out, 
-                                                         &sec_ray_count)) {
-                                        std::cerr << "Failed to create secondary rays." 
-                                                  << std::endl;
-                                        return -1;
-                                }
-                        }
+
+
+                        // size_t sec_ray_in = sec_ray_count;
+                        // if (sec_ray_gen.generate_disc(scene, 
+                        //                               *ray_in, 
+                        //                               sec_ray_in, 
+                        //                               hit_bundle, 
+                        //                               *ray_out, 
+                        //                               &sec_ray_count)) {
+                        //         std::cerr << "Failed to create secondary rays." 
+                        //                   << std::endl;
+                        //         return -1;
+                        // }
+                        // //// If sec_ray_count is too small, then it's very likely that 
+                        // //// reflect and refract rays from the same base ray will be 
+                        // //// handled by different warps at the same time. If that
+                        // //// seems like it will be the case, then compute it so that
+                        // //// they will be bundled together for (hopefully) the same 
+                        // //// work group to analize. TODO: do this on the sec gen
+                        // size_t max_count = 
+                        //         4 * clinfo->max_work_group_size * clinfo->max_compute_units;
+                        // if (sec_ray_count < max_count) {
+                        //         if (sec_ray_gen.generate(scene, 
+                        //                                  *ray_in, 
+                        //                                  sec_ray_in, 
+                        //                                  hit_bundle, 
+                        //                                  *ray_out, 
+                        //                                  &sec_ray_count)) {
+                        //                 std::cerr << "Failed to create secondary rays." 
+                        //                           << std::endl;
+                        //                 return -1;
+                        //         }
+                        // }
 
                         stats.stage_times[SEC_RAY_GEN] += sec_ray_gen.get_exec_time();
 
@@ -141,7 +156,7 @@ int32_t RendererT::render_to_framebuffer(Scene& scene)
 
                         if (!sec_ray_count)
                                 break;
-                        if (sec_ray_count == ray_out->count())
+                        if (sec_ray_count == (size_t)ray_out->count())
                                 std::cerr << "Max sec rays reached!\n";
 
                         stats.total_ray_count += sec_ray_count;
@@ -210,6 +225,8 @@ int32_t RendererT::render_to_texture(Scene& scene)
 
 int32_t RendererT::conclude_frame(Scene& scene, memory_id tex_id)
 {
+        (void)scene; // To avoid warning
+
         // Obtain device handle and check it's ok
         DeviceInterface& device = *DeviceInterface::instance();
         if (!device.good())
@@ -492,5 +509,6 @@ int32_t RendererT::render_one_frame(Scene& new_scene, memory_id tex_id)
 int32_t RendererT::finalize_loop()
 {
         last_scene.destroy();
+        return 0;
 }
 

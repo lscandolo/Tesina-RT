@@ -1,18 +1,4 @@
-#pragma OPENCL EXTENSION cl_amd_printf:enable
-
-#define UINT_MAX_INV 2.3283064370807974e-10f
-#define UINT_MAX_F 4294967295.f
-
-#define M_AXIS_BITS  10
-#define M_MORTON_BITS 32
-#define M_UINT_COUNT 1 
-
-#define MORTON_MAX_F 1024.f // 2^M_AXIS_BITS
-#define MORTON_MAX_INV_F 0.000976562.f //1/MORTON_MAX_F
-
-#define BBOX_NOT_COMPUTED 1e35f
-//#define BBOX_COMPUTED 1e34f
-#define BBOX_COMPUTED 1.f
+#define M_UINT_COUNT 2 
 
 typedef struct 
 {
@@ -31,12 +17,7 @@ typedef struct {
 
 typedef unsigned int tri_id;
 
-//typedef struct { //Temporary fix because of cl / cl size api inconsistency
-//                float3 hi;
-//                float3 lo;
-//} BBox;
-
-typedef struct { //Temporary fix because of cl / cl size api inconsistency
+typedef struct { //Temporary fix because of cl c / api size inconsistency
         union {
                 float4 hi_4;
                 float3 hi;
@@ -149,9 +130,9 @@ build_primitive_bbox(global Vertex* vertex_buffer,
 }
 
 kernel void
-morton_encode(global BBox* bboxes,
-              global BBox* global_bbox,
-              global morton_code_t* morton_codes) 
+morton_encode_fixed(global BBox* bboxes,
+                    global BBox* global_bbox,
+                    global morton_code_t* morton_codes) 
 {
         int index = get_global_id(0);
         BBox bbox = bboxes[index];
@@ -167,7 +148,7 @@ morton_encode(global BBox* bboxes,
         slice = fmax(zeros,fmin(ones,slice));
         ///// Slice is the value between 0 and 1 in the global bbox where this tri stands
 
-        slice *= MORTON_MAX_F;
+        slice *= 1024.f;
 
         /*Scramble codes*/
         
@@ -183,7 +164,7 @@ morton_encode(global BBox* bboxes,
                 morton.code[i] = 0;
         }
 
-        for (int i = 0; i < M_AXIS_BITS*3; ++i) {
+        for (int i = 0; i < 30; ++i) {
                 int src       = 2-(i%3);
                 int src_bit   = i/3;
 
@@ -198,9 +179,10 @@ morton_encode(global BBox* bboxes,
 }
 
 kernel void
-morton_encode_32(global BBox* bboxes,
-                 global BBox* global_bbox,
-                 global morton_code_t* morton_codes) 
+morton_encode(global BBox* bboxes,
+              global BBox* global_bbox,
+              global morton_code_t* morton_codes,
+              int depth) 
 {
         int index = get_global_id(0);
         BBox bbox = bboxes[index];
@@ -216,7 +198,11 @@ morton_encode_32(global BBox* bboxes,
         slice = fmax(zeros,fmin(ones,slice));
 
         ///// Slice is the value between 0 and 1 in the global bbox where this tri stands
-        slice *= MORTON_MAX_F;
+        ///// Each axis will get divided in half depth/3 times, so each slice will
+        /////  be multiplied by pow(2, depth/3) to get the bits corresponding to its 
+        /////  belonging in each axis divide. depth/3 is ceil
+
+        slice *= pow(2, ceil(depth/3.0));
 
         /*Scramble codes*/
         
@@ -232,485 +218,37 @@ morton_encode_32(global BBox* bboxes,
                 morton.code[i] = 0;
         }
 
-        for (int i = 0; i < M_AXIS_BITS*3 + 1; ++i) {
-                int src       = 2-(i%3);
-                int src_bit   = i/3;
 
-                int dest      = M_UINT_COUNT-1-(i/(sizeof(uint)*8));
-                int dest_bit  = i%(sizeof(uint)*8);
+        ///// We'll take from the morton codes, we need to get to bit
+        ///// ceil(depth/3.0) on all 3 axis, so we start with the 
+        ///// offset depth%3
 
-                if (dest_bit < 32)
-                        morton.code[dest] |= ((morton_in[src]>>src_bit) & 1)<<dest_bit;
+        // We assume depth < 32 * 3
+
+        // The offset is to ignore the least significant bits of some axes if
+        //  the depth is not divisible by 3 
+        //  e.g. (if depth is 10, we want bits 3x 3y 3z 2x 2y 2z 1x 1y 1z 0x)
+        int offset = depth%3 ? 3 - (depth%3) : 0;
+
+        int axis = (offset+1)%3;// This is just to get a consistent first division axis (x)
+
+        for (int i = 0; i < depth; ++i) {
+
+
+                // We want the last 3 to be depth/3
+                int src_bit = (i + offset ) / 3; 
+
+                /* int src_bit   = i / 3; */
+
+                int dest_bit  = i % (8 * sizeof(unsigned int));
+                int dest_idx  = i / (8 * sizeof(unsigned int));
+
+                morton.code[dest_idx] |= ((morton_in[axis]>>src_bit) & 1)<<dest_bit;
+
+                axis = (axis+1)%3;
         }
 
         morton_codes[index] = morton;
-}
-
-// kernel void
-// morton_encode(global BBox* bboxes,
-//               global BBox* global_bbox,
-//               global morton_code_t* morton_codes) 
-// {
-//         int index = get_global_id(0);
-//         BBox bbox = bboxes[index];
-//         float3 center = (bbox.hi + bbox.lo) * 0.5f;
-
-//         float3 g_lo = global_bbox->lo;
-//         float3 g_hi = global_bbox->hi;
-
-//         float3 inv_global_bbox_size = 1.f/(g_hi-g_lo);
-//         float3 slice  = (center - g_lo) * inv_global_bbox_size.xyz;
-//         const float3 zeros = (float3)(0.f,0.f,0.f);
-//         const float3 ones = (float3)(1.f,1.f,1.f);
-//         slice = fmax(zeros,fmin(ones,slice));
-
-//         slice *= MORTON_MAX_F;
-
-//         /*Scramble codes*/
-        
-//         unsigned int morton_in[3];
-//         morton_in[0] = slice.x;
-//         morton_in[1] = slice.y;
-//         morton_in[2] = slice.z;
-
-//         morton_code_t morton;
-//         for (int i = 0; i < M_UINT_COUNT; ++i){
-//                 morton.code[i] = 0;
-//         }
-
-//         for (int i = 0; i < M_AXIS_BITS*3; ++i) {
-//                 int src       = 2-(i%3);
-//                 int src_bit   = i/3;
-
-//                 int dest      = M_UINT_COUNT-1-(i/(sizeof(uint)*8));
-//                 int dest_bit  = i%(sizeof(uint)*8);
-
-//                 morton.code[dest] |= ((morton_in[src]>>src_bit) & 1)<<dest_bit;
-//         }
-
-//         morton_codes[index] = morton;
-
-// }
-
-kernel void
-build_splits(global morton_code_t*   morton_codes,
-             global unsigned int*    splits,
-             global unsigned int*    triangles,
-             local  morton_code_t*   local_codes)
-{
-        size_t gid = get_global_id(0);
-        size_t lid = get_local_id(0);
-        size_t lsz = get_local_size(0);
-
-        local_codes[lid] = morton_codes[triangles[gid]];
-        if (lid == 0)
-                local_codes[lsz] = morton_codes[triangles[gid+lsz]];
-
-        barrier(CLK_LOCAL_MEM_FENCE);
-        splits[gid] = local_codes[lid].code[0] ^ local_codes[lid+1].code[0];
-}
-
-kernel void
-init_treelet_maps(global int*    node_map,
-                  global int*    segment_map)
-{
-        size_t gid = get_global_id(0);
-
-        if (gid == 0) {
-                node_map[0]     = 0;
-                segment_map[0]  = 0;
-        } else {
-                node_map[gid]     = -1;
-                segment_map[gid]  = 0;
-        }
-
-}
-
-kernel void
-init_segment_map(global int*    node_map,
-                 global int*    segment_map)
-{
-        size_t gid = get_global_id(0);
-        
-        /* We set the previous element because we will do a scan afterwards */
-        segment_map[gid] = node_map[gid+1] >= 0 ? 1 : 0;
-}
-
-kernel void
-init_segment_heads(global int*    segment_map,
-                   global int*    segment_heads,
-                   unsigned int   segment_count,
-                   unsigned int   triangle_count)
-{
-        size_t gid = get_global_id(0);
-        
-        if (gid == 0) {
-                segment_heads[0] = 0;
-                segment_heads[segment_count] = triangle_count;
-        } else {
-                if (segment_map[gid] != segment_map[gid-1])
-                        segment_heads[segment_map[gid]] = gid;
-        }
-}
-
-#define TREELET_LEVELS 3
-#define TREELET_SIZE 7 //(1<<TREELET_LEVELS)-1
-
-/* #define T_ROOT 0 */
-/* #define T_L    1 */
-/* #define T_R    2 */
-/* #define T_LL   3 */
-/* #define T_LR   4 */
-/* #define T_RL   5 */
-/* #define T_RR   6 */
-
-#define T_ROOT 1
-#define T_L    2
-#define T_R    3
-#define T_LL   4
-#define T_LR   5
-#define T_RL   6
-#define T_RR   7
-
-#define T_ALL_0 -1
-#define T_ALL_1 -2
-#define T_NULL  -3
-
-
-kernel void
-init_treelet(global int*    treelets)
-{
-        size_t gid = get_global_id(0);
-        treelets[gid] = T_NULL;
-        //treelets[gid] = T_ALL_0;
-}
-
-kernel void
-build_treelet(global int*            node_map,
-              global int*            segment_map,
-              global int*            segment_heads,
-              unsigned int           bitmask,
-              unsigned int           triangle_count,
-              unsigned int           pass,
-              global unsigned int*   triangles,
-              global morton_code_t*  morton_codes,
-              global morton_code_t*  splits,
-              global int*            treelets)
-{
-        const size_t gid = get_global_id(0);
-        const size_t lid = get_local_id(0);
-        const size_t lsz = get_local_size(0);
-        morton_code_t split = splits[gid];
-
-        int current_node = T_ROOT;
-        int segment_id = segment_map[gid];
-        int node_start = segment_heads[segment_id];
-        int node_end   = segment_heads[segment_id + 1];
-
-        treelets += segment_id * TREELET_SIZE;
-        global int* treelet  = treelets-1;
-
-#define parent(N) ((N)>>1)
-#define l_child(N) ((N)<<1)
-#define r_child(N) (((N)<<1)+1)
-
-        ///////// Descend on the treelet to the correct node
-        for (int lev = 0; lev < pass; ++lev) {
-                //if (treelet[current_node] == T_NULL) 
-                //        break; 
-
-                if (treelet[current_node] == T_ALL_0){
-                        current_node = l_child(current_node);
-                } else if (treelet[current_node] == T_ALL_1){
-                        current_node = r_child(current_node);
-                } else if (gid < treelet[current_node]) {
-                        node_end = treelet[current_node];
-                        current_node = l_child(current_node);
-                } else { /* gid >= treelet[current_node] */
-                        node_start = treelet[current_node];
-                        current_node = r_child(current_node);
-                }
-        }
-
-#undef parent
-#undef l_child
-#undef r_child
-
-        ///////// If bit changes is in this node, note it
-        bool change = split.code[0] & bitmask;
-        if (change && gid < node_end-1) {
-                treelet[current_node] = gid+1;
-        }
-        ///////// If the first and last codes in this nodes are the same, there
-        ///////// is no change, so mark it
-        if  (gid == node_start) {
-                unsigned int first_code = morton_codes[triangles[node_start]].code[0];
-                unsigned int last_code = morton_codes[triangles[node_end-1]].code[0];
-                if (! ((first_code^last_code) & bitmask)) {
-                        if (first_code & bitmask)
-                                treelet[current_node] = T_ALL_1;
-                        else
-                                treelet[current_node] = T_ALL_0;
-                }
-        }
-}
-
-void kernel count_nodes(global int* treelets,
-                        global unsigned int* node_offsets)
-{
-        size_t gid = get_global_id(0);
-        
-        /////// Go through the treelet and
-        /////// save the amount of nodes to produce (2*splits)
-        treelets += gid*TREELET_SIZE;
-        int node_count = 0;
-        for (int i = 0; i < TREELET_SIZE; ++i) {
-                node_count += treelets[i] >= 0? 2 : 0;
-        }
-        node_offsets[gid] = node_count;
-}
-
-void link_children(global BVHNode* nodes, 
-                   unsigned int    parent_id,
-                   unsigned int    lchild_id,
-                   unsigned int    rchild_id)
-{
-        global BVHNode* parent = nodes+parent_id;
-        global BVHNode* lchild = nodes+lchild_id;
-        global BVHNode* rchild = nodes+rchild_id;
-
-        parent->l_child = lchild_id;
-        parent->r_child = rchild_id;
-        parent->leaf = false;
-        lchild->parent = parent_id;
-        rchild->parent = parent_id;
-
-        lchild->split_axis = (parent->split_axis + 1)%3;
-        rchild->split_axis = lchild->split_axis;
-
-}
-
-unsigned int process_node_split_2(global BVHNode* nodes,
-                                  unsigned int    parent_id,
-                                  unsigned int    children_offset,
-                                  global   int*   treelets,
-                                  int             treelet_entry,
-                                  int             first_primitive,
-                                  int             end_primitive,
-                                  global int*     node_map,
-                                  int last_pass)
-{
-        int split = treelets[treelet_entry];
-
-        if (!last_pass) {
-
-                if (split >= 0) {
-                        unsigned int lnode_id = children_offset;
-                        unsigned int rnode_id = lnode_id + 1;
-                        link_children(nodes, parent_id, lnode_id, rnode_id);
-
-                        //save node start location 
-                        node_map[first_primitive] = lnode_id;
-                        node_map[split] =   rnode_id;
-
-                        return 2;
-                } else if (split == T_ALL_0) {
-                        //save node start location
-                        node_map[first_primitive] = parent_id;
-                        nodes[parent_id].leaf = true;
-                        nodes[parent_id].start_index = first_primitive;
-                        nodes[parent_id].end_index = end_primitive;
-                        return 0;
-                } else { //split == T_ALL_1
-                        //save node start location
-                        node_map[first_primitive] = parent_id;
-                        nodes[parent_id].leaf = true;
-                        nodes[parent_id].start_index = first_primitive;
-                        nodes[parent_id].end_index = end_primitive;
-                        return 0;
-                }
-
-        } else {
-                size_t gid = get_global_id(0);
-                unsigned int start_index = first_primitive;
-                unsigned int end_index = end_primitive;
-
-                if (split >= 0) {
-                        unsigned int lnode_id = children_offset;
-                        unsigned int rnode_id = lnode_id + 1;
-                        link_children(nodes, parent_id, lnode_id, rnode_id);
-
-                        nodes[lnode_id].leaf = true;
-                        nodes[lnode_id].start_index = start_index;
-                        nodes[lnode_id].end_index = split;
-
-                        nodes[rnode_id].leaf = true;
-                        nodes[rnode_id].start_index = split;
-                        nodes[rnode_id].end_index = end_index;
-
-                        return 2;
-                } else if (split == T_ALL_0) {
-                        nodes[parent_id].leaf = true;
-                        nodes[parent_id].start_index = start_index;
-                        nodes[parent_id].end_index = end_index;
-                        return 0;
-                } else { //split == T_ALL_1
-                        nodes[parent_id].leaf = true;
-                        nodes[parent_id].start_index = start_index;
-                        nodes[parent_id].end_index = end_index;
-                        return 0;
-                }
-
-        }
-}
-
-unsigned int process_node_split_1(global BVHNode* nodes,
-                                  unsigned int    parent_id,
-                                  unsigned int    children_offset,
-                                  global   int*   treelets,
-                                  int             treelet_entry,
-                                  int             first_primitive,
-                                  int             end_primitive,
-                                  global int*     node_map,
-                                  int last_pass)
-{
-        int split = treelets[treelet_entry];
-        int lentry = treelet_entry*2+1;
-        int rentry = treelet_entry*2+2;
-
-        if (split >= 0) {
-                unsigned int lnode_id = children_offset;
-                unsigned int rnode_id = lnode_id + 1;
-                link_children(nodes, parent_id, lnode_id, rnode_id);
-
-                unsigned int new_nodes = 2;
-                new_nodes += process_node_split_2(nodes,lnode_id,
-                                                  children_offset+new_nodes,
-                                                  treelets,lentry,
-                                                  first_primitive,
-                                                  split,
-                                                  node_map,
-                                                  last_pass);
-
-                new_nodes += process_node_split_2(nodes,rnode_id,
-                                                  children_offset+new_nodes,
-                                                  treelets,rentry,
-                                                  split,
-                                                  end_primitive,
-                                                  node_map,
-                                                  last_pass);
-                return new_nodes;
-        } else if (split == T_ALL_0) {
-                unsigned int new_nodes = 0;
-                new_nodes += process_node_split_2(nodes,parent_id,
-                                                  children_offset,
-                                                  treelets,lentry,
-                                                  first_primitive,
-                                                  end_primitive,
-                                                  node_map,
-                                                  last_pass);
-                return new_nodes;
-        } else { //split == T_ALL_1
-                unsigned int new_nodes = 0;
-                new_nodes += process_node_split_2(nodes,parent_id,
-                                                  children_offset,
-                                                  treelets,rentry,
-                                                  first_primitive,
-                                                  end_primitive,
-                                                  node_map,
-                                                  last_pass);
-                return new_nodes;
-        }
-}
-
-unsigned int process_node_split_0(global BVHNode* nodes,
-                                  unsigned int    parent_id,
-                                  unsigned int    children_offset,
-                                  global   int*   treelets,
-                                  unsigned int    first_primitive,
-                                  unsigned int    end_primitive,
-                                  global int*     node_map,
-                                  int last_pass)
-{ 
-        int split = treelets[0];
-
-        if (split >= 0) {
-                unsigned int lnode_id = children_offset;
-                unsigned int rnode_id = lnode_id + 1;
-                link_children(nodes, parent_id, lnode_id, rnode_id);
-
-                unsigned int new_nodes = 2;
-                new_nodes += process_node_split_1(nodes,lnode_id,
-                                                  children_offset+new_nodes,
-                                                  treelets,1,
-                                                  first_primitive,
-                                                  split,
-                                                  node_map,
-                                                  last_pass);
-
-                new_nodes += process_node_split_1(nodes,rnode_id,
-                                                  children_offset+new_nodes,
-                                                  treelets,2,
-                                                  split,
-                                                  end_primitive,
-                                                  node_map,
-                                                  last_pass);
-                return new_nodes;
-        } else if (split == T_ALL_0) {
-                unsigned int new_nodes = 0;
-                new_nodes += process_node_split_1(nodes,parent_id,
-                                                  children_offset,
-                                                  treelets,1,
-                                                  first_primitive,
-                                                  end_primitive,
-                                                  node_map,
-                                                  last_pass);
-                return new_nodes;
-        } else { //split == T_ALL_1
-                unsigned int new_nodes = 0;
-                new_nodes += process_node_split_1(nodes,parent_id,
-                                                  children_offset,
-                                                  treelets,2,
-                                                  first_primitive,
-                                                  end_primitive,
-                                                  node_map,
-                                                  last_pass);
-                return new_nodes;
-        }
-}
-
-kernel void
-build_nodes(global int*            node_map,
-            global int*            segment_heads,
-            unsigned int           triangle_count,
-            global int*            treelets,
-            unsigned int           global_node_offset,
-            global unsigned int*   node_offsets,
-            global BVHNode*        nodes,
-            int                    last_pass)
-{
-
-        size_t gid = get_global_id(0);
-
-        treelets+= TREELET_SIZE*gid;
-
-        size_t parent_id = node_map[segment_heads[gid]];
-
-        unsigned int start_offset = global_node_offset + node_offsets[gid];
-
-        int first_primitive = segment_heads[gid];
-        int end_primitive = segment_heads[gid+1];
-
-        ///// Create new nodes and save in new node map
-        int new_nodes = process_node_split_0(nodes,
-                                             parent_id,
-                                             start_offset,
-                                             treelets,
-                                             first_primitive,
-                                             end_primitive,
-                                             node_map,
-                                             last_pass);
-
 }
 
 void merge_bbox(BBox* bbox, BBox bbox2) 
@@ -758,7 +296,6 @@ build_node_bbox(global BVHNode* nodes)
 
 #define lchild(n) nodes[n->l_child]
 #define rchild(n) nodes[n->r_child]
-#define parent(n) nodes[n->parent]
 
         if (node->leaf)
                 return;
@@ -768,31 +305,10 @@ build_node_bbox(global BVHNode* nodes)
         node->bbox = bbox;
         //////////////////
 
-        //if (node->leaf ||
-        //    node->bbox.hi_4.x != BBOX_COMPUTED ||
-        //    node->bbox.hi_4.y != BBOX_COMPUTED)
-        //        return ;
-
-        //BBox bbox = lchild(node).bbox;
-        //merge_bbox(&bbox, rchild(node).bbox);
-        //node->bbox = bbox;
-        //mem_fence(CLK_GLOBAL_MEM_FENCE | CLK_LOCAL_MEM_FENCE);
-
-        //if (gid == 0)
-        //        return;
-
-        //global BVHNode* parent = nodes + (node->parent);
-        //if (parent->l_child == gid)
-        //        parent->bbox.hi_4.x = BBOX_COMPUTED;
-        //if (parent->r_child == gid)
-        //        parent->bbox.hi_4.y = BBOX_COMPUTED;
-
-
 #undef lchild
 #undef rchild
 
 }
-
 
 /* #define NUM_BANKS 16   */
 /* #define LOG_NUM_BANKS 4   */
@@ -874,8 +390,54 @@ max_local_bbox(global BBox*   in_bboxes,
         }
 }
 
-void prefix_sum(local  volatile int* bit,
-                local  volatile int* sum)
+void prefix_sum_double(local   int* bit,
+                       local   int* sum)
+{
+        size_t lid = get_local_id(0);
+        size_t lsz = get_local_size(0);
+
+        int offset = 1;
+
+        sum[lid] = bit[lid];
+        sum[lid+lsz] = bit[lid+lsz];
+
+        for (int d = lsz; d > 0; d >>= 1) {
+                barrier(CLK_LOCAL_MEM_FENCE);
+
+                if (lid < d) {
+                        int ai = offset * (2*lid+1)-1;
+                        int bi = ai + offset;
+                        sum[bi] += sum[ai];
+                }
+                offset <<= 1;
+        }
+        barrier(CLK_LOCAL_MEM_FENCE);
+
+        if (lid == 0) {
+                sum[lsz*2 - 1] = 0;
+        }
+        
+        for (int d = 1; d < lsz<<1; d <<= 1) // traverse down tree & build scan
+        {
+                offset >>= 1;
+                barrier(CLK_LOCAL_MEM_FENCE);
+                if (lid < d) {
+                        int ai = offset * (2*lid+1)-1;
+                        int bi = ai + offset;
+                        int t = sum[ai];
+                        sum[ai] = sum[bi];
+                        sum[bi] += t;
+                }
+        }
+        barrier(CLK_LOCAL_MEM_FENCE);
+        if (lid == 0) {
+                sum[lsz*2] = bit[lsz*2-1] + sum[lsz*2-1];
+        }
+        barrier(CLK_LOCAL_MEM_FENCE);
+}
+
+void prefix_sum(local   int* bit,
+                local   int* sum)
 {
         size_t lid = get_local_id(0);
         size_t lsz = get_local_size(0) / 2;
@@ -919,45 +481,42 @@ void prefix_sum(local  volatile int* bit,
         barrier(CLK_LOCAL_MEM_FENCE);
 }
 
-int find_middle(global volatile BVHNode* node, 
-                global morton_code_t* codes)
-                /*, int level)  */
+int find_middle(global  BVHNode* node, 
+                global morton_code_t* codes,
+                int max_level,
+                int min_leaf_size)
 {
-#define CODEBIT(x) ((codes[(x)].code[0]) & mask)
+#define CODEBIT(x) ((codes[(x)].code[bit/32]) & (1 << (bit%32)))
 
-        
         unsigned int first_code = node->start_index;
         unsigned int last_code  = node->end_index-1;
 
         // node->leaf encodes the level we need to check
         int level = node->leaf;
 
-        // bit mask for the level
-        unsigned int mask = 1 << (29 - level);
+        // bit for the level
+        int bit = max_level - 1 - level;
 
         // If node is small, just end it
-        if (first_code + 1 >= last_code) {
-                node->split_axis = level%3;
+        if (last_code - first_code - 1 <= min_leaf_size) {
                 node->leaf = 1;
                 return 0;
         }
 
         // if level is such that mask is 0, we output is as leaf
-        if (!mask) {
-                node->split_axis = (node->leaf-1)%3;
+        if (bit < 0) {
                 node->leaf = 1;
                 return 0;
                 /* node->leaf = 30; */
                 /* return (first_code+last_code)/2; */
         }
       
-        // Advance levels until we found one with different start and end
+        // Advance levels until we find one with different start and end
         while (CODEBIT(first_code) != 0 || 
                CODEBIT(last_code)  == 0) {
                 level++;
-                mask >>= 1;
-                if (!mask) {
-                        node->split_axis = (level-1)%3;
+                bit = max_level - 1 - level;
+                if (bit < 0) {
                         node->leaf = 1;
                         return 0;
                         /* node->leaf = 30; */
@@ -969,21 +528,21 @@ int find_middle(global volatile BVHNode* node,
         node->leaf = level;
 
         // Do binomial search for the middle
-        while (first_code < last_code) {
+        while (first_code+1 < last_code) {
 
                 unsigned int middle = (first_code + last_code) / 2;
                 if (CODEBIT(middle) == 0)  {
-                        if (CODEBIT(middle+1) != 0)
-                                return middle+1;
+                        /* if (CODEBIT(middle+1) != 0) */
+                        /*         return middle+1; */
                         first_code = middle;
                 } else {
-                        if (CODEBIT(middle-1) == 0)
-                                return middle;
+                        /* if (CODEBIT(middle-1) == 0) */
+                        /*         return middle; */
                         last_code = middle;
                 }
 
-                if (first_code + 1 == last_code)
-                        return last_code;
+                /* if (first_code + 1 == last_code) */
+                /*         return last_code; */
         }
 
         return last_code;
@@ -992,14 +551,43 @@ int find_middle(global volatile BVHNode* node,
 
 }
 
+void set_children(global BVHNode* nodes,
+                  int parentIndex,
+                  int childrenIndex,
+                  int middle) 
+{
+        global BVHNode* parent = nodes + parentIndex;
+        global BVHNode* lchild = nodes + childrenIndex;
+        global BVHNode* rchild = lchild + 1;
 
-kernel void 
-process_task(global volatile int* OC,        // Output counter
-             global volatile int* PC,        // Processed counter
-             global volatile BVHNode* nodes, // BVH Nodes
+        int child_level = parent->leaf+1; // Next level we check
+        lchild->leaf = child_level; // Next level we check
+        rchild->leaf = child_level;
+        /* parent->split_axis = (parent->leaf)%3; */
+        parent->leaf = 0;
+
+        lchild->start_index = parent->start_index;
+        lchild->end_index   = middle;
+
+        rchild->start_index = middle;
+        rchild->end_index   = parent->end_index;
+
+        parent->l_child = childrenIndex;
+        parent->r_child = childrenIndex + 1;
+
+        lchild->parent = parentIndex;
+        rchild->parent = parentIndex;
+}
+
+kernel void
+process_task(global  int* OC,        // Output counter
+             global  int* PC,        // Processed counter
+             global  BVHNode* nodes, // BVH Nodes
              global morton_code_t* codes,    // morton codes
-             local volatile int*  LC,        // Local output counter
-             local volatile int*  PS,        // local prefix sum
+             local int*  LC,        // Local output counter
+             local int*  PS,        // local prefix sum
+             int   max_level, // Maximum depth of the bvh
+             int   min_leaf_size, // Cutoff size for leaf nodes
              int   level)                    // Current level
 {
 
@@ -1028,12 +616,10 @@ process_task(global volatile int* OC,        // Output counter
 
         outputOffset = inputOffset + available_tasks;
 
-        global volatile BVHNode* inputNodes = nodes + inputOffset;
-        global volatile BVHNode* outputNodes = nodes + outputOffset;
+        global  BVHNode* inputNodes = nodes + inputOffset;
+        global  BVHNode* outputNodes = nodes + outputOffset;
 
-        local volatile int firstNode;
-
-        /* barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE); */
+        local int firstNode;
 
         if (wi == 0) {
                 firstNode = atomic_add(PC + level, wgsize);
@@ -1045,62 +631,41 @@ process_task(global volatile int* OC,        // Output counter
                 int middle = 0;
 
                 if (firstNode + wi < available_tasks)  {
-                        middle = find_middle(inputNodes + firstNode + wi, 
-                                             codes);
+                        middle = find_middle(inputNodes + firstNode + wi,
+                                             codes, 
+                                             max_level,
+                                             min_leaf_size);
                 }
-
-                barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 
                 if (middle)
                         LC[wi] = 2;
 
-                barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+                barrier(CLK_LOCAL_MEM_FENCE);
 
                 ///////// PREFIX SUM!
                 prefix_sum(LC, PS);
-                barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+                barrier(CLK_LOCAL_MEM_FENCE);
 
-                local volatile int localOffset;
+                local int localOffset;
                 if (wi == 0) {
                         int outputTasks = PS[wgsize];
                         localOffset  = atomic_add(OC + level, outputTasks);
                 }
-                barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+                barrier(CLK_LOCAL_MEM_FENCE);
 
                 if (middle) {
-                        /* printf("inputNodes: %d\n", inputOffset); */
-                        /* printf("outputNodes: %d\n", outputOffset); */
-                        /* printf("localOffset: %d\n", localOffset); */
-                        /* printf("PS[wi]: %d\n", PS[wi]); */
 
-                        global volatile BVHNode* parent = inputNodes + firstNode + wi;
-                        global volatile BVHNode* lchild = outputNodes+localOffset+PS[wi];
-                        global volatile BVHNode* rchild = lchild+1;
-
-                        lchild->leaf = parent->leaf+1; // Next level we check
-                        rchild->leaf = parent->leaf+1;
-                        parent->leaf = 0;
-
-                        lchild->start_index = parent->start_index;
-                        lchild->end_index   = middle;
-
-                        rchild->start_index = middle;
-                        rchild->end_index   = parent->end_index;
-
-                        parent->l_child = outputOffset + localOffset + PS[wi];
-                        parent->r_child =  parent->l_child + 1;
-
-                        lchild->parent = inputOffset + firstNode + wi;
-                        rchild->parent = lchild->parent;
-
-                        lchild->split_axis = (parent->split_axis+1)%3;
-                        rchild->split_axis = lchild->split_axis;
+                        set_children(nodes,
+                                     inputOffset + firstNode + wi,
+                                     outputOffset + localOffset + PS[wi],
+                                     middle);
+                                     
                 }
                 /* barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE); */
                 
                 if (wi == 0) {
                         firstNode = atomic_add(PC + level, wgsize);
                 }
-                barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+                barrier(CLK_LOCAL_MEM_FENCE);
         }
 }

@@ -160,15 +160,15 @@ void Bitonic(int N)
         DeviceFunction& bitonic8 = device->function(bitonic8_id);
         DeviceFunction& bitonic16 = device->function(bitonic16_id);
         DeviceFunction& bitonic32 = device->function(bitonic32_id);
-        DeviceFunction& bitonicl2 = device->function(bitonicl2_id);
-        DeviceFunction& bitonicl4 = device->function(bitonicl4_id);
+        // DeviceFunction& bitonicl2 = device->function(bitonicl2_id);
+        // DeviceFunction& bitonicl4 = device->function(bitonicl4_id);
 
         if (in_mem.initialize(sizeof(cl_float) * N) || 
             out_mem.initialize(sizeof(cl_float) * N))
                 exit(1);
 
         std::vector<float> vals(N);
-        for (int i = 0; i < vals.size(); ++i) {
+        for (size_t i = 0; i < vals.size(); ++i) {
                 vals[i] = rand()%4096;
                 // vals[i] = 1.f/((rand()%512)+1.f);
         }
@@ -181,7 +181,7 @@ void Bitonic(int N)
 
         if (N < MIN_PRINT) {
                 std::cout <<  "In vals: " << std::endl;
-                for (int i = 0; i < vals.size(); ++i) {
+                for (size_t i = 0; i < vals.size(); ++i) {
                         std::cout << vals[i] << " ";
                 }
                 std::cout << std::endl;
@@ -229,7 +229,7 @@ void Bitonic(int N)
         // }
         // std::cout << std::endl;
         rt_time.snap_time();
-        if (N < 2*max_wg_size && false) {
+        if ((size_t)N < 2*max_wg_size && false) {
                 std::cout << "Sorting locally\n";
                 bitonic_local.set_arg(0,in_mem);
                 bitonic_local.set_arg(1,out_mem);
@@ -381,7 +381,7 @@ void Bitonic(int N)
 
         if (N < MIN_PRINT) {
                 std::cout <<  "Out vals: " << std::endl;
-                for (int i = 0; i < vals.size(); ++i) {
+                for (size_t i = 0; i < vals.size(); ++i) {
                         std::cout << vals[i] << " ";
                 }
                 std::cout << std::endl;
@@ -389,16 +389,16 @@ void Bitonic(int N)
 
         std::cout << "Kernels launched: " << kernels << std::endl;
 
-        for (int i = 0; i < vals.size(); ++i) {
+        for (size_t i = 0; i < vals.size(); ++i) {
                 if (vals[i] != sorted_vals[i]) {
                         std::cout << "Sorting error at " << i << std::endl;
                         std::cout << "Sorted array: " << std::endl;
-                        for (int j = 0; j < sorted_vals.size(); ++j) {
+                        for (size_t j = 0; j < sorted_vals.size(); ++j) {
                                 std::cout << sorted_vals[j] << " ";
                         }
                         std::cout << std::endl;
                         std::cout <<  "Out vals: " << std::endl;
-                        for (int i = 0; i < vals.size(); ++i) {
+                        for (size_t i = 0; i < vals.size(); ++i) {
                                 std::cout << vals[i] << " ";
                         }
                         std::cout << std::endl;
@@ -448,7 +448,7 @@ void Radix(unsigned int N)
                 exit(1);
 
         std::vector<unsigned int> vals(N);
-        for (int i = 0; i < vals.size(); ++i) {
+        for (size_t i = 0; i < vals.size(); ++i) {
                 vals[i] = rand()%(1<<17);
                 // vals[i] = rand()%(1<<31);
                 // vals[i] = rand()%(1<<24);
@@ -490,7 +490,7 @@ void Radix(unsigned int N)
 
         memory_id histogram_sums_id = device->new_memory();
         DeviceMemory& histogram_sums = device->memory(histogram_sums_id);
-        if (N2 > block_size) {
+        if ((size_t)N2 > block_size) {
                 if (histogram_sums.initialize(histogram_mem.size()/(block_size)+1))
                         return;
         } else {
@@ -505,7 +505,7 @@ void Radix(unsigned int N)
 
         // std::cout << "Initialized sorting"  << std::endl;
 
-        for (unsigned int pass = 0; pass < passes; pass++) {
+        for (int pass = 0; pass < passes; pass++) {
 
                 radix.set_arg(0,in_mem);
                 radix.set_arg(1,sizeof(unsigned int)*(block_size),NULL);
@@ -519,7 +519,7 @@ void Radix(unsigned int N)
 
                 ////  If we can do everything in a group, 
                 //// then the output should go to in_mem
-                if (N2 > block_size) {
+                if ((size_t)N2 > block_size) {
                         radix.set_arg(9,out_mem);
                 } else {
                         radix.set_arg(9,in_mem);
@@ -538,7 +538,7 @@ void Radix(unsigned int N)
                 // std::cout << "Radix kernel enqueued "  << std::endl;
                 device->enqueue_barrier();
                 // std::cout << "Barrier enqueued "  << std::endl;
-                if (N2 <= block_size) 
+                if ((size_t)N2 <= block_size) 
                         continue;
 
                 

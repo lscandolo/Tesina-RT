@@ -309,6 +309,8 @@ void ModelOBJ::addTrianglePos(int index, int material, int v0, int v1, int v2)
     {
 	    {0.0f, 0.0f, 0.0f},
 	    {0.0f, 0.0f},
+	    {0.0f, 0.0f, 0.0f},
+	    {0.0f, 0.0f, 0.0f, 0.0f},
 	    {0.0f, 0.0f, 0.0f}
     };
 
@@ -338,6 +340,7 @@ void ModelOBJ::addTrianglePosNormal(int index, int material, int v0, int v1,
 	    {0.0f, 0.0f, 0.0f},
 	    {0.0f, 0.0f},
 	    {0.0f, 0.0f, 0.0f},
+	    {0.0f, 0.0f, 0.0f, 0.0f},
 	    {0.0f, 0.0f, 0.0f}
     };
 
@@ -376,6 +379,7 @@ void ModelOBJ::addTrianglePosTexCoord(int index, int material, int v0, int v1,
 	    {0.0f, 0.0f, 0.0f},
 	    {0.0f, 0.0f},
 	    {0.0f, 0.0f, 0.0f},
+	    {0.0f, 0.0f, 0.0f, 0.0f},
 	    {0.0f, 0.0f, 0.0f}
     };
 
@@ -412,6 +416,7 @@ void ModelOBJ::addTrianglePosTexCoordNormal(int index, int material, int v0,
 	    {0.0f, 0.0f, 0.0f},
 	    {0.0f, 0.0f},
 	    {0.0f, 0.0f, 0.0f},
+	    {0.0f, 0.0f, 0.0f, 0.0f},
 	    {0.0f, 0.0f, 0.0f}
     };
 
@@ -1294,14 +1299,14 @@ void ModelOBJ::get_meshes(std::vector<Mesh>& meshes) const
                 std::map<int32_t,int32_t> vertex_map;
                 std::map<int32_t,int32_t>::iterator map_it;
                 const ModelOBJ::ModelMesh& obj_mesh = getModelMesh(i);
-                const ModelOBJ::Material* obj_mat = obj_mesh.pMaterial;
+                // const ModelOBJ::Material* obj_mat = obj_mesh.pMaterial;
                 /* Copy triangle data */
                 // std::cout << "triangle count: " << obj_mesh.triangleCount << std::endl;
                 // std::cout << "start index: " << obj_mesh.startIndex << std::endl;
-
+                
                 mesh.triangles.resize(obj_mesh.triangleCount);
-                int32_t min_index = m_indexBuffer[obj_mesh.startIndex];
-                int32_t max_index = min_index;
+                // int32_t min_index = m_indexBuffer[obj_mesh.startIndex];
+                // int32_t max_index = min_index;
                 for (int32_t j = 0; j < obj_mesh.triangleCount; ++j) {
                         Triangle t;
                         int32_t k = j*3 + obj_mesh.startIndex;

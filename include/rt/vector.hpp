@@ -79,7 +79,7 @@ public:
 			return r;
 		}
 
-	inline const float operator*( const vec<N,F>& rhs ) const 
+	inline float operator*( const vec<N,F>& rhs ) const 
 		{
 			float r = 0;
 			for (uint32_t i = 0; i < N; ++i)

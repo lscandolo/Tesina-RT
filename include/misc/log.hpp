@@ -52,20 +52,20 @@ static Log& operator<<(Log& l, T t)
     return l;
 }
 
-// this is the type of std::cout
-typedef std::basic_ostream<char, std::char_traits<char> > CoutType;
-// this is the function signature of std::endl
-typedef CoutType& (*StandardEndLine)(CoutType&);
-//Tnx GManNickG from StackOverflow!
+// // this is the type of std::cout
+// typedef std::basic_ostream<char, std::char_traits<char> > CoutType;
+// // this is the function signature of std::endl
+// typedef CoutType& (*StandardEndLine)(CoutType&);
+// //Tnx GManNickG from StackOverflow!
 
-static Log& operator<<(Log& l, StandardEndLine e)
-{
-    if(!l.silent)
-        std::cout << e;
-    if (l.enabled)
-        l.o() << e;
-    return l;		
-}
+// static Log& operator<<(Log& l, StandardEndLine e)
+// {
+//     if(!l.silent)
+//         std::cout << e;
+//     if (l.enabled)
+//         l.o() << e;
+//     return l;		
+// }
 
 
 #endif /* LOG_HPP */

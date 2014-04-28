@@ -147,7 +147,8 @@ Tracer::trace(Scene& scene, int32_t ray_count,
         switch (scene.get_accelerator_type()) {
         case (KDTREE_ACCELERATOR):
                 return trace_kdtree(scene, ray_count, rays, hits, secondary);
-        case (BVH_ACCELERATOR):
+        case (LBVH_ACCELERATOR):
+        case (SAH_BVH_ACCELERATOR):
                 return trace_bvh(scene, ray_count, rays, hits, secondary);
         default:
                 return -1;
@@ -280,7 +281,8 @@ Tracer::shadow_trace(Scene& scene, int32_t ray_count,
         switch (scene.get_accelerator_type()) {
         case (KDTREE_ACCELERATOR):
                 return shadow_trace_kdtree(scene, ray_count, rays, hits, secondary);
-        case (BVH_ACCELERATOR):
+        case (SAH_BVH_ACCELERATOR):
+        case (LBVH_ACCELERATOR):
                 return shadow_trace_bvh(scene, ray_count, rays, hits, secondary);
         default:
                 return -1;
@@ -481,3 +483,7 @@ Tracer::get_shadow_exec_time()
         return m_shadow_time_ms;
 }
 
+void 
+Tracer::update_configuration(const RendererConfig& conf)
+{
+}

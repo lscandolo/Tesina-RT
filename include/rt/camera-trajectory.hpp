@@ -8,7 +8,7 @@ class CameraTrajectory {
 
 public:
 
-        virtual void get_next_camera_params(vec3* cam_pos, vec3* cam_dir, vec3* cam_up){};
+        virtual void get_next_camera_params(vec3* cam_pos, vec3* cam_dir, vec3* cam_up)= 0;
         void reset() {current_frame = 0;}
         void set_frames(uint32_t f) {frames = f;}
         void set_repeating(bool r){repeating = r;}

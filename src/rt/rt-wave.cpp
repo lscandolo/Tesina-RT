@@ -54,12 +54,13 @@ void gl_mouse(int x, int y)
 
 void gl_key(unsigned char key, int x, int y)
 {
+        (void)x;
+        (void)y;
+
         float delta = 2.f;
 
         static float scale = 1.f;
         static float tilt = 0.f;
-
-        size_t window_size[] = {renderer.get_framebuffer_w(), renderer.get_framebuffer_h()};
 
         const pixel_sample_cl samples1[] = {{ 0.f , 0.f, 1.f}};
         const pixel_sample_cl samples4[] = {{ 0.25f , 0.25f, 0.25f},
@@ -87,9 +88,9 @@ void gl_key(unsigned char key, int x, int y)
                 scene.camera.panRight(delta*scale);
                 break;
         case 'p':
-                std::cout << std::endl;
-                std::cout << "scene.camera Pos:\n" << scene.camera.pos << std::endl;
-                std::cout << "scene.camera Dir:\n" << scene.camera.dir << std::endl;
+                std::cout << "\n";
+                std::cout << "scene.camera Pos:\n" << scene.camera.pos << "\n";
+                std::cout << "scene.camera Dir:\n" << scene.camera.dir << "\n";
                 break;
         case 'b':
                 renderer.log.silent = !renderer.log.silent;
@@ -105,18 +106,18 @@ void gl_key(unsigned char key, int x, int y)
                 break;
         case '1': /* Set 1 sample per pixel */
                 if (renderer.set_samples_per_pixel(1,samples1)){
-                        std::cerr << "Error seting spp" << std::endl;
+                        std::cerr << "Error seting spp\n";
                         pause_and_exit(1);
                 }
                 break;
         case '4': /* Set 4 samples per pixel */
                 if (renderer.set_samples_per_pixel(4,samples4)){
-                        std::cerr << "Error seting spp" << std::endl;
+                        std::cerr << "Error seting spp\n";
                         pause_and_exit(1);
                 }
                 break;
         case 'q':
-                std::cout << std::endl << "pause_and_exiting..." << std::endl;
+                std::cout << "\n" << "pause_and_exiting...\n";
                 pause_and_exit(1);
                 break;
         case 't':
@@ -152,24 +153,24 @@ void gl_loop()
         DeviceInterface* device = DeviceInterface::instance();
         DeviceFunction& mangler_function = device->function(mangler_id);
 
-        std::cerr << "Using GPU..." << std::endl;
+        std::cerr << "Using GPU...\n";
         mangle_timer.snap_time();
         mangler_function.set_arg(1,sizeof(cl_float),&mangler_arg);
         mangler_function.set_arg(2,sizeof(cl_float),&last_mangler_arg);
 
         if (mangler_function.execute()) {
-                std::cerr << "Error executing mangler." << std::endl;
+                std::cerr << "Error executing mangler.\n";
                 exit(1);
         }
 	double mangle_time = mangle_timer.msec_since_snap();
-	std::cerr << "Mangle time: "  << mangle_time << " msec." << std::endl;
+	std::cerr << "Mangle time: "  << mangle_time << " msec.\n";
 	last_mangler_arg = mangler_arg;
 	/*--------------------------------------*/
 
         //Acquire graphics library resources, clear framebuffer, 
         // clear counters and create bvh if needed
         if (renderer.set_up_frame(tex_id ,scene)) {
-                std::cerr << "Error in setting up frame" << std::endl;
+                std::cerr << "Error in setting up frame\n";
                 exit(-1);
         }
 
@@ -188,7 +189,7 @@ void gl_loop()
 
         //Do cleanup after rendering frame
         if (renderer.conclude_frame(scene)) {
-                std::cerr << "Error concluding frame" << std::endl;
+                std::cerr << "Error concluding frame\n";
                 exit(-1);
         }
 
@@ -217,7 +218,7 @@ void gl_loop()
         
         debug_stats.stage_acc_times[5] += debug_timer.msec_since_snap();//!!
 
-        //std::cout << "Camera Pos: " << scene.camera.pos << std::endl;
+        //std::cout << "Camera Pos: " << scene.camera.pos << "\n";
         const FrameStats& stats = renderer.get_frame_stats();
 
         if (print_fps) {
@@ -243,7 +244,7 @@ void gl_loop()
                   << " rays casted "
                   << "\t(" << stats.get_ray_count() - stats.get_secondary_ray_count() << " primary, "
                   << stats.get_secondary_ray_count() << " secondary)"
-                  << std::endl;
+                  << "\n";
         if (renderer.log.silent)
                 renderer.log<< "Time elapsed: "
                 << stats.get_frame_time() << " milliseconds "
@@ -252,19 +253,19 @@ void gl_loop()
                 << " FPS"
                 << "                \r";
         //std::flush(renderer.log.o());
-        renderer.log << "\nBVH Build time:\t" << stats.get_stage_time(BVH_BUILD) << std::endl;
-        renderer.log << "Prim Gen time: \t" << stats.get_stage_time(PRIM_RAY_GEN)<< std::endl;
-        renderer.log << "Sec Gen time: \t" << stats.get_stage_time(SEC_RAY_GEN)  << std::endl;
+        renderer.log << "\nBVH Build time:\t" << stats.get_stage_time(BVH_BUILD) << "\n";
+        renderer.log << "Prim Gen time: \t" << stats.get_stage_time(PRIM_RAY_GEN)<< "\n";
+        renderer.log << "Sec Gen time: \t" << stats.get_stage_time(SEC_RAY_GEN)  << "\n";
         renderer.log << "Tracer time: \t" << stats.get_stage_time(PRIM_TRACE) + stats.get_stage_time(SEC_TRACE)
                   << " (" <<  stats.get_stage_time(PRIM_TRACE) << " - " << stats.get_stage_time(SEC_TRACE)
-                  << ")" << std::endl;
+                  << ")\n";
         renderer.log << "Shadow time: \t" << stats.get_stage_time(PRIM_SHADOW_TRACE) + stats.get_stage_time(SEC_SHADOW_TRACE)
                   << " (" <<  stats.get_stage_time(PRIM_SHADOW_TRACE)
-                  << " - " << stats.get_stage_time(SEC_SHADOW_TRACE) << ")" << std::endl;
-        renderer.log << "Shader time: \t" << stats.get_stage_time(SHADE) << std::endl;
-        renderer.log << "Fb clear time: \t" << stats.get_stage_time(FB_CLEAR) << std::endl;
-        renderer.log << "Fb copy time: \t" << stats.get_stage_time(FB_COPY) << std::endl;
-        renderer.log << std::endl;
+                  << " - " << stats.get_stage_time(SEC_SHADOW_TRACE) << ")\n";
+        renderer.log << "Shader time: \t" << stats.get_stage_time(SHADE) << "\n";
+        renderer.log << "Fb clear time: \t" << stats.get_stage_time(FB_CLEAR) << "\n";
+        renderer.log << "Fb copy time: \t" << stats.get_stage_time(FB_COPY) << "\n";
+        renderer.log << "\n";
 
 }
 
@@ -280,30 +281,30 @@ int main (int argc, char** argv)
         GLInfo* glinfo = GLInfo::instance();
 
         if (glinfo->initialize(argc,argv, window_size, "RT") != 0){
-                std::cerr << "Failed to initialize GL" << std::endl;
+                std::cerr << "Failed to initialize GL\n";
                 pause_and_exit(1);
         } else { 
-                std::cout << "Initialized GL succesfully" << std::endl;
+                std::cout << "Initialized GL succesfully\n";
         }
 
         CLInfo* clinfo = CLInfo::instance();
         if (clinfo->initialize(2) != CL_SUCCESS){
-                std::cerr << "Failed to initialize CL" << std::endl;
+                std::cerr << "Failed to initialize CL\n";
                 pause_and_exit(1);
         } else { 
-                std::cout << "Initialized CL succesfully" << std::endl;
+                std::cout << "Initialized CL succesfully\n";
         }
         clinfo->print_info();
 
         // Initialize device interface and generic gpu library
         DeviceInterface* device = DeviceInterface::instance();
         if (device->initialize()) {
-                std::cerr << "Failed to initialize device interface" << std::endl;
+                std::cerr << "Failed to initialize device interface\n";
                 pause_and_exit(1);
         }
 
         if (DeviceFunctionLibrary::instance()->initialize()) {
-                std::cerr << "Failed to initialize function library" << std::endl;
+                std::cerr << "Failed to initialize function library\n";
                 pause_and_exit(1);
         }
 
@@ -311,21 +312,21 @@ int main (int argc, char** argv)
         tex_id = device->new_memory();
         DeviceMemory& tex_mem = device->memory(tex_id);
         if (tex_mem.initialize_from_gl_texture(gl_tex)) {
-                std::cerr << "Failed to create memory object from gl texture" << std::endl;
+                std::cerr << "Failed to create memory object from gl texture\n";
                 pause_and_exit(1);
         }
 
         /*---------------------- Set up scene ---------------------------*/
         if (scene.initialize()) {
-                std::cerr << "Failed to initialize scene" << std::endl;
+                std::cerr << "Failed to initialize scene\n";
                 pause_and_exit(1);
         } else {
-                std::cout << "Initialized scene succesfully" << std::endl;
+                std::cout << "Initialized scene succesfully\n";
         }
         
         /*---------------------- Scene definition -----------------------*/
 
-	mesh_id floor_mesh_id = scene.load_obj_file_as_aggregate("models/obj/grid10.obj");
+	mesh_id floor_mesh_id = scene.load_obj_file_as_aggregate("models/obj/grid100.obj");
 	object_id floor_obj_id  = scene.add_object(floor_mesh_id);
 	Object& floor_obj = scene.object(floor_obj_id);
  	floor_obj.geom.setScale(10.f);
@@ -345,25 +346,25 @@ int main (int argc, char** argv)
 
         /*---------------------- Move scene data to gpu -----------------------*/
          if (scene.create_aggregate_mesh()) { 
-                std::cerr << "Failed to create aggregate mesh" << std::endl;
+                std::cerr << "Failed to create aggregate mesh\n";
                 pause_and_exit(1);
          } else {
-                 std::cout << "Created aggregate mesh succesfully" << std::endl;
+                 std::cout << "Created aggregate mesh succesfully\n";
          }
          if (scene.create_aggregate_bvh()) { 
-                std::cerr << "Failed to create aggregate bvh" << std::endl;
+                std::cerr << "Failed to create aggregate bvh\n";
                 pause_and_exit(1);
          } else {
-                 std::cout << "Created aggregate bvh succesfully" << std::endl;
+                 std::cout << "Created aggregate bvh succesfully\n";
          }
          if (scene.transfer_aggregate_mesh_to_device() ||
              scene.transfer_aggregate_bvh_to_device()) {
                      std::cerr << "Failed to transfer aggregate mesh and bvh to device memory"
-                         << std::endl;
+                         << "\n";
                  pause_and_exit(1);
          } else {
                  std::cout << "Transfered aggregate mesh and bvh to device succesfully"
-                         << std::endl;
+                         << "\n";
          }
 
 
@@ -380,13 +381,13 @@ int main (int argc, char** argv)
                 cubemap_path + "negy.jpg",
                 cubemap_path + "posz.jpg",
                 cubemap_path + "negz.jpg")) {
-                        std::cerr << "Failed to initialize cubemap." << std::endl;
+                        std::cerr << "Failed to initialize cubemap.\n";
                         pause_and_exit(1);
         }
 
         Mesh& agg = scene.get_aggregate_mesh();
-        std::cout << "Triangles: " << agg.triangleCount() << std::endl;
-        std::cout << "Vertices : " << agg.vertexCount() << std::endl;
+        std::cout << "Triangles: " << agg.triangleCount() << "\n";
+        std::cout << "Vertices : " << agg.vertexCount() << "\n";
 
         /* ----------------------- Initialize renderer --------------------------- */
         std::string log_filename = "rt-wave-log"; 
@@ -398,7 +399,7 @@ int main (int argc, char** argv)
         mangler_id = device->new_function();
         DeviceFunction& mangler_function = device->function(mangler_id);
         if (mangler_function.initialize("src/kernel/mangler.cl", "mangle")) {
-		std::cerr << "Error initializing mangler kernel." << std::endl;
+		std::cerr << "Error initializing mangler kernel.\n";
 		exit(1);
 	}
 
@@ -408,9 +409,9 @@ int main (int argc, char** argv)
 	cl_float h = 0.2; // WAVE_HEIGHT;
         mangler_function.set_global_size(mangler_global_size);
         if (mangler_function.set_arg(0, scene.vertex_mem()))
-                std::cerr << "Error setting mangler argument 0" << std::endl;
+                std::cerr << "Error setting mangler argument 0\n";
         if (mangler_function.set_arg(3,sizeof(cl_float), &h))
-                std::cerr << "Error setting mangler argument 3" << std::endl;
+                std::cerr << "Error setting mangler argument 3\n";
 
 
         /* ------------------------ Set callbacks ----------------------------- */

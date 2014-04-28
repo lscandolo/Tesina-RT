@@ -11,6 +11,8 @@
 #include <rt/framebuffer.hpp>
 #include <rt/scene.hpp>
 
+#include <rt/renderer-config.hpp>
+
 #include <rt/primary-ray-generator.hpp>
 #include <rt/secondary-ray-generator.hpp>
 #include <rt/ray-shader.hpp>
@@ -21,13 +23,16 @@
 #include <string>
 
 
-
 class Renderer {
 
 public:
 
+        Renderer();
+
         uint32_t set_up_frame(memory_id tex_id, Scene& scene);
         uint32_t update_accelerator(Scene& scene);
+
+        uint32_t update_configuration();
 
         uint32_t render_to_framebuffer(Scene& scene);
 
@@ -62,6 +67,8 @@ public:
         INIReader ini;
 
         Log                   log;
+
+        RendererConfig        config;
 
 private:
 

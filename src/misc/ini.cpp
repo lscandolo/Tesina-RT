@@ -47,7 +47,7 @@ INIReader::load_file(std::string filename)
 
                 // Section name
                 if (line[0] == '[') {
-                        int end_pos = line.find(']');
+                        size_t end_pos = line.find(']');
                         if (end_pos == std::string::npos || end_pos == 1)
                                 return -(int)line_number;
                         current_section = line.substr(1,end_pos-1);
@@ -55,7 +55,7 @@ INIReader::load_file(std::string filename)
                 }
                 
                 // Property = value line
-                int eq_pos = line.find('=');
+                size_t eq_pos = line.find('=');
                 if (eq_pos == std::string::npos) {
                         return -(int)line_number;
                 }

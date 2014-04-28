@@ -7,6 +7,7 @@
 #include <rt/timing.hpp>
 #include <rt/scene.hpp>
 #include <rt/ray.hpp>
+#include <rt/renderer-config.hpp>
 
 class Tracer {
 
@@ -29,6 +30,8 @@ public:
 	void timing(bool b);
 	double get_trace_exec_time();
 	double get_shadow_exec_time();
+
+        void update_configuration(const RendererConfig& conf);
 
 private:
 

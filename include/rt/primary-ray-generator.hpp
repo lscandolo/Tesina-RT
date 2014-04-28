@@ -6,6 +6,7 @@
 #include <rt/timing.hpp>
 #include <rt/ray.hpp>
 #include <rt/camera.hpp>
+#include <rt/renderer-config.hpp>
 
 RT_ALIGN(4)
 struct pixel_sample_cl{
@@ -31,19 +32,24 @@ public:
 
 	void   timing(bool b);
 	double get_exec_time();
+
+        void update_configuration(const RendererConfig& conf);
 	
 private:
 
         function_id generator_id;
+        function_id generator_zcurve_id;
         memory_id pixel_samples_id;
 
 	// CLKernelInfo ray_clk;
 
         bool         m_initialized;
-	cl_int       m_spp;
 	bool         m_timing;
 	rt_time_t    m_timer;
 	double       m_time_ms;
+        bool         m_use_zcurve;
+	cl_int       m_quad_size;
+	cl_int       m_spp;
 };
 
 #endif /* PRIMARY_RAY_GENERATOR_HPP */

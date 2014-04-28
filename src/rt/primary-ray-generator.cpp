@@ -15,25 +15,35 @@ PrimaryRayGenerator::initialize()
         if (!device.good())
                 return -1;
 
-        generator_id = device.new_function();
-        DeviceFunction& generator = device.function(generator_id);
 
-        if (generator.initialize("src/kernel/primary-ray-generator.cl", 
-                                   "generate_primary_rays"))
+        std::vector<std::string> kernel_names;
+        kernel_names.push_back("generate_primary_rays");
+        kernel_names.push_back("generate_primary_rays_zcurve");
+
+        std::vector<function_id> function_ids;
+        function_ids = device.build_functions("src/kernel/primary-ray-generator.cl", 
+                                              kernel_names);
+
+        if (!function_ids.size())
                 return -1;
 
-        generator.set_dims(1);
+        generator_id        = function_ids[0];
+        generator_zcurve_id = function_ids[1];
+
 	m_timing = false;
 	m_spp = 1;
 
         pixel_samples_id = device.new_memory();
         DeviceMemory& pixel_samples_mem = device.memory(pixel_samples_id);
         pixel_sample_cl single_pixel_sample = {0.f,0.f,1.f};
-        if (pixel_samples_mem.initialize(m_spp * sizeof(pixel_sample_cl), &single_pixel_sample, 
-                                   READ_ONLY_MEMORY))
+        if (pixel_samples_mem.initialize(m_spp * sizeof(pixel_sample_cl), 
+                                         &single_pixel_sample, 
+                                         READ_ONLY_MEMORY))
                 return -1;
 
         m_initialized = true;
+        m_use_zcurve  = false;
+        m_quad_size   = 32;
 	return 0;
 	
 }
@@ -51,7 +61,17 @@ PrimaryRayGenerator::generate(const Camera& cam, RayBundle& bundle, size_t size[
 		m_timer.snap_time();
 
         DeviceInterface& device = *DeviceInterface::instance();
-        DeviceFunction& generator = device.function(generator_id);
+
+        bool use_zcurve = false;
+        /// Check if sizes are equal and a power of 2
+        if (m_use_zcurve && size[0] == size[1] && (size[0] & (size[0]-1)) == 0) {
+                use_zcurve = true;  
+                std::cout << "Using zcurve!\n";
+        }
+
+        function_id gen_id = use_zcurve ? generator_zcurve_id : generator_id;
+
+        DeviceFunction& generator = device.function(gen_id);
 
 	/*-------------- Set cam parameters as arguments ------------------*/
 	/*-- My OpenCL implementation cannot handle using float3 as arguments!--*/
@@ -83,10 +103,13 @@ PrimaryRayGenerator::generate(const Camera& cam, RayBundle& bundle, size_t size[
         if (generator.set_arg(6,sizeof(cl_int), &height))
                 return -1;
 
-        if (generator.set_arg(7,sizeof(cl_int), &m_spp))
+        if (generator.set_arg(7,sizeof(cl_int), &m_quad_size))
                 return -1;
 
-        if (generator.set_arg(8, device.memory(pixel_samples_id)))
+        if (generator.set_arg(8,sizeof(cl_int), &m_spp))
+                return -1;
+
+        if (generator.set_arg(9, device.memory(pixel_samples_id)))
                 return -1;
 
         size_t group_size = generator.max_group_size();
@@ -100,6 +123,39 @@ PrimaryRayGenerator::generate(const Camera& cam, RayBundle& bundle, size_t size[
             m_time_ms = m_timer.msec_since_snap();
         }
 
+
+        // char* samples_buffer = new char[bundle.mem().size()];
+        // sample_cl* samples = (sample_cl*)samples_buffer;
+
+        // bundle.mem().read(bundle.mem().size(), samples_buffer);
+
+        // std::vector<bool> visited(size[0] * size[1], false);
+
+        // for (uint32_t i = 0; i < ray_count; i++) {
+        //         int pixel = samples[i].pixel;
+        //         if ((size_t)pixel > size[0] * size[1] || pixel < 0) {
+        //                 std::cout << "Sample " << i << " (" 
+        //                           << pixel << ") is out of range!" 
+        //                           << std::endl;
+        //                 continue;
+        //         }
+
+        //         if (visited[pixel])
+        //                 std::cout << "Sample " << i << " (" 
+        //                           << samples[i].pixel << ") visited multiple times!" 
+        //                           << std::endl;
+        //         else
+        //                 visited[pixel] = true;
+        // }
+
+        // for (int i = 0; i < 256; i++) {
+        //         std::cout << "Sample " << i << " (" 
+        //                   << samples[i].pixel << ")" << std::endl;
+        // }
+
+        // delete [] samples_buffer;
+        
+        
 	return ret;
 }
 
@@ -146,4 +202,11 @@ double
 PrimaryRayGenerator::get_exec_time()
 {
 	return m_time_ms;
+}
+
+void 
+PrimaryRayGenerator::update_configuration(const RendererConfig& conf)
+{
+        m_use_zcurve = conf.prim_ray_use_zcurve;
+        m_quad_size  = conf.prim_ray_quad_size;
 }

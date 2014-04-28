@@ -9,6 +9,7 @@
 #include <rt/scene.hpp>
 #include <rt/cubemap.hpp>
 #include <rt/framebuffer.hpp>
+#include <rt/renderer-config.hpp>
 
 class RayShader {
 
@@ -20,6 +21,8 @@ public:
 
 	void timing(bool b);
 	double get_exec_time();
+
+        void update_configuration(const RendererConfig& conf);
 
 private:
 

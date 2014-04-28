@@ -233,7 +233,7 @@ leaf_hit_any(BVHNode node,
 	return false;
 }
 
-#define MAX_LEVELS 64
+#define MAX_LEVELS 32
 
 bool trace_shadow_ray(Ray ray,
                       global Vertex* vertex_buffer,
@@ -415,5 +415,4 @@ shadow_trace_single(global SampleTraceInfo* trace_info,
                                                         index_buffer, 
                                                         bvh_nodes,
                                                         0);
-
 }

@@ -35,7 +35,7 @@ struct Object {
 
         Object(mesh_id id);
 
-        const mesh_id get_mesh_id();
+        mesh_id get_mesh_id();
         void set_mesh_id(mesh_id id);
         Object clone();
 
@@ -48,7 +48,8 @@ struct Object {
 };
 
 typedef enum {
-        BVH_ACCELERATOR,
+        LBVH_ACCELERATOR,
+        SAH_BVH_ACCELERATOR,
         KDTREE_ACCELERATOR
 } AcceleratorType;
 
@@ -191,10 +192,9 @@ private:
         memory_id lights_id;
         memory_id bvh_roots_id;
 
-//        pthread_t bvh_thread;
-//        pthread_barrier_t thread_barrier;
-//        pthread_barrierattr_t thread_barrier_attr;
-
+public:
+        uint32_t bvh_node_count;
+        uint32_t bvh_level_node_count[64];
 };
 
 

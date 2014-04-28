@@ -68,6 +68,7 @@ public:
 	~RayBundle();
 
 	int32_t initialize(const size_t rays); // Create mem object
+	int32_t resize(const size_t rays);     // resize mem object
 	bool    valid();                    // Check that it's correctly initialized 
 	int32_t count();                // Return number of rays in the bundle
         DeviceMemory& mem();           // Return mem object
@@ -86,7 +87,10 @@ class HitBundle {
 public:
 
 	HitBundle();
-	int32_t initialize(const size_t sz);
+	int32_t initialize(const size_t sz);   // create mem object
+	int32_t resize(const size_t rays);     // resize mem object
+	bool    valid();                    // Check that it's correctly initialized 
+	int32_t count();                // Return number of rays in the bundle
 	DeviceMemory& mem();
 
 private:

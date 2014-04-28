@@ -12,6 +12,9 @@ int32_t
 KDTree::construct(Mesh& mesh, BBox* scene_bbox, int32_t node_offset, int32_t tri_offset) 
 {
 
+        (void)node_offset;
+        (void)tri_offset;
+
 	/*------------------------ Initialize bboxes ------------------------------*/
 	std::vector<BBox> bboxes;
         BBox root_bbox;

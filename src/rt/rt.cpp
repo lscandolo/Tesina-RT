@@ -6,7 +6,7 @@
 #include <cl-gl/opencl-init.hpp>
 #include <rt/rt.hpp>
 
-#include <rt/test-params-fairy.hpp>
+#include <rt/test-params-dragon.hpp>
 #include <rt/test-params.hpp>
 
 #define TOTAL_STATS_TO_LOG 12
@@ -61,6 +61,9 @@ void gl_mouse(int x, int y)
 
 void gl_key(unsigned char key, int x, int y)
 {
+        (void)x;
+        (void)y;
+
         float delta = 2.f;
 
         static float scale = 1.f;
@@ -175,60 +178,79 @@ void print_stats(FrameStats& debug_stats)
 {
         const FrameStats& stats = renderer.get_frame_stats();
 
-        renderer.log.silent = true;
+        // renderer.log.silent = true;
 
-        if (frame == 1){
-                debug_stats.clear_mean_times();//!!
-                debug_stats.clear_times();//!!
-                renderer.clear_stats();
-        }
+        // if (frame == 1){
+        //         debug_stats.clear_mean_times();//!!
+        //         debug_stats.clear_times();//!!
+        //         renderer.clear_stats();
+        // }
 
         debug_stats.acc_frames++;//!!
-        if (frame == 100) {
+        if (frame == 100 && false) {
                 renderer.log.enabled = true;
-                renderer.log << "========================================================\n";
-                renderer.log << "========================================================\n";
+                renderer.log << "=======================================================\n";
+                renderer.log << "=======================================================\n";
                 renderer.log << "     SCENE TRAJECTORY STATS " << log_filename << "\n";
-                renderer.log << "========================================================\n";
-                renderer.log << "========================================================\n";
+                renderer.log << "=======================================================\n";
+                renderer.log << "=======================================================\n";
 
                 renderer.log << "\nFrame mean time:\t" << stats.get_mean_frame_time()
-                        << "\n";
+                             << "\n";
                 renderer.log << "Mean FPS:\t" << 1000.f/stats.get_mean_frame_time()
-                        << "\n" << "\n";
+                             << "\n" << "\n";
 
-                renderer.log << "Resolution:\t" << renderer.get_framebuffer_w() << "x" << renderer.get_framebuffer_h() << "\n";
+                renderer.log << "Resolution:\t" << renderer.get_framebuffer_w() 
+                             << "x" << renderer.get_framebuffer_h() << "\n";
                 renderer.log << "Max ray bounces:\t" << renderer.get_max_bounces() << "\n";
 
                 renderer.log << "\n====== Stage times\n\n" ;
-                renderer.log << "\nBVH Build mean time:\t" << stats.get_stage_mean_time(BVH_BUILD) << "\n";
-                renderer.log << "Prim Gen mean time: \t" << stats.get_stage_mean_time(PRIM_RAY_GEN)<< "\n";
-                renderer.log << "Sec Gen mean time: \t" << stats.get_stage_mean_time(SEC_RAY_GEN)  << "\n";
-                renderer.log << "Tracer mean time: \t" << stats.get_stage_mean_time(PRIM_TRACE) + stats.get_stage_mean_time(SEC_TRACE)
-                        << " (" <<  stats.get_stage_mean_time(PRIM_TRACE) << " - " << stats.get_stage_mean_time(SEC_TRACE)
-                        << ")" << "\n";
-                renderer.log << "Shadow mean time: \t" << stats.get_stage_mean_time(PRIM_SHADOW_TRACE) + stats.get_stage_mean_time(SEC_SHADOW_TRACE)
-                        << " (" <<  stats.get_stage_mean_time(PRIM_SHADOW_TRACE)
-                        << " - " << stats.get_stage_mean_time(SEC_SHADOW_TRACE) << ")" << "\n";
-                renderer.log << "Shader mean time: \t" << stats.get_stage_mean_time(SHADE) << "\n";
-                renderer.log << "Fb clear mean time: \t" << stats.get_stage_mean_time(FB_CLEAR) << "\n";
-                renderer.log << "Fb copy mean time: \t" << stats.get_stage_mean_time(FB_COPY) << "\n";
+                renderer.log << "\nBVH Build mean time:\t" 
+                             << stats.get_stage_mean_time(BVH_BUILD) << "\n";
+                renderer.log << "Prim Gen mean time: \t" 
+                             << stats.get_stage_mean_time(PRIM_RAY_GEN)<< "\n";
+                renderer.log << "Sec Gen mean time: \t" 
+                             << stats.get_stage_mean_time(SEC_RAY_GEN)  << "\n";
+                renderer.log << "Tracer mean time: \t" 
+                             << stats.get_stage_mean_time(PRIM_TRACE) + 
+                                stats.get_stage_mean_time(SEC_TRACE)
+                             << " (" <<  stats.get_stage_mean_time(PRIM_TRACE) 
+                             << " - " << stats.get_stage_mean_time(SEC_TRACE)
+                             << ")" << "\n";
+                renderer.log << "Shadow mean time: \t" 
+                             << stats.get_stage_mean_time(PRIM_SHADOW_TRACE) + 
+                                stats.get_stage_mean_time(SEC_SHADOW_TRACE)
+                             << " (" <<  stats.get_stage_mean_time(PRIM_SHADOW_TRACE)
+                             << " - " << stats.get_stage_mean_time(SEC_SHADOW_TRACE) 
+                             << ")" << "\n";
+                renderer.log << "Shader mean time: \t" 
+                             << stats.get_stage_mean_time(SHADE) << "\n";
+                renderer.log << "Fb clear mean time: \t" 
+                             << stats.get_stage_mean_time(FB_CLEAR) << "\n";
+                renderer.log << "Fb copy mean time: \t" 
+                             << stats.get_stage_mean_time(FB_COPY) << "\n";
                 renderer.log << "\n";
 
                 ////////// Debug Info
                 renderer.log << "\n\n\nUPTO Stats: \n";
-                renderer.log << "Up to start_up_frame:\t" << debug_stats.get_stage_mean_time((rt_stage)0)
-                        << "\n";
-                renderer.log << "Up to camera.set:\t" << debug_stats.get_stage_mean_time(rt_stage(1))
-                        << "\n";
-                renderer.log << "Up to render_to_framebuffer:\t" << debug_stats.get_stage_mean_time(rt_stage(2))
-                        << "\n";
-                renderer.log << "Up to copy_framebuffer:\t" << debug_stats.get_stage_mean_time(rt_stage(3))
-                        << "\n";
-                renderer.log << "Up to conclude_frame:\t" << debug_stats.get_stage_mean_time(rt_stage(4))
-                        << "\n";
-                renderer.log << "Up to glEnd:\t" << debug_stats.get_stage_mean_time(rt_stage(5))
-                        << "\n";
+                renderer.log << "Up to start_up_frame:\t" 
+                             << debug_stats.get_stage_mean_time((rt_stage)0)
+                             << "\n";
+                renderer.log << "Up to camera.set:\t" 
+                             << debug_stats.get_stage_mean_time(rt_stage(1))
+                             << "\n";
+                renderer.log << "Up to render_to_framebuffer:\t" 
+                             << debug_stats.get_stage_mean_time(rt_stage(2))
+                             << "\n";
+                renderer.log << "Up to copy_framebuffer:\t" 
+                             << debug_stats.get_stage_mean_time(rt_stage(3))
+                             << "\n";
+                renderer.log << "Up to conclude_frame:\t" 
+                             << debug_stats.get_stage_mean_time(rt_stage(4))
+                             << "\n";
+                renderer.log << "Up to glEnd:\t" 
+                             << debug_stats.get_stage_mean_time(rt_stage(5))
+                             << "\n";
                 ////////////////
 
 
@@ -238,28 +260,33 @@ void print_stats(FrameStats& debug_stats)
         renderer.log.enabled = false;
 
         renderer.log << "Time elapsed: "
-                << stats.get_frame_time() << " milliseconds " 
-                << "\t" 
-                << (1000.f / stats.get_frame_time())
-                << " FPS"
-                << "\t"
-                << stats.get_ray_count()
-                << " rays casted "
-                << "\t(" << stats.get_ray_count() - stats.get_secondary_ray_count() << " primary, "
-                << stats.get_secondary_ray_count() << " secondary)"
-                << "\n";
+                     << stats.get_frame_time() << " milliseconds " 
+                     << "\t" 
+                     << (1000.f / stats.get_frame_time())
+                     << " FPS"
+                     << "\t"
+                     << stats.get_ray_count()
+                     << " rays casted "
+                     << "\t(" << stats.get_ray_count() - stats.get_secondary_ray_count() 
+                     << " primary, "
+                     << stats.get_secondary_ray_count() << " secondary)"
+                     << "\n";
 
         //std::flush(renderer.log.o());
         //std::cout << std::flush;
         renderer.log << "\nBVH Build time:\t" << stats.get_stage_time(BVH_BUILD) << "\n";
         renderer.log << "Prim Gen time: \t" << stats.get_stage_time(PRIM_RAY_GEN)<< "\n";
         renderer.log << "Sec Gen time: \t" << stats.get_stage_time(SEC_RAY_GEN)  << "\n";
-        renderer.log << "Tracer time: \t" << stats.get_stage_time(PRIM_TRACE) + stats.get_stage_time(SEC_TRACE)
-                << " (" <<  stats.get_stage_time(PRIM_TRACE) << " - " << stats.get_stage_time(SEC_TRACE)
-                << ")" << "\n";
-        renderer.log << "Shadow time: \t" << stats.get_stage_time(PRIM_SHADOW_TRACE) + stats.get_stage_time(SEC_SHADOW_TRACE)
-                << " (" <<  stats.get_stage_time(PRIM_SHADOW_TRACE)
-                << " - " << stats.get_stage_time(SEC_SHADOW_TRACE) << ")" << "\n";
+        renderer.log << "Tracer time: \t" 
+                     << stats.get_stage_time(PRIM_TRACE) + stats.get_stage_time(SEC_TRACE)
+                     << " (" <<  stats.get_stage_time(PRIM_TRACE) 
+                     << " - " << stats.get_stage_time(SEC_TRACE)
+                     << ")" << "\n";
+        renderer.log << "Shadow time: \t" 
+                     << stats.get_stage_time(PRIM_SHADOW_TRACE) + 
+                        stats.get_stage_time(SEC_SHADOW_TRACE)
+                     << " (" <<  stats.get_stage_time(PRIM_SHADOW_TRACE)
+                     << " - " << stats.get_stage_time(SEC_SHADOW_TRACE) << ")" << "\n";
         renderer.log << "Shader time: \t" << stats.get_stage_time(SHADE) << "\n";
         renderer.log << "Fb clear time: \t" << stats.get_stage_time(FB_CLEAR) << "\n";
         renderer.log << "Fb copy time: \t" << stats.get_stage_time(FB_COPY) << "\n";
@@ -284,15 +311,24 @@ void gl_loop()
                 exit(-1);
         }
 
+        // if (frame > 0 && frame%5 == 0)
+        //         renderer.config.prim_ray_quad_size ++;
+
+        // Update renderer config parameters
+        if (renderer.update_configuration()) {
+                std::cerr << "Error updating renderer configuration\n";
+                return;
+        }
+
         //Set camera parameters (if needed)
         CameraTrajectory* cam_traj;
-        cam_traj = &fairy_cam_traj;
+        cam_traj = &dragon_cam_traj;
 
         debug_stats.stage_acc_times[0] += debug_timer.msec_since_snap();
 
 
         vec3 cam_pos,cam_up,cam_dir;
-        if (frame > 0 && frame < 100) {
+        if (frame > 0 && frame < 100 && false) {
                 cam_traj->get_next_camera_params(&cam_pos, &cam_dir, &cam_up);
                 float FOV = M_PI/4.f;
                 float aspect = renderer.get_framebuffer_w()/(float)renderer.get_framebuffer_h(); 
@@ -352,9 +388,10 @@ void gl_loop()
                 glRasterPos2f(-0.95f,0.9f);
                 std::stringstream ss;
                 ss << "FPS: " << (1000.f / stats.get_frame_time());
-                if (frame < 100) {
-                        ss << "\n  LOGGING";
-                }
+                // if (frame < 100) {
+                //         ss << "\n  LOGGING";
+                // }
+                ss << "\n  Quad size: " << renderer.config.prim_ray_quad_size;
                 std::string fps_s = ss.str();
                 for (uint32_t i = 0; i < fps_s.size(); ++i)
                         glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *(fps_s.c_str()+i));
@@ -368,10 +405,17 @@ void gl_loop()
 
 }
 
-
+void print_16_bits(int num) 
+{
+        for (int i = 15; i >= 0; --i) {
+                std::cout << ((num & (1 << i)) != 0);
+        }
+}
 
 int main (int argc, char** argv) 
 {
+
+
         // Initialize renderer
         renderer.initialize_from_ini_file("rt.ini");
         int32_t ini_err;
@@ -432,8 +476,11 @@ int main (int argc, char** argv)
         }
         
         /*---------------------- Scene definition -----------------------*/
-        fairy_set_scene(scene);
+        dragon_set_scene(scene, window_size);
+        // hand_set_scene(scene, window_size);
+        // boat_set_scene(scene, window_size);
 
+        boat_set_cam_traj();
         buddha_set_cam_traj();
         dragon_set_cam_traj();
         hand_set_cam_traj();
@@ -481,21 +528,23 @@ int main (int argc, char** argv)
 
 
          /*---------------------- Set initial scene.camera paramaters -----------------------*/
-        // scene.camera.set(makeVector(0,3,-30), makeVector(0,0,1), makeVector(0,1,0), M_PI/4.,
+         // scene.camera.set(makeVector(0,3,-30), makeVector(0,0,1), makeVector(0,1,0), M_PI/4.,
+         // window_size[0] / (float)window_size[1]);
+        // scene.camera.set(makeVector(1, -1, -50), 
+        //                  makeVector(0,0,1), 
+        //                  makeVector(0,1,0), M_PI/4.,
         //         window_size[0] / (float)window_size[1]);
-        scene.camera.set(makeVector(1, -1, -50), 
-                         makeVector(0,0,1), 
-                         makeVector(0,1,0), M_PI/4.,
-                window_size[0] / (float)window_size[1]);
 
         /*----------------------- Initialize cubemap ---------------------------*/
         
         std::string cubemap_path = "textures/cubemap/Path/";
+        ini.get_str_value("RT", "cubemap", cubemap_path);
         if (scene.cubemap.initialize(cubemap_path + "posx.jpg",
                 cubemap_path + "negx.jpg",
                 cubemap_path + "posy.jpg",
                 cubemap_path + "negy.jpg",
                 cubemap_path + "posz.jpg",
+
                 cubemap_path + "negz.jpg")) {
                         std::cerr << "Failed to initialize cubemap." << "\n";
                         pause_and_exit(1);
@@ -511,12 +560,25 @@ int main (int argc, char** argv)
         std::cout << "Vertices : " << agg.vertexCount() << "\n";
 
         /* Initialize renderer */
-        renderer.initialize(log_filename);
+        renderer.config.bvh_depth = 32;
+        renderer.config.tile_to_cores_ratio = 128;
+        renderer.config.use_lbvh = true;
+        renderer.config.bvh_refit_only = false;
+        renderer.config.sec_ray_use_disc = false;
+        renderer.config.prim_ray_quad_size = 32;
+        renderer.config.prim_ray_use_zcurve = false;
+
+        if (renderer.initialize(log_filename)) {
+                std::cout << "Error initializing renderer.\n";
+                return 0;
+        }
+
         int32_t max_bounces = 9;
         ini.get_int_value("RT", "max_bounces", max_bounces);
         max_bounces = std::min(std::max(max_bounces, 0), 9);
         renderer.set_max_bounces(max_bounces);
-        renderer.log.silent = true;
+        renderer.log.silent = false;
+
 
         /* Set callbacks */
         glutKeyboardFunc(gl_key);
@@ -531,5 +593,6 @@ int main (int argc, char** argv)
 
         return 0;
 }
+
 
 

@@ -327,7 +327,7 @@ leaf_hit(RayHit* best_info,
         }
 }
 
-#define MAX_LEVELS 64
+#define MAX_LEVELS 32
 RayHit trace_ray(Ray ray,
                  global Vertex* vertex_buffer,
                  global int* index_buffer,

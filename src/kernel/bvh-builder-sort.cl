@@ -1,10 +1,4 @@
-#define getKey(x) x
-
-#define M_AXIS_BITS  10
-#define M_UINT_COUNT 1 //This value needs to be (1+M_AXIS_BITS / 32)
-
-#define MORTON_MAX_F 1024.f // 2^M_AXIS_BITS
-#define MORTON_MAX_INV_F 0.000976562.f //1/MORTON_MAX_F
+#define M_UINT_COUNT 2 
 
 typedef struct {
 
@@ -12,11 +6,13 @@ typedef struct {
 
 } morton_code_t;
 
-
 int is_smaller(morton_code_t c1, morton_code_t c2)
 {
         if (M_UINT_COUNT == 1) {
                 return c1.code[0] < c2.code[0];
+        } else if (M_UINT_COUNT == 2){
+                return (c1.code[1] == c2.code[1] && c1.code[0] < c2.code[0]) ||
+                        c1.code[1] < c2.code[1];
         } else {
                 for (int i = 0; i < M_UINT_COUNT-1; ++i) {
                         if (c1.code[i] != c2.code[i])
@@ -24,6 +20,7 @@ int is_smaller(morton_code_t c1, morton_code_t c2)
                 }
                 return c1.code[M_UINT_COUNT-1] < c2.code[M_UINT_COUNT-1];
         }
+
 }
 
 kernel void morton_sort_g2(global morton_code_t* morton_codes,

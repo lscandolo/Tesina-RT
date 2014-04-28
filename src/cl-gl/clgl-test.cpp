@@ -68,6 +68,9 @@ __int64 compute_diff(__int64 tp_begin, __int64 tp_end)
 
 void gl_key(unsigned char key, int x, int y)
 {
+        (void)x;
+        (void)y;
+
 	if (key == 'q')
 		std::cout << std::endl;
 		exit(1);

@@ -11,7 +11,7 @@ static mesh_id invalid_mesh_id();
 
 Object::Object(mesh_id _id) : id(_id){slack = vec3_zero;}
 
-const mesh_id 
+mesh_id 
 Object::get_mesh_id()
 {
 	return id;
@@ -46,7 +46,7 @@ Scene::Scene()
         m_aggregate_bvh_transfered = false;
         m_aggregate_kdt_transfered = false;
         m_bvhs_transfered = false;
-        m_accelerator_type = BVH_ACCELERATOR;
+        m_accelerator_type = SAH_BVH_ACCELERATOR;
 
 }
 
@@ -143,7 +143,7 @@ Scene::copy_mem_from(Scene& scene, size_t cq_i)
         m_aggregate_mesh_built = true;
         m_aggregate_bvh_built = true;
         m_aggregate_bvh_transfered = true;
-        m_accelerator_type = BVH_ACCELERATOR;
+        m_accelerator_type = scene.get_accelerator_type();
 
         texture_atlas = scene.texture_atlas;
         camera        = scene.camera;
@@ -219,7 +219,8 @@ Scene::ready()
         switch (m_accelerator_type) {
         case (KDTREE_ACCELERATOR):
                 return m_aggregate_kdt_built && m_aggregate_kdt_transfered;
-        case (BVH_ACCELERATOR):
+        case (SAH_BVH_ACCELERATOR):
+        case (LBVH_ACCELERATOR):
                 return (m_aggregate_bvh_built && m_aggregate_bvh_transfered) ||
                        (m_bvhs_built && m_bvhs_transfered);
         default:
@@ -230,8 +231,7 @@ Scene::ready()
 void
 Scene::set_accelerator_type(AcceleratorType type)
 {
-        if (type == KDTREE_ACCELERATOR || type == BVH_ACCELERATOR)
-                m_accelerator_type = type;
+        m_accelerator_type = type;
 }
 
 int32_t 
@@ -488,7 +488,7 @@ Scene::remove_object(object_id id)
 Object& 
 Scene::object(object_id id)
 {
-	ASSERT(is_valid_object_id(id) && id < objects.size());
+	ASSERT(is_valid_object_id(id) && (size_t)id < objects.size());
 	return objects[id];
 }
 
@@ -508,7 +508,7 @@ Scene::create_aggregate_mesh()
 
 		mesh_id m_id = obj.get_mesh_id();
 
-		ASSERT(m_id >= 0 && m_id < mesh_atlas.size());
+		ASSERT(m_id >= 0 && (size_t)m_id < mesh_atlas.size());
 
 		size_t base_vertex = aggregate_mesh.vertexCount();
 		Mesh& mesh = mesh_atlas[m_id];
@@ -545,8 +545,10 @@ Scene::create_aggregate_accelerator()
         switch (m_accelerator_type) {
         case (KDTREE_ACCELERATOR):
                 return create_aggregate_kdtree();
-        case (BVH_ACCELERATOR):
+        case (SAH_BVH_ACCELERATOR):
                 return create_aggregate_bvh();
+        case (LBVH_ACCELERATOR):
+                std::cerr << "Error: lbvh must be created by bvh_builder.\n";
         default:
                 return -1;
         }
@@ -777,8 +779,10 @@ Scene::transfer_aggregate_accelerator_to_device()
         switch (m_accelerator_type) {
         case (KDTREE_ACCELERATOR):
                 return transfer_aggregate_kdtree_to_device();
-        case (BVH_ACCELERATOR):
+        case (SAH_BVH_ACCELERATOR):
                 return transfer_aggregate_bvh_to_device();
+        case (LBVH_ACCELERATOR):
+                std::cerr << "Error: bvh_builder must transfer bvh to device \n";
         default:
                 return -1;
         }
@@ -827,7 +831,7 @@ Scene::transfer_bvhs_to_device()
 Mesh&
 Scene::get_mesh(mesh_id mid)
 {
-        ASSERT(mid < mesh_atlas.size() && mid >= 0);
+        ASSERT((size_t)mid < mesh_atlas.size() && mid >= 0);
         return mesh_atlas[mid];
 }
 
@@ -935,7 +939,7 @@ Scene::update_mesh_vertices(mesh_id mid)
                                 continue;
 
                         mesh_id m_id = obj.get_mesh_id();
-                        ASSERT(m_id >= 0 && m_id < mesh_atlas.size());
+                        ASSERT(m_id >= 0 && (size_t)m_id < mesh_atlas.size());
                         Mesh& mesh = mesh_atlas[m_id];
                         if (m_id == mid) {
                                 Mesh& mesh = mesh_atlas[m_id];
@@ -1188,7 +1192,7 @@ Scene::destroy()
         m_aggregate_bvh_transfered = false;
         m_aggregate_kdt_transfered = false;
         m_bvhs_transfered = false;
-        m_accelerator_type = BVH_ACCELERATOR;
+        m_accelerator_type = SAH_BVH_ACCELERATOR;
 
         if (!device.good())
                 return -1;

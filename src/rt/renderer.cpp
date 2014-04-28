@@ -2,7 +2,11 @@
 #include <algorithm>
 
 #include <stdio.h>
-//#include <conio.h>
+
+Renderer::Renderer() 
+{
+        config.set_target(this);
+}
 
 uint32_t Renderer::set_up_frame(const memory_id tex_id, Scene& scene)
 {
@@ -49,14 +53,59 @@ uint32_t Renderer::update_accelerator(Scene& scene)
 {
         bvh_builder.logging(false);
         log.silent = false;
-        
-        if (!static_bvh || !scene.ready()) {
-                if (bvh_builder.build_bvh_3(scene)) {//!!
-                        std::cout << "BVH builder failed." << "\n";
-                        return -1;
-                } 
-                stats.stage_times[BVH_BUILD] = bvh_builder.get_exec_time();
+
+        AcceleratorType type = scene.get_accelerator_type();
+
+        if (config.use_lbvh) {
+                if (config.bvh_refit_only && 
+                    type == LBVH_ACCELERATOR && 
+                    scene.ready()) {
+                        if (bvh_builder.refit_lbvh(scene)) {
+                                std::cout << "BVH refitting failed." << "\n";
+                                return -1;
+                        }
+                } else { 
+                        if (bvh_builder.build_lbvh(scene)) {
+                                std::cout << "BVH building failed." << "\n";
+                                return -1;
+                        } 
+                }
         }
+
+        stats.stage_times[BVH_BUILD] = bvh_builder.get_exec_time();
+        return 0;
+}
+
+uint32_t Renderer::update_configuration()
+{
+        CLInfo* clinfo = clinfo->instance();
+
+        size_t old_tile_size = tile_size;
+        size_t pixel_count = fb_w * fb_h;
+        tile_size = clinfo->max_compute_units * clinfo->max_work_item_sizes[0];
+        tile_size *= config.tile_to_cores_ratio;
+        tile_size = std::min(pixel_count, tile_size);
+
+        if (tile_size != old_tile_size) {
+                size_t ray_bundle_size = tile_size * 3;
+                size_t hit_bundle_size = ray_bundle_size;
+                
+                std::cout << "ray_bundle_size: " << ray_bundle_size << std::endl;
+
+                if (ray_bundle_1.resize(ray_bundle_size) || 
+                    ray_bundle_2.resize(ray_bundle_size) || 
+                    hit_bundle.resize(hit_bundle_size)) {
+                        std::cerr << "Error resizing ray and hit bundles.\n";
+                        return -1;
+                }
+        }
+
+        bvh_builder.update_configuration(config);
+        prim_ray_gen.update_configuration(config);
+        sec_ray_gen.update_configuration(config);
+        tracer.update_configuration(config);
+        ray_shader.update_configuration(config);
+        
         return 0;
 }
 
@@ -78,28 +127,29 @@ uint32_t Renderer::render_to_framebuffer(Scene& scene)
 
                 if (prim_ray_gen.generate(scene.camera, *ray_in, fb_size,
                     current_tile_size, offset)) {
-                         std::cerr << "Error seting primary ray bundle" << "\n";
+                         std::cerr << "Error seting primary ray bundle.\n";
                          return -1;
                 }
+
 
                 stats.stage_times[PRIM_RAY_GEN] += prim_ray_gen.get_exec_time();
                 stats.total_ray_count += current_tile_size;
 
                 if (tracer.trace(scene, current_tile_size, *ray_in, hit_bundle)) {
-                        std::cerr << "Error tracing primary rays" << "\n";
+                        std::cerr << "Error tracing primary rays.\n";
                         return -1;
                 }
                 stats.stage_times[PRIM_TRACE] += tracer.get_trace_exec_time();
 
                 if (tracer.shadow_trace(scene, current_tile_size, *ray_in, hit_bundle)) {
-                        std::cerr << "Error shadow tracing primary rays" << "\n";
+                        std::cerr << "Error shadow tracing primary rays.\n";
                         return - 1;
                 }
                 stats.stage_times[PRIM_SHADOW_TRACE] += tracer.get_shadow_exec_time();
                 
                 if (ray_shader.shade(*ray_in, hit_bundle, scene,
                     scene.cubemap, framebuffer, current_tile_size,true)){
-                         std::cerr << "Failed to update framebuffer." << "\n";
+                         std::cerr << "Failed to update framebuffer.\n";
                          return -1;
                 }
                 stats.stage_times[SHADE] += ray_shader.get_exec_time();
@@ -107,38 +157,19 @@ uint32_t Renderer::render_to_framebuffer(Scene& scene)
                 size_t sec_ray_count = current_tile_size;
                 for (uint32_t bounce = 0; bounce < max_bounces; ++bounce) {
 
+
+
                         size_t sec_ray_in = sec_ray_count;
-                        if (sec_ray_gen.generate_disc(scene, 
-                                                      *ray_in, 
-                                                      sec_ray_in, 
-                                                      hit_bundle, 
-                                                      *ray_out, 
-                                                      &sec_ray_count)) {
+                        if (sec_ray_gen.generate(scene, *ray_in, sec_ray_in, 
+                                                 hit_bundle, *ray_out, &sec_ray_count)) {
                                 std::cerr << "Failed to create secondary rays." 
                                           << "\n";
                                 return -1;
                         }
 
-                        //// If sec_ray_count is too small, then it's very likely that 
-                        //// reflect and refract rays from the same base ray will be 
-                        //// handled by different warps at the same time. If that
-                        //// seems like it will be the case, then compute it so that
-                        //// they will be bundled together for (hopefully) the same 
-                        //// work group to analize. TODO: do this on the sec gen
-                        size_t max_count = 
-                                6 * clinfo->max_work_group_size * clinfo->max_compute_units;
-                        if (sec_ray_count < max_count && sec_ray_count > 1) {
-                                if (sec_ray_gen.generate(scene, 
-                                                         *ray_in, 
-                                                         sec_ray_in, 
-                                                         hit_bundle, 
-                                                         *ray_out, 
-                                                         &sec_ray_count)) {
-                                        std::cerr << "Failed to create secondary rays." 
-                                                  << "\n";
-                                        return -1;
-                                }
-                        }
+                        // std::cout << "sec ray count: " << sec_ray_count << std::endl;
+                        // exit(0);
+
 
                         stats.stage_times[SEC_RAY_GEN] += sec_ray_gen.get_exec_time();
 
@@ -146,7 +177,7 @@ uint32_t Renderer::render_to_framebuffer(Scene& scene)
 
                         if (!sec_ray_count)
                                 break;
-                        if (sec_ray_count == ray_out->count())
+                        if (sec_ray_count == (size_t)ray_out->count())
                                 std::cerr << "Max sec rays reached!\n";
 
                         stats.total_ray_count += sec_ray_count;
@@ -154,25 +185,25 @@ uint32_t Renderer::render_to_framebuffer(Scene& scene)
 
                         if (tracer.trace(scene, sec_ray_count, 
                                 *ray_in, hit_bundle, true)) {
-                                        std::cerr << "Error tracing secondary rays" 
-                                                  << "\n";
-                                        return -1;
+                                std::cerr << "Error tracing secondary rays\n";
+                                return -1;
                         }
 
                         stats.stage_times[SEC_TRACE] += tracer.get_trace_exec_time();
                         
                         if (tracer.shadow_trace(scene, sec_ray_count, 
                                 *ray_in, hit_bundle, true)) {
-                                        std::cerr << "Error shadow tracing primary rays" 
-                                                  << "\n";
-                                        return -1;
+                                std::cerr << "Error shadow tracing primary rays\n" ;
+                                return -1;
                         }
-                        stats.stage_times[SEC_SHADOW_TRACE] += tracer.get_shadow_exec_time();
+
+                        stats.stage_times[SEC_SHADOW_TRACE] += 
+                                tracer.get_shadow_exec_time();
 
                         if (ray_shader.shade(*ray_in, hit_bundle, scene,
                                 scene.cubemap, framebuffer, sec_ray_count)){
-                                        std::cerr << "Ray shader failed execution." << "\n";
-                                        return -1;
+                                std::cerr << "Ray shader failed execution.\n";
+                                return -1;
                         }
                         stats.stage_times[SHADE] += ray_shader.get_exec_time();
                 }
@@ -215,6 +246,8 @@ uint32_t Renderer::render_to_texture(Scene& scene)
 
 uint32_t Renderer::conclude_frame(Scene& scene, memory_id tex_id)
 {
+        (void)scene;
+
         // Obtain device handle and check it's ok
         DeviceInterface& device = *DeviceInterface::instance();
         if (!device.good())
@@ -280,14 +313,14 @@ uint32_t Renderer::initialize(std::string log_filename)
                 std::cerr << "Failed to initialize bvh builder" << "\n";
                 return -1;
         } else {
-                std::cout << "Initialized bvh builder succesfully" << "\n";
+                std::cout << "Initialized bvh builder succesfully." << "\n";
         }
         bvh_builder.set_log(&log);
 
         /*---------------------------- Set tile size ------------------------------*/
         size_t pixel_count = fb_w * fb_h;
         tile_size = clinfo->max_compute_units * clinfo->max_work_item_sizes[0];
-        tile_size *= 128;
+        tile_size *= config.tile_to_cores_ratio;
         tile_size = std::min(pixel_count, tile_size);
 
         /*---------------------- Initialize ray bundles -----------------------------*/
@@ -304,7 +337,7 @@ uint32_t Renderer::initialize(std::string log_filename)
                 std::cerr.flush();
                 return -1;
         }
-        std::cout << "Initialized ray bundles succesfully" << "\n";
+        std::cout << "Initialized ray bundles succesfully." << "\n";
 
         /*---------------------- Initialize hit bundle -----------------------------*/
         size_t hit_bundle_size = ray_bundle_size;
@@ -314,7 +347,7 @@ uint32_t Renderer::initialize(std::string log_filename)
                 std::cerr.flush();
                 return -1;
         }
-        std::cout << "Initialized hit bundle succesfully" << "\n";
+        std::cout << "Initialized hit bundle succesfully." << "\n";
 
         /*------------------------ Initialize FrameBuffer ---------------------------*/
         size_t fb_size[] = {fb_w, fb_h};
