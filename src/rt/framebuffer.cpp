@@ -1,6 +1,10 @@
 #include <rt/framebuffer.hpp>
 #include <rt/material.hpp>
 
+FrameBuffer::FrameBuffer() 
+ : m_initialized(false)
+{}
+
 int32_t 
 FrameBuffer::initialize(size_t sz[2])
 {
@@ -55,12 +59,68 @@ FrameBuffer::initialize(size_t sz[2])
                 return -1;
 
 	m_timing = false;
+        m_initialized = true;
 	return 0;
+}
+
+int32_t
+FrameBuffer::resize(size_t sz[2])
+{
+	if (m_initialized = false || sz[0] == 0 || sz[1] == 0)
+		return -1;
+
+	size[0] = sz[0];
+	size[1] = sz[1];
+
+        DeviceInterface& device = *DeviceInterface::instance();
+        if (!device.good())
+                return -1;
+
+	int32_t img_mem_size = sizeof(color_int_cl) * size[0] * size[1];
+
+        DeviceMemory& img_mem = device.memory(img_mem_id);
+        if (img_mem.resize(img_mem_size))
+                return -1;
+
+	/*------------------------ Set init kernel arguments ---------------------*/
+        DeviceFunction& init_function = device.function(init_id);
+
+        size_t init_work_size[] = {size[0] * size[1], 0, 0};
+        init_function.set_global_size(init_work_size);
+        if (init_function.set_arg(0, img_mem))
+                return -1;
+
+	/*------------------------ Set image copy kernel arguments ---------------------*/
+        DeviceFunction& copy_function = device.function(copy_id);
+
+        size_t copy_work_size[] = {size[0] * size[1], 0, 0};
+        copy_function.set_global_size(copy_work_size);
+        if (copy_function.set_arg(0, img_mem))
+                return -1;
+
+        return 0;
+}
+
+bool
+FrameBuffer::initialized()
+{
+        return m_initialized;
+}
+
+DeviceMemory&
+FrameBuffer::image_mem()
+{
+        DeviceInterface& device = *DeviceInterface::instance();
+        return device.memory(img_mem_id);
 }
 
 int32_t
 FrameBuffer::clear()
 {
+        DeviceInterface& device = *DeviceInterface::instance();
+        if (!device.good())
+                return -1;
+
 	if (m_timing)
 		m_clear_timer.snap_time();
 
@@ -81,6 +141,10 @@ int32_t
 FrameBuffer::copy(DeviceMemory& tex_mem)
 {
         
+        DeviceInterface& device = *DeviceInterface::instance();
+        if (!device.good())
+                return -1;
+
 	if (m_timing)
 		m_copy_timer.snap_time();
         

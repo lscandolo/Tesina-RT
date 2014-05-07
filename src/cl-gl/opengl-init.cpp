@@ -63,7 +63,19 @@ GLint GLInfo::initialize(int argc, char** argv, const size_t* window_size,
 	glEnable(GL_TEXTURE_2D);
 
         m_initialized = true;
+
 	return 0;
+}
+
+int32_t GLInfo::resize_window(const size_t* window_size)
+{
+        if (!m_initialized || window_size[0] == 0 || window_size[1] == 0)
+                return  -1;
+
+        std::cout << "Reshaping to " << window_size[0] << "x" << window_size[0] << "\n";
+        glutReshapeWindow(window_size[0], window_size[1]);
+
+        return 0;
 }
 
 GLuint create_tex_gl(uint32_t width, uint32_t height)
@@ -134,7 +146,7 @@ int32_t create_tex_gl_from_file(uint32_t& width, uint32_t& height,
 		}
 	}
 
-    glGenTextures(1,tex_id);
+        glGenTextures(1,tex_id);
 	glBindTexture(GL_TEXTURE_2D, *tex_id);
 
 	// select modulate to mix texture with color for shading

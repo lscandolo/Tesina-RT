@@ -3,8 +3,9 @@
 
 #include <stdio.h>
 
-Renderer::Renderer() 
+Renderer::Renderer()
 {
+        initialized = false;
         config.set_target(this);
 }
 
@@ -275,7 +276,7 @@ uint32_t Renderer::conclude_frame(Scene& scene)
         return conclude_frame(scene, target_tex_id);
 }
 
-uint32_t Renderer::initialize_from_ini_file(std::string file_path)
+uint32_t Renderer::configure_from_ini_file(std::string file_path)
 {
         int32_t ini_err;
         ini_err = ini.load_file(file_path);
@@ -400,7 +401,64 @@ uint32_t Renderer::initialize(std::string log_filename)
 
         clear_stats();
 
+        initialized = true;
+        
         return 0;
+}
+
+uint32_t Renderer::resize_output(size_t sz[2])
+{
+        if (sz[0] == 0 || sz[1] == 0 || !initialized)
+                return -1;
+
+        CLInfo* clinfo = clinfo->instance();
+        if (!clinfo->initialized())
+                return -1;
+
+        fb_w = sz[0];
+        fb_h = sz[1];
+
+        /*---------------------------- Set tile size ------------------------------*/
+        size_t pixel_count = fb_w * fb_h;
+        tile_size = clinfo->max_compute_units * clinfo->max_work_item_sizes[0];
+        tile_size *= config.tile_to_cores_ratio;
+        tile_size = std::min(pixel_count, tile_size);
+
+        /*---------------------- Resize ray bundles -----------------------------*/
+        size_t ray_bundle_size = tile_size * 3;
+
+        if (ray_bundle_1.resize(ray_bundle_size)) {
+                std::cerr << "Error resizing ray bundle (new size: " 
+                          << ray_bundle_size << ")\n";
+                std::cerr.flush();
+                return -1;
+        }
+
+        if (ray_bundle_2.resize(ray_bundle_size)) {
+                std::cerr << "Error resizing ray bundle (new size: " 
+                          << ray_bundle_size << ")\n";
+                std::cerr.flush();
+                return -1;
+        }
+
+        /*---------------------- Resize hit bundle -----------------------------*/
+        size_t hit_bundle_size = ray_bundle_size;
+
+        if (hit_bundle.resize(hit_bundle_size)) {
+                std::cerr << "Error resizing hit bundle (new size: " 
+                          << ray_bundle_size << ")\n";
+                std::cerr.flush();
+                return -1;
+        }
+
+        /*------------------------ Resize FrameBuffer ---------------------------*/
+        if (framebuffer.resize(sz)) {
+                std::cerr << "Error resizing framebuffer." << "\n";
+                return -1;
+        }
+
+        return 0;
+
 }
 
 int32_t 

@@ -25,17 +25,16 @@ class GLInfo
 private:
 
         static GLInfo* pinstance;
-
         bool m_initialized;
         
-
 public:        
 
         static GLInfo* instance();
         GLInfo ();
         GLint  initialize(int argc, char** argv, const size_t* window_size, 
                          const std::string& title);
-        bool   initialized();
+        bool    initialized();
+        int32_t resize_window(const size_t* window_size);
 
 	GLint window_id;
 	GLint window_width;

@@ -273,7 +273,7 @@ void gl_loop()
 int main (int argc, char** argv) 
 {
         // Initialize renderer
-        renderer.initialize_from_ini_file("rt.ini");
+        renderer.configure_from_ini_file("rt.ini");
 
         // Initialize OpenGL and OpenCL
         size_t window_size[] = {renderer.get_framebuffer_w(), renderer.get_framebuffer_h()};

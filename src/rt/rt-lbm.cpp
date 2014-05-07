@@ -507,7 +507,7 @@ int main (int argc, char** argv)
 
         /*---------------------- Attempt to read INI File --------------------------*/
 
-        renderer.initialize_from_ini_file("rt.ini");
+        renderer.configure_from_ini_file("rt.ini");
 
         INIReader ini;
         int32_t ini_err;

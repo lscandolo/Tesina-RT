@@ -15,11 +15,13 @@ class FrameBuffer {
 	
 public:
 
-        FrameBuffer() : device(*DeviceInterface::instance()) {}
+        FrameBuffer();
 
 	int32_t initialize(size_t sz[2]);
+	int32_t resize(size_t sz[2]);
+	bool    initialized();
 
-        DeviceMemory& image_mem(){return device.memory(img_mem_id);}
+        DeviceMemory& image_mem();
 
 	int32_t clear();
 	int32_t copy(DeviceMemory& tex_mem);
@@ -30,14 +32,13 @@ public:
 
 private:
 
-        DeviceInterface& device;
-
 	size_t size[2];
 
         memory_id img_mem_id;
         function_id init_id;
         function_id copy_id;
 
+	bool         m_initialized;
 	bool         m_timing;
 	rt_time_t    m_clear_timer;
 	double       m_clear_time_ms;

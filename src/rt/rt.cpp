@@ -403,6 +403,21 @@ void gl_loop()
 
         frame++;
 
+        if (frame == 5) {
+                GLInfo* glinfo = GLInfo::instance();
+                size_t sz[2] = {256, 256};
+                glinfo->resize_window(sz);
+                renderer.resize_output(sz);
+                gl_tex = create_tex_gl(sz[0], sz[1]);
+                DeviceInterface* device = DeviceInterface::instance();
+                tex_id = device->new_memory();
+                DeviceMemory& tex_mem = device->memory(tex_id);
+                if (tex_mem.initialize_from_gl_texture(gl_tex)) {
+                        std::cerr << "Failed to create memory object from gl texture\n";
+                        pause_and_exit(1);
+                }
+                glutPostRedisplay();
+        }
 }
 
 void print_16_bits(int num) 
@@ -415,9 +430,8 @@ void print_16_bits(int num)
 int main (int argc, char** argv) 
 {
 
-
         // Initialize renderer
-        renderer.initialize_from_ini_file("rt.ini");
+        renderer.configure_from_ini_file("rt.ini");
         int32_t ini_err;
         INIReader ini;
         ini_err = ini.load_file("rt.ini");
@@ -588,7 +602,6 @@ int main (int argc, char** argv)
         glutMainLoop(); 
 
         CLInfo::instance()->set_sync(true);
-
         CLInfo::instance()->release_resources();
 
         return 0;
