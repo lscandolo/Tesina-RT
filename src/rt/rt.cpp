@@ -418,6 +418,42 @@ void gl_loop()
                 }
                 glutPostRedisplay();
         }
+
+        if (frame == 10) {
+                scene.destroy();
+                size_t sz[2] = {256, 256};
+                scene.initialize();
+                buddha_set_scene(scene, sz);
+                if (scene.create_aggregate_mesh()) { 
+                        std::cerr << "Failed to create aggregate mesh" << "\n";
+                        pause_and_exit(1);
+                } else {
+                        std::cout << "Created aggregate mesh succesfully" << "\n";
+                }
+                if (scene.transfer_aggregate_mesh_to_device()) {
+                        std::cerr << "Failed to transfer aggregate mesh to device memory"
+                                  << "\n";
+                        pause_and_exit(1);
+                } else {
+                        std::cout << "Transfered aggregate mesh to device succesfully"
+                                  << "\n";
+                }
+                std::string cubemap_path = "textures/cubemap/Path/";
+                if (scene.cubemap.initialize(cubemap_path + "posx.jpg",
+                                             cubemap_path + "negx.jpg",
+                                             cubemap_path + "posy.jpg",
+                                             cubemap_path + "negy.jpg",
+                                             cubemap_path + "posz.jpg",
+                                             cubemap_path + "negz.jpg")) {
+                        std::cerr << "Failed to initialize cubemap." << "\n";
+                        pause_and_exit(1);
+                }
+                scene.cubemap.enabled = true;
+                directional_light_cl dl;
+                dl.set_dir(0,-0.8,-0.3);
+                dl.set_color(0.8,0.8,0.8);
+                scene.set_dir_light(dl);
+        }
 }
 
 void print_16_bits(int num) 
@@ -558,7 +594,6 @@ int main (int argc, char** argv)
                 cubemap_path + "posy.jpg",
                 cubemap_path + "negy.jpg",
                 cubemap_path + "posz.jpg",
-
                 cubemap_path + "negz.jpg")) {
                         std::cerr << "Failed to initialize cubemap." << "\n";
                         pause_and_exit(1);

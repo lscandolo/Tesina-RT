@@ -1232,6 +1232,9 @@ Scene::destroy()
         if (lights_mem().valid())
                 if (lights_mem().release())
                         return -1;
+
+        cubemap.destroy();
+
         return 0;
 }
 

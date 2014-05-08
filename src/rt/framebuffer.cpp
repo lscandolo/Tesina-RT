@@ -66,7 +66,7 @@ FrameBuffer::initialize(size_t sz[2])
 int32_t
 FrameBuffer::resize(size_t sz[2])
 {
-	if (m_initialized = false || sz[0] == 0 || sz[1] == 0)
+	if (m_initialized == false || sz[0] == 0 || sz[1] == 0)
 		return -1;
 
 	size[0] = sz[0];

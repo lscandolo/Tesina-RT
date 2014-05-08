@@ -116,6 +116,30 @@ GLuint create_tex_gl(uint32_t width, uint32_t height)
 	return tex;
 }
 
+void delete_tex_gl(GLuint id)
+{
+        glDeleteTextures(1,&id);
+}
+
+GLuint create_buf_gl(uint32_t buf_size)
+{
+	GLuint buf;
+	uint32_t* buf_data = new uint32_t[buf_size];
+	glGenBuffers(1,&buf);
+	glBindBuffer(GL_ARRAY_BUFFER,buf);
+	glBufferData(GL_ARRAY_BUFFER, buf_size * sizeof(uint32_t), 
+		     buf_data, GL_DYNAMIC_READ);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);	
+	delete[] buf_data;
+	return buf;
+}
+
+void delete_buf_gl(GLuint id)
+{
+        glDeleteBuffers(1,&id);
+}
+
+
 int32_t create_tex_gl_from_file(uint32_t& width, uint32_t& height, 
                                 const char* file, GLuint* tex_id){
 	
@@ -178,19 +202,6 @@ int32_t create_tex_gl_from_file(uint32_t& width, uint32_t& height,
 
 	return 0;
 
-}
-
-GLuint create_buf_gl(uint32_t buf_size)
-{
-	GLuint buf;
-	uint32_t* buf_data = new uint32_t[buf_size];
-	glGenBuffers(1,&buf);
-	glBindBuffer(GL_ARRAY_BUFFER,buf);
-	glBufferData(GL_ARRAY_BUFFER, buf_size * sizeof(uint32_t), 
-		     buf_data, GL_DYNAMIC_READ);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);	
-	delete[] buf_data;
-	return buf;
 }
 
 void print_gl_info(){

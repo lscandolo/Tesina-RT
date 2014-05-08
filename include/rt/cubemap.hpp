@@ -15,6 +15,7 @@ public:
         int32_t initialize(std::string posx, std::string negx,
                            std::string posy, std::string negy,
                            std::string posz, std::string negz);
+        int32_t destroy();
 
 
         int32_t acquire_graphic_resources();

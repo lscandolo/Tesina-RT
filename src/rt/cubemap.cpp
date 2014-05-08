@@ -57,6 +57,33 @@ Cubemap::initialize(std::string posx, std::string negx,
 	return 0;
 }
 
+int32_t 
+Cubemap::destroy() 
+{
+        DeviceInterface& device = *DeviceInterface::instance();
+        if (!device.good() || !m_initialized)
+                return -1;
+
+        // OpenCL mem must be destroyed before gl
+        device.delete_memory(posx_id);
+        device.delete_memory(negx_id);
+        device.delete_memory(posy_id);
+        device.delete_memory(negy_id);
+        device.delete_memory(posz_id);
+        device.delete_memory(negz_id);
+
+        delete_tex_gl(posx_tex);
+        delete_tex_gl(negx_tex);
+        delete_tex_gl(posy_tex);
+        delete_tex_gl(negy_tex);
+        delete_tex_gl(posz_tex);
+        delete_tex_gl(negz_tex);
+
+        m_initialized = false;
+        
+        return 0;
+}
+
 int32_t
 Cubemap::acquire_graphic_resources()
 {
