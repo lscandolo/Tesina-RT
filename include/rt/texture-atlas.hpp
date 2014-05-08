@@ -18,7 +18,7 @@ class TextureAtlas
 
 public:
         int32_t       initialize();
-        void          destroy();
+        int32_t       destroy();
         texture_id    load_texture(std::string filename);
         DeviceMemory& texture_mem(texture_id);
         
@@ -28,6 +28,7 @@ public:
         
 private:
         memory_id invalid_tex_mem_id;
+        GLuint invalid_gl_tex_id;
 
         static const texture_id invalid_tex_id = -1;
         static const size_t MAX_TEXTURE_COUNT = 25;
@@ -36,6 +37,7 @@ private:
 
         std::map<std::string,texture_id> file_map;
         std::vector<memory_id> tex_mem_ids;
+        std::vector<GLuint> gl_tex_ids;
 };
 
 

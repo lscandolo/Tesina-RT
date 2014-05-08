@@ -55,6 +55,7 @@ TextureAtlas::load_texture(std::string filename)
         texture_id new_tex_id = tex_mem_ids.size();
         // std::cout << "new_tex_id: " << new_tex_id << std::endl;
         tex_mem_ids.push_back(new_tex_mem_id);
+        gl_tex_ids.push_back(new_tex_gl_id);
         file_map[filename] = new_tex_id;
         return new_tex_id;
 }
@@ -106,21 +107,28 @@ TextureAtlas::release_graphic_resources()
         return 0;
 }
 
-void
+int32_t
 TextureAtlas::destroy()
 {
         DeviceInterface& device = *DeviceInterface::instance();
         if (!m_initialized)
-                return;
+                return -1;
 
-        file_map.clear();
         std::vector<memory_id>::iterator it;
         for (it = tex_mem_ids.begin(); it != tex_mem_ids.end(); it++) {
-                DeviceMemory& mem = device.memory(*it);
-                if(mem.valid())
-                        mem.release();
+                device.delete_memory(*it);
         }
         tex_mem_ids.clear();
+
+        std::vector<GLuint>::iterator gl_it;
+        for (gl_it = gl_tex_ids.begin(); gl_it != gl_tex_ids.end(); gl_it++) {
+                delete_tex_gl(*gl_it);
+        }
+        gl_tex_ids.clear();
+
+        file_map.clear();
+        device.delete_memory(invalid_tex_mem_id);
+        delete_tex_gl(invalid_gl_tex_id);
+
+        m_initialized = false;
 }
-
-

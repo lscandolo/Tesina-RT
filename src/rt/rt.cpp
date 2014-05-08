@@ -423,7 +423,7 @@ void gl_loop()
                 scene.destroy();
                 size_t sz[2] = {256, 256};
                 scene.initialize();
-                buddha_set_scene(scene, sz);
+                ben_set_scene(scene, sz);
                 if (scene.create_aggregate_mesh()) { 
                         std::cerr << "Failed to create aggregate mesh" << "\n";
                         pause_and_exit(1);
@@ -526,7 +526,7 @@ int main (int argc, char** argv)
         }
         
         /*---------------------- Scene definition -----------------------*/
-        dragon_set_scene(scene, window_size);
+        buddha_set_scene(scene, window_size);
         // hand_set_scene(scene, window_size);
         // boat_set_scene(scene, window_size);
 
