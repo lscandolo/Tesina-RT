@@ -408,6 +408,10 @@ void gl_loop()
                 size_t sz[2] = {256, 256};
                 glinfo->resize_window(sz);
                 renderer.resize_output(sz);
+
+                delete_tex_gl(gl_tex);
+                DeviceInterface::instance()->delete_memory(tex_id);
+
                 gl_tex = create_tex_gl(sz[0], sz[1]);
                 DeviceInterface* device = DeviceInterface::instance();
                 tex_id = device->new_memory();

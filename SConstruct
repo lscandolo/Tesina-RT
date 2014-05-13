@@ -105,6 +105,11 @@ rt_wave = env.Program('bin/rt-wave' ,
                       LIBS= rt_primitives_lib + gpu_lib + misc_lib + clgl_lib + base_libs
                       )   
 
+rt_tester = env.Program('bin/rt-test' ,
+                        ['build/rt/tester.cpp', 'build/rt/rt-test.cpp'] ,
+                        LIBS= rt_primitives_lib + gpu_lib + misc_lib + clgl_lib + base_libs
+                        )   
+
 sort = env.Program('bin/sort' ,
                    'build/rt/sort.cpp' ,
                    LIBS= rt_primitives_lib + gpu_lib + misc_lib + clgl_lib + base_libs

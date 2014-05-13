@@ -53,7 +53,6 @@ uint32_t Renderer::set_up_frame(const memory_id tex_id, Scene& scene)
 uint32_t Renderer::update_accelerator(Scene& scene)
 {
         bvh_builder.logging(false);
-        log.silent = false;
 
         AcceleratorType type = scene.get_accelerator_type();
 
@@ -99,6 +98,7 @@ uint32_t Renderer::update_configuration()
                         std::cerr << "Error resizing ray and hit bundles.\n";
                         return -1;
                 }
+                sec_ray_gen.set_max_rays(ray_bundle_1.count());
         }
 
         bvh_builder.update_configuration(config);
@@ -303,7 +303,7 @@ uint32_t Renderer::initialize(std::string log_filename)
 {
         
         CLInfo* clinfo = clinfo->instance();
-        if (!clinfo->initialized())
+        if (!clinfo->initialized() || initialized)
                 return -1;
 
         log.initialize(log_filename);
@@ -359,7 +359,6 @@ uint32_t Renderer::initialize(std::string log_filename)
         std::cout << "Initialized framebuffer succesfully." << "\n";
 
         /* ------------------ Initialize ray tracer kernel ----------------------*/
-
         if (tracer.initialize()){
                 std::cerr << "Failed to initialize tracer." << "\n";
                 return -1;
@@ -368,7 +367,6 @@ uint32_t Renderer::initialize(std::string log_filename)
 
 
         /* ------------------ Initialize Primary Ray Generator ----------------------*/
-
         if (prim_ray_gen.initialize()) {
                 std::cerr << "Error initializing primary ray generator." << "\n";
                 return -1;
