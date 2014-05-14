@@ -26,7 +26,7 @@ public:
         Scene* getScene();
         Renderer* getRenderer();
 
-        int initialize();
+        int initialize(std::string ini_filename);
         void loop();
 private:
 
@@ -61,13 +61,13 @@ private:
         std::vector<resolution_t> window_sizes;
         // std::vector<size_t>       rays_per_pixel;
         std::vector<int>          view_positions;
-        std::vector<double>       tile_to_cores_ratios;
+        std::vector<float>        tile_to_cores_ratios;
         std::vector<bool>         sec_ray_use_disc;
         std::vector<bool>         sec_ray_use_atomics;
-        std::vector<size_t>       prim_ray_quad_sizes;
+        std::vector<int>          prim_ray_quad_sizes;
         std::vector<bool>         prim_ray_use_zcurve;
-        std::vector<size_t>       bvh_max_depths;
-        std::vector<size_t>       bvh_min_leaf_sizes;
+        std::vector<int>          bvh_max_depths;
+        std::vector<int>          bvh_min_leaf_sizes;
         std::vector<bool>         bvh_refit_only;
 
 ///////////// test indices

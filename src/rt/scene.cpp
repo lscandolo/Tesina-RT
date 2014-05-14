@@ -1164,8 +1164,6 @@ Scene::destroy()
         if (!m_initialized)
                 return -1;
 
-        std::cout << "Destroying scene\n";
-
         DeviceInterface& device = *DeviceInterface::instance();
 
         objects.clear();

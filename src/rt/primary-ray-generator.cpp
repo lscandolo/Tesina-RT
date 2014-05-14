@@ -4,6 +4,11 @@
 #include <rt/primary-ray-generator.hpp>
 
 
+
+PrimaryRayGenerator::PrimaryRayGenerator()
+        : m_initialized(false)
+{}
+
 int32_t
 PrimaryRayGenerator::initialize()
 {
@@ -12,9 +17,9 @@ PrimaryRayGenerator::initialize()
                 return -1;
 
         DeviceInterface& device = *DeviceInterface::instance();
-        if (!device.good())
+        if (!device.good()) {
                 return -1;
-
+        }
 
         std::vector<std::string> kernel_names;
         kernel_names.push_back("generate_primary_rays");

@@ -20,6 +20,7 @@ class PrimaryRayGenerator{
 
 public:
 
+        PrimaryRayGenerator();
 	int32_t initialize();
 
 	int32_t set_spp(size_t spp, pixel_sample_cl const* psamples);

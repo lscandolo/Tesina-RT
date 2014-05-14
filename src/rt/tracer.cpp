@@ -1,8 +1,8 @@
 #include <rt/tracer.hpp>
 
 Tracer::Tracer()
+  : m_initialized(false)
 {
-        m_initialized = false;
 }
 
 int32_t Tracer::initialize()

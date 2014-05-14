@@ -410,8 +410,14 @@ SecondaryRayGenerator::gen_tasks_disc(Scene& scene,
                                       HitBundle& hits, 
                                       RayBundle& ray_out, size_t* rays_out)
 {
-        /// NOT IMPLEMENTED YET
-        return -1;
+        static bool warned = false;
+        if (!warned) {
+                std::cerr << "Warning: using atomics and discriminating "
+                          << "reflection/refraction not implemented yet."
+                          << "Will use atomics only.\n";
+                warned = true;
+        }                        
+                return gen_tasks(scene, ray_in, rays_in, hits, ray_out, rays_out);
 }
 
 void 

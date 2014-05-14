@@ -1,6 +1,7 @@
 #include <misc/ini.hpp>
 
 #include <fstream>
+#include <iostream>
 #include <cstdlib>
 
 static void remove_excess_spaces(std::string& line) 
@@ -15,6 +16,25 @@ static void remove_excess_spaces(std::string& line)
         else
                 line.clear();
         return;
+}
+
+static int get_next_token(std::string& str, std::string& token,
+                          int start_pos, int& end_pos) 
+{
+        while (start_pos < str.size() && 
+               (str[start_pos] == ' ' || str[start_pos] == '\t')) {
+                start_pos++;
+        }
+        if (start_pos >= str.size())
+                return -1;
+
+        end_pos = start_pos;
+        while (end_pos < str.size() && 
+               (str[end_pos] != ' ' && str[end_pos] != '\t')) {
+                end_pos++;
+        }
+        token = str.substr(start_pos, end_pos - start_pos + 1);
+        return 0;
 }
 
 INIReader::INIReader() 
@@ -118,3 +138,116 @@ INIReader::get_int_value(section_name_t section_name,
         ret_val = std::atoi(section[property_name].c_str());
         return 0;
 }
+
+std::vector<std::string>
+INIReader::get_str_list(section_name_t section_name, 
+                        property_name_t property_name)
+{
+        std::vector<std::string> lst;
+        if (m_values.find(section_name) == m_values.end())
+                return lst;
+        section_t& section = m_values[section_name];
+        if (section.find(property_name) == section.end())
+                return lst;
+        
+        return get_str_list(section[property_name]);
+}
+
+std::vector<std::string>
+INIReader::get_str_list(std::string str)
+{
+        std::vector<std::string> lst;
+        std::string token;
+        int start_pos = 0;
+        int end_pos;
+        while (!get_next_token(str, token, start_pos, end_pos)) {
+                start_pos = end_pos;
+                lst.push_back(token);
+        }
+        return lst;
+}
+
+std::vector<float>
+INIReader::get_float_list(section_name_t section_name, 
+                          property_name_t property_name)
+{
+        std::vector<float> lst;
+        if (m_values.find(section_name) == m_values.end())
+                return lst;
+        section_t& section = m_values[section_name];
+        if (section.find(property_name) == section.end())
+                return lst;
+        
+        return get_float_list(section[property_name]);
+}
+
+std::vector<float>
+INIReader::get_float_list(std::string str)
+{
+        std::vector<float> lst;
+        std::string token;
+        int start_pos = 0;
+        int end_pos;
+        while (!get_next_token(str, token, start_pos, end_pos)) {
+                start_pos = end_pos;
+                lst.push_back(std::atof(token.c_str()));
+        }
+        return lst;
+}
+
+std::vector<int>
+INIReader::get_int_list(section_name_t section_name, 
+                          property_name_t property_name)
+{
+        std::vector<int> lst;
+        if (m_values.find(section_name) == m_values.end())
+                return lst;
+        section_t& section = m_values[section_name];
+        if (section.find(property_name) == section.end())
+                return lst;
+        
+        return get_int_list(section[property_name]);
+}
+
+std::vector<int>
+INIReader::get_int_list(std::string str)
+{
+        std::vector<int> lst;
+        std::string token;
+        int start_pos = 0;
+        int end_pos;
+        while (!get_next_token(str, token, start_pos, end_pos)) {
+                start_pos = end_pos;
+                lst.push_back(std::atoi(token.c_str()));
+        }
+        return lst;
+}
+
+std::vector<bool>
+INIReader::get_bool_list(section_name_t section_name, 
+                          property_name_t property_name)
+{
+        std::vector<bool> lst;
+        if (m_values.find(section_name) == m_values.end())
+                return lst;
+        section_t& section = m_values[section_name];
+        if (section.find(property_name) == section.end())
+                return lst;
+        
+        return get_bool_list(section[property_name]);
+}
+
+std::vector<bool>
+INIReader::get_bool_list(std::string str)
+{
+        std::vector<bool> lst;
+        std::string token;
+        int start_pos = 0;
+        int end_pos;
+        while (!get_next_token(str, token, start_pos, end_pos)) {
+                start_pos = end_pos;
+                lst.push_back(std::atoi(token.c_str()));
+        }
+        return lst;
+}
+

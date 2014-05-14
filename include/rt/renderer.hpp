@@ -45,9 +45,10 @@ public:
         uint32_t conclude_frame(Scene& scene);
         uint32_t conclude_frame(Scene& scene, memory_id tex_id);
 
+        uint32_t configure_from_defaults();
         uint32_t configure_from_ini_file(std::string file_path);
         uint32_t initialize(std::string log_filename = "rt-log");
-        uint32_t resize_output(size_t sz[2]);
+        uint32_t resize_output(size_t width, size_t height);
 
         uint32_t get_framebuffer_h(){return fb_h;}
         uint32_t get_framebuffer_w(){return fb_w;}

@@ -276,6 +276,24 @@ uint32_t Renderer::conclude_frame(Scene& scene)
         return conclude_frame(scene, target_tex_id);
 }
 
+uint32_t Renderer::configure_from_defaults()
+{
+        fb_w = 512;
+        fb_h = 512;
+        static_bvh = false;
+        max_bounces = 9;
+
+        config.bvh_depth = 32;
+        config.tile_to_cores_ratio = 128;
+        config.use_lbvh = true;
+        config.bvh_refit_only = false;
+        config.sec_ray_use_disc = false;
+        config.prim_ray_quad_size = 32;
+        config.prim_ray_use_zcurve = false;
+
+        return 0;
+}
+
 uint32_t Renderer::configure_from_ini_file(std::string file_path)
 {
         int32_t ini_err;
@@ -286,16 +304,46 @@ uint32_t Renderer::configure_from_ini_file(std::string file_path)
                 std::cout << "Unable to open ini file" << "\n";
         else {
                 int32_t int_val;
+                float   float_val;
                 std::string str_val;
                 if (!ini.get_int_value("RT", "screen_w", int_val))
                         fb_w = int_val;
+
                 if (!ini.get_int_value("RT", "screen_h", int_val))
                         fb_h = int_val;
+
                 if (!ini.get_int_value("RT", "gpu_bvh", int_val))
                         static_bvh = !int_val;
+
                 if (!ini.get_int_value("RT", "max_bounce", int_val)) 
                         max_bounces = int_val;
-        }        return 0;
+                
+                if (!ini.get_int_value("Renderer", "bvh_refit_only", int_val))
+                        config.bvh_refit_only = int_val;
+
+                if (!ini.get_int_value("Renderer", "bvh_max_depth", int_val))
+                        config.bvh_depth = int_val;
+
+                if (!ini.get_int_value("Renderer", "bvh_min_leaf_size", int_val))
+                        config.bvh_min_leaf_size = int_val;
+
+                if (!ini.get_int_value("Renderer", "sec_use_atomics", int_val))
+                        config.sec_ray_use_atomics = int_val;
+
+                if (!ini.get_int_value("Renderer", "sec_use_disc", int_val))
+                        config.sec_ray_use_disc = int_val;
+
+                if (!ini.get_int_value("Renderer", "prim_use_zcurve", int_val))
+                        config.prim_ray_use_zcurve = int_val;
+
+                if (!ini.get_int_value("Renderer", "prim_quad_size", int_val))
+                        config.prim_ray_quad_size = int_val;
+
+                if (!ini.get_float_value("Renderer", "tile_to_cores_ratio", float_val))
+                        config.tile_to_cores_ratio = float_val;
+        }
+
+        return 0;
 
 }
 
@@ -404,8 +452,10 @@ uint32_t Renderer::initialize(std::string log_filename)
         return 0;
 }
 
-uint32_t Renderer::resize_output(size_t sz[2])
+uint32_t Renderer::resize_output(size_t width, size_t height)
 {
+
+        size_t sz[2] = {width, height};
         if (sz[0] == 0 || sz[1] == 0 || !initialized)
                 return -1;
 

@@ -4,14 +4,6 @@ int main (int argc, char** argv)
 {
 
 
-        int32_t ini_err;
-        INIReader ini;
-        ini_err = ini.load_file("rt.ini");
-        if (ini_err < 0)
-                std::cout << "Error at ini file line: " << -ini_err << "\n";
-        else if (ini_err > 0)
-                std::cout << "Unable to open ini file" << "\n";
-
         // Initialize OpenGL and OpenCL (with simple value)
         size_t window_size[] = {512,512};
         GLInfo* glinfo = GLInfo::instance();
@@ -47,7 +39,7 @@ int main (int argc, char** argv)
 
         /* Initialize renderer */
         Tester* tester = Tester::getSingletonPtr();
-        tester->initialize();
+        tester->initialize("test.ini");
 
         CLInfo::instance()->set_sync(false);
 

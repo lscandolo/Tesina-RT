@@ -43,7 +43,8 @@ int  stats_logged   = 0;
 void gl_mouse(int x, int y)
 {
 
-        size_t window_size[] = {renderer.get_framebuffer_w(), renderer.get_framebuffer_h()};
+        size_t window_size[] = {renderer.get_framebuffer_w(), 
+                                renderer.get_framebuffer_h()};
         float delta = 0.001f;
         float d_inc = delta * (window_size[1]*0.5f - y);/* y axis points downwards */ 
         float d_yaw = delta * (x - window_size[0]*0.5f);
@@ -391,7 +392,7 @@ void gl_loop()
                 // if (frame < 100) {
                 //         ss << "\n  LOGGING";
                 // }
-                ss << "\n  Quad size: " << renderer.config.prim_ray_quad_size;
+                // ss << "\n  Quad size: " << renderer.config.prim_ray_quad_size;
                 std::string fps_s = ss.str();
                 for (uint32_t i = 0; i < fps_s.size(); ++i)
                         glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *(fps_s.c_str()+i));
@@ -402,62 +403,6 @@ void gl_loop()
         print_stats(debug_stats);
 
         frame++;
-
-        if (frame == 5) {
-                GLInfo* glinfo = GLInfo::instance();
-                size_t sz[2] = {256, 256};
-                glinfo->resize_window(sz);
-                renderer.resize_output(sz);
-
-                delete_tex_gl(gl_tex);
-                DeviceInterface::instance()->delete_memory(tex_id);
-
-                gl_tex = create_tex_gl(sz[0], sz[1]);
-                DeviceInterface* device = DeviceInterface::instance();
-                tex_id = device->new_memory();
-                DeviceMemory& tex_mem = device->memory(tex_id);
-                if (tex_mem.initialize_from_gl_texture(gl_tex)) {
-                        std::cerr << "Failed to create memory object from gl texture\n";
-                        pause_and_exit(1);
-                }
-                glutPostRedisplay();
-        }
-
-        if (frame == 10) {
-                scene.destroy();
-                size_t sz[2] = {256, 256};
-                scene.initialize();
-                ben_set_scene(scene, sz);
-                if (scene.create_aggregate_mesh()) { 
-                        std::cerr << "Failed to create aggregate mesh" << "\n";
-                        pause_and_exit(1);
-                } else {
-                        std::cout << "Created aggregate mesh succesfully" << "\n";
-                }
-                if (scene.transfer_aggregate_mesh_to_device()) {
-                        std::cerr << "Failed to transfer aggregate mesh to device memory"
-                                  << "\n";
-                        pause_and_exit(1);
-                } else {
-                        std::cout << "Transfered aggregate mesh to device succesfully"
-                                  << "\n";
-                }
-                std::string cubemap_path = "textures/cubemap/Path/";
-                if (scene.cubemap.initialize(cubemap_path + "posx.jpg",
-                                             cubemap_path + "negx.jpg",
-                                             cubemap_path + "posy.jpg",
-                                             cubemap_path + "negy.jpg",
-                                             cubemap_path + "posz.jpg",
-                                             cubemap_path + "negz.jpg")) {
-                        std::cerr << "Failed to initialize cubemap." << "\n";
-                        pause_and_exit(1);
-                }
-                scene.cubemap.enabled = true;
-                directional_light_cl dl;
-                dl.set_dir(0,-0.8,-0.3);
-                dl.set_color(0.8,0.8,0.8);
-                scene.set_dir_light(dl);
-        }
 }
 
 void print_16_bits(int num) 
@@ -481,7 +426,8 @@ int main (int argc, char** argv)
                 std::cout << "Unable to open ini file" << "\n";
 
         // Initialize OpenGL and OpenCL
-        size_t window_size[] = {renderer.get_framebuffer_w(), renderer.get_framebuffer_h()};
+        size_t window_size[] = {renderer.get_framebuffer_w(), 
+                                renderer.get_framebuffer_h()};
         GLInfo* glinfo = GLInfo::instance();
 
         if (glinfo->initialize(argc,argv, window_size, "RT") != 0){
@@ -530,7 +476,26 @@ int main (int argc, char** argv)
         }
         
         /*---------------------- Scene definition -----------------------*/
-        buddha_set_scene(scene, window_size);
+        if (!ini_err) {
+                int int_val = 0;
+                ini.get_int_value("RT", "scene", int_val);
+
+                if (int_val == 0)
+                        hand_set_scene(scene, window_size);
+                else if (int_val == 1)
+                        ben_set_scene(scene, window_size);
+                else if (int_val == 2)
+                        boat_set_scene(scene, window_size);
+                else if (int_val == 3)
+                        dragon_set_scene(scene, window_size);
+                else // (int_val > 3)
+                        buddha_set_scene(scene, window_size);
+
+        } else {
+                hand_set_scene(scene, window_size);
+
+        }
+        // buddha_set_scene(scene, window_size);
         // hand_set_scene(scene, window_size);
         // boat_set_scene(scene, window_size);
 
@@ -613,14 +578,6 @@ int main (int argc, char** argv)
         std::cout << "Vertices : " << agg.vertexCount() << "\n";
 
         /* Initialize renderer */
-        renderer.config.bvh_depth = 32;
-        renderer.config.tile_to_cores_ratio = 128;
-        renderer.config.use_lbvh = true;
-        renderer.config.bvh_refit_only = false;
-        renderer.config.sec_ray_use_disc = false;
-        renderer.config.prim_ray_quad_size = 32;
-        renderer.config.prim_ray_use_zcurve = false;
-
         if (renderer.initialize(log_filename)) {
                 std::cout << "Error initializing renderer.\n";
                 return 0;

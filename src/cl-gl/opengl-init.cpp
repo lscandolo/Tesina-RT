@@ -72,8 +72,8 @@ int32_t GLInfo::resize_window(const size_t* window_size)
         if (!m_initialized || window_size[0] == 0 || window_size[1] == 0)
                 return  -1;
 
-        std::cout << "Reshaping to " << window_size[0] << "x" << window_size[0] << "\n";
         glutReshapeWindow(window_size[0], window_size[1]);
+        glutPostRedisplay();
 
         return 0;
 }
@@ -91,7 +91,7 @@ GLuint create_tex_gl(uint32_t width, uint32_t height)
 
 	// when texture area is small, get closest pixel val
 	glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
-			 GL_NEAREST);
+			 GL_LINEAR);
 
 	// when texture area is large, get closest pixel val
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, 
