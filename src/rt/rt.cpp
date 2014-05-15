@@ -6,7 +6,6 @@
 #include <cl-gl/opencl-init.hpp>
 #include <rt/rt.hpp>
 
-#include <rt/test-params-dragon.hpp>
 #include <rt/test-params.hpp>
 
 #define TOTAL_STATS_TO_LOG 12
@@ -33,6 +32,9 @@ int current_model = 0;
 Scene scene;
 
 GLuint gl_tex;
+
+LinearCameraTrajectory cam_traj;
+std::string log_filename;
 
 bool print_fps      = true;
 bool logging        = false;
@@ -62,6 +64,12 @@ void gl_mouse(int x, int y)
 
 void gl_key(unsigned char key, int x, int y)
 {
+        if (frame < 100) {
+                if (key == 'q') 
+                        exit(0);
+                return;
+        }
+
         (void)x;
         (void)y;
 
@@ -69,8 +77,6 @@ void gl_key(unsigned char key, int x, int y)
 
         static float scale = 1.f;
         static float tilt = 0.f;
-
-        size_t window_size[] = {renderer.get_framebuffer_w(), renderer.get_framebuffer_h()};
 
         const pixel_sample_cl samples1[] = {{ 0.f , 0.f, 1.f}};
         const pixel_sample_cl samples4[] = {{ 0.25f , 0.25f, 0.25f},
@@ -102,30 +108,30 @@ void gl_key(unsigned char key, int x, int y)
                 std::cout << "scene.camera Pos:\n" << scene.camera.pos << "\n";
                 std::cout << "scene.camera Dir:\n" << scene.camera.dir << "\n";
                 break;
-        case 'u':
-                scene.camera.set(stats_camera_pos[0],//pos 
-                           stats_camera_dir[0],//dir
-                           makeVector(0,1,0), //up
-                           M_PI/4.,
-                           window_size[0] / (float)window_size[1]);
+        // case 'u':
+        //         scene.camera.set(stats_camera_pos[0],//pos 
+        //                    stats_camera_dir[0],//dir
+        //                    makeVector(0,1,0), //up
+        //                    M_PI/4.,
+        //                    window_size[0] / (float)window_size[1]);
         
-                break;
-        case 'i':
-                scene.camera.set(stats_camera_pos[1],//pos 
-                           stats_camera_dir[1],//dir
-                           makeVector(0,1,0), //up
-                           M_PI/4.,
-                           window_size[0] / (float)window_size[1]);
+        //         break;
+        // case 'i':
+        //         scene.camera.set(stats_camera_pos[1],//pos 
+        //                    stats_camera_dir[1],//dir
+        //                    makeVector(0,1,0), //up
+        //                    M_PI/4.,
+        //                    window_size[0] / (float)window_size[1]);
         
-                break;
-        case 'o':
-                scene.camera.set(stats_camera_pos[2],//pos 
-                           stats_camera_dir[2],//dir
-                           makeVector(0,1,0), //up
-                           M_PI/4.,
-                           window_size[0] / (float)window_size[1]);
+        //         break;
+        // case 'o':
+        //         scene.camera.set(stats_camera_pos[2],//pos 
+        //                    stats_camera_dir[2],//dir
+        //                    makeVector(0,1,0), //up
+        //                    M_PI/4.,
+        //                    window_size[0] / (float)window_size[1]);
         
-                break;
+        //         break;
         case 'b':
                 renderer.log.enabled = true;
                 renderer.log.silent = !renderer.log.silent;
@@ -181,14 +187,14 @@ void print_stats(FrameStats& debug_stats)
 
         // renderer.log.silent = true;
 
-        // if (frame == 1){
-        //         debug_stats.clear_mean_times();//!!
-        //         debug_stats.clear_times();//!!
-        //         renderer.clear_stats();
-        // }
+        if (frame == 1){
+                debug_stats.clear_mean_times();//!!
+                debug_stats.clear_times();//!!
+                renderer.clear_stats();
+        }
 
         debug_stats.acc_frames++;//!!
-        if (frame == 100 && false) {
+        if (frame == 100) {
                 renderer.log.enabled = true;
                 renderer.log << "=======================================================\n";
                 renderer.log << "=======================================================\n";
@@ -321,16 +327,12 @@ void gl_loop()
                 return;
         }
 
-        //Set camera parameters (if needed)
-        CameraTrajectory* cam_traj;
-        cam_traj = &dragon_cam_traj;
-
         debug_stats.stage_acc_times[0] += debug_timer.msec_since_snap();
 
 
         vec3 cam_pos,cam_up,cam_dir;
-        if (frame > 0 && frame < 100 && false) {
-                cam_traj->get_next_camera_params(&cam_pos, &cam_dir, &cam_up);
+        if (frame > 0 && frame < 100) {
+                cam_traj.get_next_camera_params(&cam_pos, &cam_dir, &cam_up);
                 float FOV = M_PI/4.f;
                 float aspect = renderer.get_framebuffer_w()/(float)renderer.get_framebuffer_h(); 
                 scene.camera.set(cam_pos,cam_dir,cam_up, FOV, aspect);
@@ -389,9 +391,10 @@ void gl_loop()
                 glRasterPos2f(-0.95f,0.9f);
                 std::stringstream ss;
                 ss << "FPS: " << (1000.f / stats.get_frame_time());
-                // if (frame < 100) {
-                //         ss << "\n  LOGGING";
-                // }
+
+                if (frame < 100) {
+                        ss << "\n  LOGGING";
+                }
                 // ss << "\n  Quad size: " << renderer.config.prim_ray_quad_size;
                 std::string fps_s = ss.str();
                 for (uint32_t i = 0; i < fps_s.size(); ++i)
@@ -480,31 +483,33 @@ int main (int argc, char** argv)
                 int int_val = 0;
                 ini.get_int_value("RT", "scene", int_val);
 
-                if (int_val == 0)
+                if (int_val == 0) {
                         hand_set_scene(scene, window_size);
-                else if (int_val == 1)
+                        hand_set_cam_traj(&cam_traj);
+                        log_filename = "rt-hand-log";
+                } else if (int_val == 1) {
                         ben_set_scene(scene, window_size);
-                else if (int_val == 2)
+                        ben_set_cam_traj(&cam_traj);
+                        log_filename = "rt-ben-log";
+                } else if (int_val == 2) {
                         boat_set_scene(scene, window_size);
-                else if (int_val == 3)
+                        boat_set_cam_traj(&cam_traj);
+                        log_filename = "rt-boat-log";
+                } else if (int_val == 3) {
                         dragon_set_scene(scene, window_size);
-                else // (int_val > 3)
+                        dragon_set_cam_traj(&cam_traj);
+                        log_filename = "rt-dragon-log";
+                } else { // int_val > 3
                         buddha_set_scene(scene, window_size);
-
+                        buddha_set_cam_traj(&cam_traj);
+                        log_filename = "rt-buddha-log";
+                }
         } else {
                 hand_set_scene(scene, window_size);
-
+                hand_set_cam_traj(&cam_traj);
+                log_filename = "rt-hand-log";
         }
-        // buddha_set_scene(scene, window_size);
-        // hand_set_scene(scene, window_size);
-        // boat_set_scene(scene, window_size);
-
-        boat_set_cam_traj();
-        buddha_set_cam_traj();
-        dragon_set_cam_traj();
-        hand_set_cam_traj();
-        ben_set_cam_traj();
-        fairy_set_cam_traj();
+        // fairy_set_cam_traj();
 
         /*---------------------- Move scene data to gpu -----------------------*/
          if (scene.create_aggregate_mesh()) { 

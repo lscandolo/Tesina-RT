@@ -47,7 +47,6 @@ Scene::Scene()
         m_aggregate_kdt_transfered = false;
         m_bvhs_transfered = false;
         m_accelerator_type = SAH_BVH_ACCELERATOR;
-
 }
 
 int32_t

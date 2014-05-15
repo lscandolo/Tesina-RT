@@ -48,13 +48,12 @@ void boat_set_scene(Scene& scene, size_t* window_size){
                          window_size[0] / (float)window_size[1]);
 }
 
-LinearCameraTrajectory boat_cam_traj;
-void boat_set_cam_traj(){
-        boat_cam_traj.set_look_at_pos(makeVector(30.f,0.f,0.f));
-        boat_cam_traj.set_up_vec(makeVector(0.f,1.f,0.f));
-        boat_cam_traj.set_waypoints(makeVector(50.f,30.f,-45.f),
+void boat_set_cam_traj(LinearCameraTrajectory* boat_cam_traj){
+        boat_cam_traj->set_look_at_pos(makeVector(30.f,0.f,0.f));
+        boat_cam_traj->set_up_vec(makeVector(0.f,1.f,0.f));
+        boat_cam_traj->set_waypoints(makeVector(50.f,30.f,-45.f),
                 makeVector(-50.f,30.f,-15.f));
-        boat_cam_traj.set_frames(100);
+        boat_cam_traj->set_frames(100);
 }
 
 
@@ -86,13 +85,12 @@ void hand_set_scene(Scene& scene, size_t* window_size){
                          window_size[0] / (float)window_size[1]);
 }
 
-LinearCameraTrajectory hand_cam_traj;
-void hand_set_cam_traj(){
-        hand_cam_traj.set_look_at_pos(makeVector(0.05f,0.5f,-0.3f));
-        hand_cam_traj.set_up_vec(makeVector(0.f,1.f,0.f));
-        hand_cam_traj.set_waypoints(makeVector(-0.5f,0.7f,-1.4f),
+void hand_set_cam_traj(LinearCameraTrajectory* hand_cam_traj){
+        hand_cam_traj->set_look_at_pos(makeVector(0.05f,0.5f,-0.3f));
+        hand_cam_traj->set_up_vec(makeVector(0.f,1.f,0.f));
+        hand_cam_traj->set_waypoints(makeVector(-0.5f,0.7f,-1.4f),
                 makeVector(-1.f,0.6f,0.25f));
-        hand_cam_traj.set_frames(100);
+        hand_cam_traj->set_frames(100);
 }
 
 /* Ben */
@@ -123,13 +121,12 @@ void ben_set_scene(Scene& scene, size_t* window_size){
                          window_size[0] / (float)window_size[1]);
 }
 
-LinearCameraTrajectory ben_cam_traj;
-void ben_set_cam_traj(){
-        ben_cam_traj.set_look_at_pos(makeVector(0.015f,0.6f,0.09f));
-        ben_cam_traj.set_up_vec(makeVector(0.f,1.f,0.f));
-        ben_cam_traj.set_waypoints(makeVector(-0.5f,0.6f,0.45f),
+void ben_set_cam_traj(LinearCameraTrajectory* ben_cam_traj){
+        ben_cam_traj->set_look_at_pos(makeVector(0.015f,0.6f,0.09f));
+        ben_cam_traj->set_up_vec(makeVector(0.f,1.f,0.f));
+        ben_cam_traj->set_waypoints(makeVector(-0.5f,0.6f,0.45f),
                 makeVector(0.5f,0.6f,0.45f));
-        ben_cam_traj.set_frames(100);
+        ben_cam_traj->set_frames(100);
 }
 
 /* Fairy */
@@ -160,13 +157,12 @@ void fairy_set_scene(Scene& scene, size_t* window_size){
                          window_size[0] / (float)window_size[1]);
 }
 
-LinearCameraTrajectory fairy_cam_traj;
-void fairy_set_cam_traj(){
-        fairy_cam_traj.set_look_at_pos(makeVector(0.f,0.f,0.f));
-        fairy_cam_traj.set_up_vec(makeVector(0.f,1.f,0.f));
-        fairy_cam_traj.set_waypoints(makeVector(-0.118154, 0.417017, 1.14433),
+void fairy_set_cam_traj(LinearCameraTrajectory* fairy_cam_traj){
+        fairy_cam_traj->set_look_at_pos(makeVector(0.f,0.f,0.f));
+        fairy_cam_traj->set_up_vec(makeVector(0.f,1.f,0.f));
+        fairy_cam_traj->set_waypoints(makeVector(-0.118154, 0.417017, 1.14433),
                 makeVector(0.560874, 3.02102, 2.22842));
-        fairy_cam_traj.set_frames(100);
+        fairy_cam_traj->set_frames(100);
 }
 
 /* Dragon */
@@ -219,13 +215,12 @@ void dragon_set_scene(Scene& scene, size_t* window_size){
                          window_size[0] / (float)window_size[1]);
 }
 
-LinearCameraTrajectory dragon_cam_traj;
-void dragon_set_cam_traj(){
-        dragon_cam_traj.set_look_at_pos(makeVector(0.f,-3.f,0.f));
-        dragon_cam_traj.set_up_vec(makeVector(0.f,1.f,0.f));
-        dragon_cam_traj.set_waypoints(makeVector(-20.f,30.f,-30.f),
+void dragon_set_cam_traj(LinearCameraTrajectory* dragon_cam_traj){
+        dragon_cam_traj->set_look_at_pos(makeVector(0.f,-3.f,0.f));
+        dragon_cam_traj->set_up_vec(makeVector(0.f,1.f,0.f));
+        dragon_cam_traj->set_waypoints(makeVector(-20.f,30.f,-30.f),
                 makeVector(30.f,30.f,-60.f));
-        dragon_cam_traj.set_frames(100);
+        dragon_cam_traj->set_frames(100);
 }
 
 /* Buddha */
@@ -274,13 +269,12 @@ void buddha_set_scene(Scene& scene, size_t* window_size){
                          window_size[0] / (float)window_size[1]);
 }
 
-LinearCameraTrajectory buddha_cam_traj;
-void buddha_set_cam_traj(){
-        buddha_cam_traj.set_look_at_pos(makeVector(0.2f,-2.3f,0.1f));
-        buddha_cam_traj.set_up_vec(makeVector(0.f,1.f,0.f));
-        buddha_cam_traj.set_waypoints(makeVector(2.6f,-2.4f,2.6f),
+void buddha_set_cam_traj(LinearCameraTrajectory* buddha_cam_traj){
+        buddha_cam_traj->set_look_at_pos(makeVector(0.2f,-2.3f,0.1f));
+        buddha_cam_traj->set_up_vec(makeVector(0.f,1.f,0.f));
+        buddha_cam_traj->set_waypoints(makeVector(2.6f,-2.4f,2.6f),
                 makeVector(-3.7f,3.f,2.f));
-        buddha_cam_traj.set_frames(100);
+        buddha_cam_traj->set_frames(100);
 }
 
 void teapot_set_scene(Scene& scene, size_t* window_size){
